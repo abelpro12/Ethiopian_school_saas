@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bulk Student Import — EthioSchool SaaS{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- ═══════════════ HERO HEADER ═══════════════ -->
+    <div class="relative overflow-hidden bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 rounded-3xl p-8 text-white shadow-2xl border border-slate-800">
+        <!-- Background Ambient Glow -->
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 p-0.5 shadow-xl shadow-emerald-500/30 flex-shrink-0">
+                    <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+                        <i class="fa-solid fa-file-csv text-emerald-400 text-2xl animate-bounce"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Batch Processing Engine
+                        </span>
+                    </div>
+                    <h1 class="text-3xl font-black text-white font-heading tracking-tight mt-1">Bulk Student Import</h1>
+                    <p class="text-slate-300 text-sm mt-1 max-w-xl font-medium">
+                        Seamlessly onboard hundreds of students into your active academic session via automated CSV parsing & validation.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="{% url 'students:admissions' %}" 
+                   class="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs backdrop-blur-md transition flex items-center gap-2 border border-white/15 shadow-sm hover:scale-105 transform">
+                    <i class="fa-solid fa-arrow-left text-emerald-400"></i> Back to Admissions
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ IMPORT RESULTS METRICS (IF POSTED) ═══════════════ -->
+    {% if import_results %}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 animate-fade-in">
+        <div class="bg-gradient-to-br from-emerald-50 to-emerald-100/60 border border-emerald-200 rounded-3xl p-6 shadow-lg shadow-emerald-500/10 text-center relative overflow-hidden group hover:scale-[1.02] transition">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-emerald-500/30">
+                <i class="fa-solid fa-circle-check text-xl"></i>
+            </div>
+            <p class="text-4xl font-black text-emerald-800 font-heading tracking-tight">{{ import_results.created }}</p>
+            <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider mt-1">Students Imported</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-amber-50 to-amber-100/60 border border-amber-200 rounded-3xl p-6 shadow-lg shadow-amber-500/10 text-center relative overflow-hidden group hover:scale-[1.02] transition">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-amber-500/30">
+                <i class="fa-solid fa-forward-fast text-xl"></i>
+            </div>
+            <p class="text-4xl font-black text-amber-800 font-heading tracking-tight">{{ import_results.skipped }}</p>
+            <p class="text-xs font-bold text-amber-700 uppercase tracking-wider mt-1">Rows Skipped</p>
+        </div>
+
+        <div class="bg-gradient-to-br from-rose-50 to-rose-100/60 border border-rose-200 rounded-3xl p-6 shadow-lg shadow-rose-500/10 text-center relative overflow-hidden group hover:scale-[1.02] transition">
+            <div class="w-12 h-12 rounded-2xl bg-rose-500 text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-rose-500/30">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <p class="text-4xl font-black text-rose-800 font-heading tracking-tight">{{ import_results.errors|length }}</p>
+            <p class="text-xs font-bold text-rose-700 uppercase tracking-wider mt-1">Parsing Errors</p>
+        </div>
+    </div>
+
+    {% if import_results.errors %}
+    <div class="bg-rose-50/90 border border-rose-200 rounded-3xl p-6 shadow-lg">
+        <h3 class="text-sm font-bold text-rose-900 mb-3 flex items-center gap-2 font-heading">
+            <i class="fa-solid fa-circle-xmark text-rose-600"></i> Import Error Report Log
+        </h3>
+        <ul class="space-y-2 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
+            {% for err in import_results.errors %}
+            <li class="text-xs text-rose-800 font-mono bg-white/80 border border-rose-200 rounded-xl px-4 py-2 flex items-center justify-between shadow-xs">
+                <span><strong class="text-rose-950">Row {{ err.row }}:</strong> {{ err.message }}</span>
+                <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-md text-[10px] font-bold">Failed</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- ═══════════════ MAIN CONTENT GRID ═══════════════ -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- UPLOAD SECTION (LEFT COLUMN) -->
+        <div class="lg:col-span-7 bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xl shadow-slate-200/40 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-cloud-arrow-up text-base"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-extrabold text-slate-900 font-heading">Upload Data File</h2>
+                        <p class="text-xs text-slate-500">Supports standard UTF-8 encoded .CSV files</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[11px] font-bold">
+                    CSV Format
+                </span>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" id="importForm" class="space-y-6">
+                {% csrf_token %}
+
+                <!-- File Drop Zone -->
+                <div id="dropZone"
+                     class="relative border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/80 hover:bg-emerald-50/40 rounded-3xl p-10 text-center cursor-pointer transition-all duration-300 group"
+                     onclick="document.getElementById('csvFileInput').click()">
+                    
+                    <div class="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-md group-hover:scale-110 group-hover:shadow-emerald-500/20 flex items-center justify-center mx-auto mb-4 transition transform">
+                        <i class="fa-solid fa-file-csv text-3xl text-slate-400 group-hover:text-emerald-600 transition"></i>
+                    </div>
+
+                    <p class="text-slate-800 text-base font-bold font-heading">
+                        Drag & Drop CSV file here, or <span class="text-emerald-600 hover:underline">browse</span>
+                    </p>
+                    <p class="text-slate-400 text-xs mt-1">Maximum 5,000 student records per single upload</p>
+                    
+                    <div id="selectedFileName" class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-mono font-bold shadow-xs hidden">
+                        <i class="fa-solid fa-check-circle text-emerald-600"></i>
+                        <span id="fileNameText">No file selected</span>
+                    </div>
+                </div>
+                <input type="file" id="csvFileInput" name="csv_file" accept=".csv" class="hidden" onchange="showFileName(this)">
+
+                <!-- Academic Configuration -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            Academic Year
+                        </label>
+                        <select name="academic_year" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl px-3.5 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if year.is_current %}selected{% endif %}>{{ year.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            Grade Fallback 
+                        </label>
+                        <select name="default_grade" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl px-3.5 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="">— Select Grade & Stream —</option>
+                            {% for grade in grades %}
+                            <option value="{{ grade.id }}">
+                                Grade {{ grade.level }} {% if grade.stream_type == 'NAT' %}(Natural Science){% elif grade.stream_type == 'SOC' %}(Social Science){% else %}(General){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                            Section Fallback
+                        </label>
+                        <select name="default_section" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl px-3.5 py-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="">— Select Section —</option>
+                            {% for sec in sections %}
+                            <option value="{{ sec.id }}">
+                                Grade {{ sec.grade.level }} {% if sec.grade.stream_type == 'NAT' %}(NS){% elif sec.grade.stream_type == 'SOC' %}(SS){% endif %} — Section {{ sec.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+
+                <!-- Submit Button -->
+                <button type="submit" id="importBtn"
+                    class="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold py-4 rounded-2xl text-base shadow-xl shadow-emerald-600/30 hover:shadow-emerald-600/50 transition transform active:scale-[0.99] flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-file-import text-lg"></i>
+                    <span id="importBtnText">Execute Bulk Import</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- TEMPLATE & REFERENCE SECTION (RIGHT COLUMN) -->
+        <div class="lg:col-span-5 space-y-6">
+
+            <!-- Download Official Template Box -->
+            <div class="bg-gradient-to-br from-blue-900 to-indigo-950 text-white rounded-3xl p-6 shadow-xl border border-blue-800/50 relative overflow-hidden">
+                <div class="absolute -top-10 -right-10 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
+                <div class="relative z-10 flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-500/30 border border-blue-400/40 text-blue-300 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-file-csv text-2xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold font-heading text-white">Download Sample CSV</h3>
+                        <p class="text-xs text-blue-200 mt-1 leading-relaxed">
+                            Pre-formatted template with all mandatory and optional headers configured.
+                        </p>
+                        <a href="{% url 'students:bulk_import_template' %}"
+                           class="mt-4 inline-flex items-center gap-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-3 rounded-2xl transition shadow-lg shadow-blue-600/40 transform hover:scale-105">
+                            <i class="fa-solid fa-download"></i>
+                            Download Template.csv
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column Reference List -->
+            <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xl shadow-slate-200/40 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-base font-extrabold text-slate-900 font-heading flex items-center gap-2">
+                        <i class="fa-solid fa-table-columns text-purple-600 text-sm"></i>
+                        CSV Schema Guide
+                    </h3>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Required Fields</span>
+                </div>
+
+                <div class="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                    {% for col in column_reference %}
+                    <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-slate-200 transition">
+                        <div class="flex items-center justify-between mb-1">
+                            <code class="text-xs font-bold font-mono text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-lg">{{ col.name }}</code>
+                            {% if col.required %}
+                            <span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-extrabold rounded-md uppercase">Required</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 bg-slate-200 text-slate-600 text-[10px] font-extrabold rounded-md uppercase">Optional</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-xs text-slate-600 leading-snug">{{ col.description }}</p>
+                        {% if col.example %}
+                        <p class="text-[10px] text-slate-400 font-mono mt-1">Sample: <span class="text-slate-600 font-semibold">{{ col.example }}</span></p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ═══════════════ PREVIEW TABLE (IF IMPORTED) ═══════════════ -->
+    {% if import_results.preview_rows %}
+    <div class="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xl shadow-slate-200/40 space-y-4 animate-fade-in">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="text-lg font-extrabold text-slate-900 font-heading">Successfully Processed Students</h3>
+                <p class="text-xs text-slate-500">Previewing first 20 records created in this batch</p>
+            </div>
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold">
+                {{ import_results.preview_rows|length }} Records Preview
+            </span>
+        </div>
+
+        <div class="overflow-x-auto rounded-2xl border border-slate-200">
+            <table class="w-full text-left text-xs">
+                <thead class="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider text-[10px]">
+                    <tr>
+                        <th class="py-3.5 px-4">Student ID</th>
+                        <th class="py-3.5 px-4">Full Name</th>
+                        <th class="py-3.5 px-4">Gender</th>
+                        <th class="py-3.5 px-4">Assigned Grade</th>
+                        <th class="py-3.5 px-4">System Username</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+                    {% for row in import_results.preview_rows %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-4 font-mono font-bold text-emerald-700">{{ row.student_id }}</td>
+                        <td class="py-3.5 px-4 font-bold text-slate-900">{{ row.full_name }}</td>
+                        <td class="py-3.5 px-4">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold {% if row.gender == 'M' %}bg-blue-100 text-blue-700{% else %}bg-pink-100 text-pink-700{% endif %}">
+                                {{ row.gender }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 font-semibold text-slate-800">{{ row.grade }}</td>
+                        <td class="py-3.5 px-4 font-mono text-slate-500">{{ row.username }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function showFileName(input) {
+    if (input.files[0]) {
+        const nameEl = document.getElementById('fileNameText');
+        const box = document.getElementById('selectedFileName');
+        nameEl.textContent = input.files[0].name + ' (' + Math.round(input.files[0].size / 1024) + ' KB)';
+        box.classList.remove('hidden');
+        document.getElementById('dropZone').style.borderColor = '#10b981';
+        document.getElementById('dropZone').style.backgroundColor = 'rgba(236, 253, 245, 0.7)';
+    }
+}
+
+// Drag and drop interaction
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+    ['dragenter','dragover'].forEach(e => dropZone.addEventListener(e, ev => {
+        ev.preventDefault();
+        dropZone.style.borderColor = '#10b981';
+        dropZone.style.background = 'rgba(236, 253, 245, 0.9)';
+    }));
+
+    ['dragleave','drop'].forEach(e => dropZone.addEventListener(e, ev => {
+        ev.preventDefault();
+        if (ev.type === 'drop' && ev.dataTransfer.files.length) {
+            const input = document.getElementById('csvFileInput');
+            input.files = ev.dataTransfer.files;
+            showFileName(input);
+        } else {
+            dropZone.style.borderColor = '';
+            dropZone.style.background = '';
+        }
+    }));
+}
+
+// Form submit loading animation
+document.getElementById('importForm')?.addEventListener('submit', function() {
+    const btn = document.getElementById('importBtn');
+    const txt = document.getElementById('importBtnText');
+    btn.disabled = true;
+    btn.classList.add('opacity-80', 'cursor-not-allowed');
+    txt.innerHTML = '<i class="fa-solid fa-spinner animate-spin text-lg"></i> Processing CSV Records…';
+});
+</script>
+{% endblock %}

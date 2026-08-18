@@ -1,0 +1,36 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ethiopian_school_saas 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-08-10 13:00+0300\n"
+"PO-Revision-Date: 2026-08-10 13:00+0300\n"
+"Last-Translator: Amharic Localizer <localizer@saas.et>\n"
+"Language-Team: Amharic <am@li.org>\n"
+"Language: am\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Attendance"
+msgstr "የተማሪዎች መገኘት"
+
+msgid "Report Card"
+msgstr "የውጤት መግለጫ (ሪፖርት ካርድ)"
+
+msgid "Student ID"
+msgstr "የተማሪ መታወቂያ"
+
+msgid "Grade & Section"
+msgstr "ክፍል እና ሴክሽን"
+
+msgid "Academic Year"
+msgstr "የትምህርት ዘመን"
+
+msgid "School Invoices & Fee Payments (ETB)"
+msgstr "የትምህርት ቤት ክፍያዎች እና ደረሰኞች (በብር)"
+
+msgid "Pay Now via Chapa (ETB)"
+msgstr "በቻፓ (Chapa) አሁኑኑ ይክፈሉ"
+
+msgid "Official Payment Receipt (ETB)"
+msgstr "ሕጋዊ የክፍያ ደረሰኝ (በብር)"

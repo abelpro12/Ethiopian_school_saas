@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Load & Assignments | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Teacher Load & Subject Assignments</h1>
+        <p class="text-sm text-slate-500">Assign teachers to multiple subjects across different grade sections for <strong>{{ current_ay.name }}</strong>.</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'teachers:management' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl px-4 py-2 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-users"></i> Staff Directory
+        </a>
+    </div>
+</div>
+
+<!-- Quick Stats Bar -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Teachers</p>
+            <h3 class="text-2xl font-extrabold text-slate-900 mt-1 font-heading">{{ teachers|length }}</h3>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-chalkboard-user"></i>
+        </div>
+    </div>
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Teaching Loads</p>
+            <h3 class="text-2xl font-extrabold text-slate-900 mt-1 font-heading">{{ assignments|length }}</h3>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-book-bookmark"></i>
+        </div>
+    </div>
+    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Sections Configured</p>
+            <h3 class="text-2xl font-extrabold text-slate-900 mt-1 font-heading">{{ sections|length }}</h3>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-layer-group"></i>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column: Teacher Assignments Directory (2/3 width) -->
+    <div class="lg:col-span-2 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h2 class="font-heading font-bold text-slate-800 text-lg mb-4 flex items-center justify-between">
+                <span>Teacher Class & Subject Matrix</span>
+                <span class="text-xs font-normal text-slate-400">Click &times; to unassign a subject</span>
+            </h2>
+
+            <div class="space-y-4">
+                {% for item in teacher_loads %}
+                {% with teacher=item.teacher t_assignments=item.assignments homerooms=item.homeroom_sections tutorials=item.tutorial_sections %}
+                <div class="border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition bg-white" x-data="{ expanded: true }">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold font-heading text-sm">
+                                {{ teacher.user.first_name|slice:":1" }}{{ teacher.user.last_name|slice:":1" }}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-base">{{ teacher.user.get_full_name }}</h3>
+                                <p class="text-xs text-slate-500">ID: <span class="font-mono">{{ teacher.employee_id|default:"N/A" }}</span> &bull; {{ teacher.specialization|default:"Teacher" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 flex-wrap">
+                            {% if homerooms %}
+                            {% for hs in homerooms %}
+                            <span class="bg-amber-50 text-amber-800 border border-amber-200 text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1.5">
+                                <i class="fa-solid fa-crown text-amber-500"></i> Homeroom: Section {{ hs.name }} ({{ hs.grade.name }}{% if hs.stream.code != 'GEN' %} - {{ hs.stream.name }}{% endif %})
+                                <form method="post" action="" class="inline" onsubmit="return confirm('Remove {{ teacher.user.get_full_name }} as Homeroom Teacher for Section {{ hs.name }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="remove_homeroom">
+                                    <input type="hidden" name="section_id" value="{{ hs.id }}">
+                                    <button type="submit" class="text-amber-600 hover:text-rose-600 transition ml-0.5" title="Unassign Homeroom Teacher">
+                                        <i class="fa-solid fa-xmark text-xs"></i>
+                                    </button>
+                                </form>
+                            </span>
+                            {% endfor %}
+                            {% endif %}
+
+                            {% if tutorials %}
+                            {% for ts in tutorials %}
+                            <span class="bg-purple-50 text-purple-800 border border-purple-200 text-xs px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1.5">
+                                <i class="fa-solid fa-graduation-cap text-purple-600"></i> Tutorial: Section {{ ts.name }} ({{ ts.grade.name }}{% if ts.stream.code != 'GEN' %} - {{ ts.stream.name }}{% endif %})
+                                <form method="post" action="" class="inline" onsubmit="return confirm('Remove {{ teacher.user.get_full_name }} as Tutorial Controller for Section {{ ts.name }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="remove_tutorial">
+                                    <input type="hidden" name="section_id" value="{{ ts.id }}">
+                                    <button type="submit" class="text-purple-600 hover:text-rose-600 transition ml-0.5" title="Unassign Tutorial Controller">
+                                        <i class="fa-solid fa-xmark text-xs"></i>
+                                    </button>
+                                </form>
+                            </span>
+                            {% endfor %}
+                            {% endif %}
+
+                            <span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-lg font-semibold">
+                                {{ t_assignments|length }} assignment{{ t_assignments|length|pluralize }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Subject Load Tags -->
+                    <div class="pt-3">
+                        {% if t_assignments %}
+                        <div class="flex flex-wrap gap-2">
+                            {% for asg in t_assignments %}
+                            <div class="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs hover:border-brand-300 transition">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-slate-800">{{ asg.subject.name }}</span>
+                                    <span class="text-[10px] text-slate-500 font-medium">Section {{ asg.section.name }} ({{ asg.section.grade.name }}{% if asg.section.stream.code != 'GEN' %} - {{ asg.section.stream.name }}{% endif %})</span>
+                                </div>
+                                <form method="post" action="" class="inline ml-1" onsubmit="return confirm('Remove {{ teacher.user.get_full_name }} from {{ asg.subject.name }} in Section {{ asg.section.name }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="remove_assignment">
+                                    <input type="hidden" name="assignment_id" value="{{ asg.id }}">
+                                    <button type="submit" class="text-slate-400 hover:text-rose-600 transition" title="Unassign Subject">
+                                        <i class="fa-solid fa-xmark text-xs"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-xs text-slate-400 italic">No subject teaching loads assigned yet for {{ current_ay.name }}.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endwith %}
+                {% empty %}
+                <div class="py-12 text-center text-slate-400">
+                    <i class="fa-solid fa-chalkboard text-3xl text-slate-300 mb-2 block"></i>
+                    No teachers registered in the system.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Quick Assignment Forms (1/3 width) -->
+    <div class="space-y-6">
+        <!-- Form 1: Assign Subject to Teacher -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h2 class="font-heading font-bold text-slate-800 text-base mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-plus-circle text-brand-600"></i> Assign Subject Load
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">Link a teacher to a specific subject in a grade section.</p>
+
+            <form method="post" action="" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign_subject">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Teacher</label>
+                    <select name="teacher_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        <option value="">-- Choose Teacher --</option>
+                        {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}">{{ teacher.user.get_full_name }} ({{ teacher.employee_id|default:"Teacher" }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Subject</label>
+                    <select name="subject_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        <option value="">-- Choose Subject --</option>
+                        {% for sub in subjects %}
+                        <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.grade.name }} - {{ sub.stream.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Target Section</label>
+                    <select name="section_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        <option value="">-- Choose Section --</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec.id }}">Section {{ sec.name }} ({{ sec.grade.name }}{% if sec.stream.code != 'GEN' %} - {{ sec.stream.name }}{% endif %})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl py-2.5 text-sm shadow transition">
+                    <i class="fa-solid fa-link mr-1.5"></i> Assign Subject Load
+                </button>
+            </form>
+        </div>
+
+        <!-- Form 2: Set Homeroom Class Teacher -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h2 class="font-heading font-bold text-slate-800 text-base mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-crown text-amber-500"></i> Set Homeroom Teacher
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">Assign a primary Homeroom Class Teacher to a section.</p>
+
+            <form method="post" action="" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign_homeroom">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Teacher</label>
+                    <select name="teacher_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        <option value="">-- Choose Teacher --</option>
+                        {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}">{{ teacher.user.get_full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Section</label>
+                    <select name="section_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        <option value="">-- Choose Section --</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec.id }}">Section {{ sec.name }} ({{ sec.grade.name }}{% if sec.stream.code != 'GEN' %} - {{ sec.stream.name }}{% endif %}) {% if sec.class_teacher %}— [Current: {{ sec.class_teacher.get_full_name }}]{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl py-2.5 text-sm shadow transition">
+                    <i class="fa-solid fa-crown mr-1.5"></i> Set Homeroom Teacher
+                </button>
+            </form>
+        </div>
+
+        <!-- Form 3: Set Tutorial Controller -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+            <h2 class="font-heading font-bold text-slate-800 text-base mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-graduation-cap text-purple-600"></i> Set Tutorial Controller
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">Assign a dedicated Tutorial Controller (Teacher) to a section.</p>
+
+            <form method="post" action="" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign_tutorial">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Teacher</label>
+                    <select name="teacher_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+                        <option value="">-- Choose Teacher --</option>
+                        {% for teacher in teachers %}
+                        <option value="{{ teacher.id }}">{{ teacher.user.get_full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Select Section</label>
+                    <select name="section_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500">
+                        <option value="">-- Choose Section --</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec.id }}">Section {{ sec.name }} ({{ sec.grade.name }}{% if sec.stream.code != 'GEN' %} - {{ sec.stream.name }}{% endif %}) {% if sec.tutorial_teacher %}— [Current: {{ sec.tutorial_teacher.get_full_name }}]{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl py-2.5 text-sm shadow transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-graduation-cap"></i> Set Tutorial Controller
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

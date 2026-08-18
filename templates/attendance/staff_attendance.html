@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load calendar_tags %}
+
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Staff Attendance — {{ date|school_date:active_school }}</h1>
+        <p class="text-sm text-slate-500">Record and manage daily attendance for school staff.</p>
+    </div>
+    <div class="flex space-x-3 items-center">
+        <div class="text-right">
+            <p class="text-xs text-slate-500 font-medium mb-1">Select Date</p>
+            <input type="date" name="date_picker" value="{{ date|date:'Y-m-d' }}" 
+                   class="border-slate-300 rounded-lg text-sm text-slate-800 shadow-sm focus:border-brand-500 focus:ring-brand-500 font-semibold"
+                   onchange="window.location.href='?date=' + this.value">
+        </div>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <form method="post">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+        
+        <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h2 class="font-semibold text-slate-800"><i class="fa-solid fa-user-tie mr-2 text-brand-600"></i>Staff Members ({{ formset.total_form_count }})</h2>
+            <div class="flex space-x-3">
+                <button type="button" onclick="markAllPresent()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-xl px-4 py-2 text-sm transition shadow-sm">
+                    <i class="fa-solid fa-check-double mr-2 text-green-600"></i>Mark All Present
+                </button>
+                <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-xl px-4 py-2 text-sm transition shadow-sm">
+                    <i class="fa-solid fa-save mr-2"></i>Save Attendance
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+                    <tr>
+                        <th class="py-3 px-4">Staff Name</th>
+                        <th class="py-3 px-4">Attendance Status</th>
+                        <th class="py-3 px-4 w-32">Time In</th>
+                        <th class="py-3 px-4 w-32">Time Out</th>
+                        <th class="py-3 px-4">Remarks</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for form in formset %}
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="py-3 px-4">
+                                <span class="font-semibold text-slate-800 block">{{ form.instance.staff_user.get_full_name }}</span>
+                                <span class="text-xs text-slate-500 font-mono">{{ form.instance.staff_user.username }}</span>
+                                {{ form.id }}
+                                {{ form.staff_user }}
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="flex space-x-2">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="{{ form.prefix }}-status" value="PRESENT" class="peer sr-only" {% if form.status.value == 'PRESENT' or not form.status.value %}checked{% endif %}>
+                                        <span class="px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 text-slate-600 peer-checked:bg-green-100 peer-checked:text-green-700 peer-checked:border-green-300 transition-colors block">Present</span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="{{ form.prefix }}-status" value="ABSENT" class="peer sr-only" {% if form.status.value == 'ABSENT' %}checked{% endif %}>
+                                        <span class="px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 text-slate-600 peer-checked:bg-red-100 peer-checked:text-red-700 peer-checked:border-red-300 transition-colors block">Absent</span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="{{ form.prefix }}-status" value="LATE" class="peer sr-only" {% if form.status.value == 'LATE' %}checked{% endif %}>
+                                        <span class="px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 text-slate-600 peer-checked:bg-amber-100 peer-checked:text-amber-700 peer-checked:border-amber-300 transition-colors block">Late</span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="{{ form.prefix }}-status" value="LEAVE" class="peer sr-only" {% if form.status.value == 'LEAVE' %}checked{% endif %}>
+                                        <span class="px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 text-slate-600 peer-checked:bg-purple-100 peer-checked:text-purple-700 peer-checked:border-purple-300 transition-colors block">On Leave</span>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="{{ form.prefix }}-status" value="EXCUSED" class="peer sr-only" {% if form.status.value == 'EXCUSED' %}checked{% endif %}>
+                                        <span class="px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 text-slate-600 peer-checked:bg-blue-100 peer-checked:text-blue-700 peer-checked:border-blue-300 transition-colors block">Excused</span>
+                                    </label>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4">
+                                {{ form.time_in }}
+                            </td>
+                            <td class="py-3 px-4">
+                                {{ form.time_out }}
+                            </td>
+                            <td class="py-3 px-4">
+                                {{ form.remarks }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+    function markAllPresent() {
+        const presentRadios = document.querySelectorAll('input[type="radio"][value="PRESENT"]');
+        presentRadios.forEach(radio => {
+            radio.checked = true;
+        });
+    }
+</script>
+{% endblock %}

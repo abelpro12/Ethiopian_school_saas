@@ -1,0 +1,8 @@
+-r base.txt
+pytest>=8.0.0
+pytest-django>=4.8.0
+coverage>=7.4.0
+# E2E Browser Automation & Testing
+playwright>=1.40.0
+pytest-playwright>=0.4.0
+

@@ -1,0 +1,20 @@
+name: Ethiopian School SaaS - Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  docker-build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Docker Image
+      run: |
+        docker build -t ethiopian-school-saas:latest .
+        
+    - name: Deploy Placeholder
+      run: |
+        echo "Deployment script will execute here."
+        echo "Connecting to production VPS and pushing image..."

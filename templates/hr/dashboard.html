@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-xl">
+        <div>
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-widest">Enterprise HR Management</span>
+            <h1 class="text-2xl font-extrabold font-heading text-white mt-1">Human Resources &amp; Payroll Hub</h1>
+            <p class="text-xs text-slate-300 mt-1">Manage staff contracts, payroll calculation, payslips, performance evaluations, and leave balances.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% url 'hr:contracts' %}" class="flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition">
+                <i class="fa-solid fa-file-contract mr-1.5"></i>Staff Contracts
+            </a>
+            <a href="{% url 'hr:payroll_list' %}" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition">
+                <i class="fa-solid fa-calculator mr-1.5"></i>Run Payroll
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="bg-white overflow-hidden shadow-sm border border-slate-200/80 rounded-2xl p-5">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-users text-indigo-600"></i>
+                </div>
+                <div class="ml-4">
+                    <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Staff Members</dt>
+                    <dd class="text-xl font-bold font-mono text-slate-900">{{ total_staff }}</dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow-sm border border-slate-200/80 rounded-2xl p-5">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-file-signature text-emerald-600"></i>
+                </div>
+                <div class="ml-4">
+                    <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Active Contracts</dt>
+                    <dd class="text-xl font-bold font-mono text-slate-900">{{ active_contracts }}</dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow-sm border border-slate-200/80 rounded-2xl p-5">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-coins text-amber-600"></i>
+                </div>
+                <div class="ml-4">
+                    <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Latest Payroll Cost</dt>
+                    <dd class="text-xl font-bold font-mono text-slate-900">{{ total_payroll_cost|floatformat:2 }} ETB</dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white overflow-hidden shadow-sm border border-slate-200/80 rounded-2xl p-5">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-clock-rotate-left text-rose-600"></i>
+                </div>
+                <div class="ml-4">
+                    <dt class="text-xs font-medium text-slate-500 uppercase tracking-wider">Pending Leave Requests</dt>
+                    <dd class="text-xl font-bold font-mono text-slate-900">{{ pending_leaves }}</dd>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Quick Nav & Modules -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-900 font-heading uppercase tracking-wider mb-4">HR & Payroll Core Operations</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <a href="{% url 'hr:contracts' %}" class="p-4 bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 rounded-xl transition flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">Staff Contracts</p>
+                            <p class="text-xs text-slate-500">Employment terms & status</p>
+                        </div>
+                    </a>
+
+                    <a href="{% url 'hr:payroll_list' %}" class="p-4 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200 rounded-xl transition flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center">
+                            <i class="fa-solid fa-calculator"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">Payroll Periods</p>
+                            <p class="text-xs text-slate-500">Run monthly salary slips</p>
+                        </div>
+                    </a>
+
+                    <a href="{% url 'hr:performance' %}" class="p-4 bg-slate-50 hover:bg-amber-50/60 border border-slate-200 rounded-xl transition flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center">
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">Staff Performance</p>
+                            <p class="text-xs text-slate-500">Evaluations & annual reviews</p>
+                        </div>
+                    </a>
+
+                    <a href="{% url 'attendance:staff_attendance' %}" class="p-4 bg-slate-50 hover:bg-blue-50/60 border border-slate-200 rounded-xl transition flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+                            <i class="fa-solid fa-user-clock"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">Staff Attendance</p>
+                            <p class="text-xs text-slate-500">Daily sign-in & time logs</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Reviews Sidebar -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h3 class="text-sm font-bold text-slate-900 font-heading uppercase tracking-wider mb-4">Recent Staff Reviews</h3>
+            <div class="space-y-3">
+                {% for rev in recent_reviews %}
+                <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-slate-900">{{ rev.staff_user.get_full_name }}</p>
+                        <p class="text-[10px] text-slate-500">{{ rev.review_date }}</p>
+                    </div>
+                    <span class="px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-xs rounded-full">
+                        {{ rev.rating }} ★
+                    </span>
+                </div>
+                {% empty %}
+                <p class="text-xs text-slate-400 text-center py-4">No performance reviews recorded yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

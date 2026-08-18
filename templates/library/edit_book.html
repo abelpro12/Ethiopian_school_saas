@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Edit Book — Library{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto space-y-6">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'library:catalog' %}" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+      <i class="fa-solid fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+      <h1 class="font-heading text-xl font-bold text-slate-800">Edit Book — {{ book.title }}</h1>
+      <p class="text-xs text-slate-500">Update publication information and copy records</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Book Title <span class="text-red-500">*</span></label>
+        <input type="text" name="title" value="{{ book.title }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition" required>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Author</label>
+          <input type="text" name="author" value="{{ book.author|default:'' }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">ISBN</label>
+          <input type="text" name="isbn" value="{{ book.isbn|default:'' }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Category <span class="text-red-500">*</span></label>
+          <select name="category" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition" required>
+            {% for val, label in categories %}
+              <option value="{{ val }}" {% if book.category == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Number of Copies</label>
+          <input type="number" name="total_copies" value="{{ book.total_copies }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition" min="1" max="500">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Subject</label>
+          <input type="text" name="subject" value="{{ book.subject|default:'' }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Grade Level</label>
+          <input type="text" name="grade_level" value="{{ book.grade_level|default:'' }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition">
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-4 border-t border-slate-100">
+        <button type="submit" class="flex items-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-sky-500/25 transition">
+          <i class="fa-solid fa-save text-xs"></i> Update Book
+        </button>
+        <a href="{% url 'library:catalog' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-sm px-4 py-2.5 rounded-xl transition">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

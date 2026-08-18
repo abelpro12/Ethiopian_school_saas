@@ -1,0 +1,446 @@
+{% extends 'base.html' %}
+{% block title %}Teacher Portal — {% if teacher %}{{ teacher.user.get_full_name }}{% else %}Teacher{% endif %}{% endblock %}
+
+{% block content %}
+<div class="space-y-4 sm:space-y-6 pb-10">
+
+    <!-- ── Header ── -->
+    <div class="glass-dark text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden group">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/30 transition"></div>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center font-extrabold text-white text-2xl shadow-lg shadow-emerald-500/30 flex-shrink-0 border border-emerald-300/30">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+                <div>
+                    <p class="text-[10px] text-emerald-300 uppercase tracking-widest font-bold mb-1">Teacher Workspace</p>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight font-heading">
+                        {{ teacher.user.get_full_name|default:user.username }}
+                    </h1>
+                    <p class="text-xs text-slate-300 mt-1 font-mono">
+                        {% if teacher %}
+                        <span class="bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700">ID: <span class="text-emerald-400 font-bold">{{ teacher.employee_id }}</span></span>
+                        {% if teacher.specialization %}<span class="ml-2">{{ teacher.specialization }}</span>{% endif %}
+                        {% if teacher.department %}<span class="ml-2 text-slate-400">{{ teacher.department }}</span>{% endif %}
+                        {% else %}
+                        No teacher profile linked — contact admin.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="flex flex-wrap gap-3">
+                <div class="glass border border-slate-700/50 rounded-2xl px-5 py-3 text-center min-w-[100px]">
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Present</p>
+                    <p class="text-xl font-extrabold font-mono text-emerald-400">{{ today_present }}</p>
+                </div>
+                <div class="glass border border-slate-700/50 rounded-2xl px-5 py-3 text-center min-w-[100px]">
+                    <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Absent</p>
+                    <p class="text-xl font-extrabold font-mono text-red-400">{{ today_absent }}</p>
+                </div>
+                {% if homeroom_data.has_homeroom %}
+                <div class="bg-gradient-to-br from-emerald-900/80 to-slate-900/80 border border-emerald-700/50 rounded-2xl px-5 py-3 text-center">
+                    <p class="text-[10px] text-emerald-400 uppercase font-bold tracking-wider">Homeroom</p>
+                    <p class="text-sm font-extrabold text-white mt-1">{{ homeroom_data.section.name|default:"Active" }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Homeroom Badge -->
+        {% if homeroom_data.has_homeroom %}
+        <div class="mt-6 bg-emerald-950/40 border border-emerald-800/50 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 relative z-10 backdrop-blur-sm">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-xl bg-emerald-900/50 flex items-center justify-center text-emerald-400 border border-emerald-800">
+                    <i class="fa-solid fa-house-chimney-user"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Homeroom Status</p>
+                    <p class="text-sm font-bold text-slate-200">{{ homeroom_data.section.name|default:"" }} — {{ homeroom_data.total_students|default:0 }} students</p>
+                </div>
+            </div>
+            <div class="flex gap-2 text-xs">
+                <span class="badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1">{{ homeroom_data.present_today|default:0 }} Present</span>
+                <span class="badge bg-red-500/20 text-red-300 border border-red-500/30 px-3 py-1">{{ homeroom_data.absent_today|default:0 }} Absent</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Tools Grid -->
+    <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200/80">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-extrabold text-slate-800 font-heading uppercase tracking-wider">Teacher Operational Hubs</h3>
+            <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200/60 hidden sm:inline">Quick Launch</span>
+        </div>
+        <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
+            <a href="/homework/create/" class="group p-3 bg-slate-50 hover:bg-amber-50/60 border border-slate-200/80 hover:border-amber-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xs shadow-md shadow-amber-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-amber-700">Post Homework</span>
+            </a>
+            <a href="/homework/" class="group p-3 bg-slate-50 hover:bg-amber-50/60 border border-slate-200/80 hover:border-amber-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center text-xs shadow-md shadow-amber-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-amber-700">All Homework</span>
+            </a>
+            <a href="{% url 'attendance:tutorial_attendance' %}" class="group p-3 bg-slate-50 hover:bg-purple-50/60 border border-slate-200/80 hover:border-purple-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xs shadow-md shadow-purple-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-purple-700">Tutorial Portal</span>
+            </a>
+            <a href="/messaging/inbox/" class="group p-3 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-xs shadow-md shadow-emerald-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-comments"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-emerald-700">Messages</span>
+            </a>
+            <a href="/discipline/log/" class="group p-3 bg-slate-50 hover:bg-red-50/60 border border-slate-200/80 hover:border-red-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-red-500 text-white flex items-center justify-center text-xs shadow-md shadow-red-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-red-700">Log Discipline</span>
+            </a>
+            <a href="/library/" class="group p-3 bg-slate-50 hover:bg-sky-50/60 border border-slate-200/80 hover:border-sky-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center text-xs shadow-md shadow-sky-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-sky-700">Library</span>
+            </a>
+            <a href="/calendar/" class="group p-3 bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/80 hover:border-indigo-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md shadow-indigo-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-indigo-700">Calendar</span>
+            </a>
+            <a href="{% url 'attendance:reports' %}" class="group p-3 bg-slate-50 hover:bg-teal-50/60 border border-slate-200/80 hover:border-teal-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-teal-500 text-white flex items-center justify-center text-xs shadow-md shadow-teal-500/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-teal-700">Attendance Reports</span>
+            </a>
+            {% if request.user.role in 'SCHOOL_ADMIN,SUPER_ADMIN,PRINCIPAL' %}
+            <a href="{% url 'attendance:staff_attendance' %}" class="group p-3 bg-slate-50 hover:bg-blue-50/60 border border-slate-200/80 hover:border-blue-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shadow-md shadow-blue-600/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-user-tie"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-blue-800">Staff Attendance</span>
+            </a>
+            <a href="{% url 'hr:dashboard' %}" class="group p-3 bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/80 hover:border-indigo-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs shadow-md shadow-indigo-600/20 group-hover:scale-110 transition mb-1.5">
+                    <i class="fa-solid fa-calculator"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-indigo-800">HR & Payroll</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── Section Selector ── -->
+    {% if assignments %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center gap-3">
+        <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <i class="fa-solid fa-layer-group text-brand-500 mr-2"></i>Active Section:
+        </span>
+        <div class="flex flex-wrap gap-2">
+            {% for asgn in assignments %}
+            <a href="?section_id={{ asgn.section.id }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition border
+               {% if selected_section and selected_section.id == asgn.section.id %}bg-brand-500 text-white border-brand-500 shadow
+               {% else %}bg-slate-100 text-slate-700 border-slate-200 hover:border-brand-400 hover:bg-brand-50{% endif %}">
+                {{ asgn.section.name }} — {{ asgn.subject.name }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Main Grid ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- ── Left/Center: Attendance + Marks + Conduct ── -->
+        <div class="lg:col-span-2 space-y-6">
+
+            {% if selected_section %}
+            <!-- Take Attendance -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-4">
+                    <h3 class="text-base font-bold text-slate-900 font-heading">
+                        <i class="fa-solid fa-clipboard-user text-brand-500 mr-2"></i>
+                        Take Attendance — {{ selected_section.name }}
+                    </h3>
+                    <div class="flex items-center gap-3">
+                        <span class="badge badge-blue text-xs px-3 py-1">{{ students|length }} Students</span>
+                        <a href="{% url 'teachers:homeroom' %}" class="text-xs font-semibold text-brand-600 hover:text-brand-800 bg-brand-50 px-3 py-1.5 rounded-lg transition">Homeroom Portal &rarr;</a>
+                    </div>
+                </div>
+                {% if students %}
+                <form method="POST" class="divide-y divide-slate-100">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="take_attendance">
+                    <div class="max-h-[500px] overflow-y-auto">
+                        {% for student in students %}
+                        <div class="flex flex-wrap items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0 border border-slate-300/50">
+                                    {{ student.first_name|slice:":1"|upper }}
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">{{ student.full_name }}</p>
+                                    <p class="text-[11px] text-slate-500 font-mono mt-0.5">{{ student.student_id }}</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 text-xs bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60">
+                                {% for val, lbl in attendance_statuses.choices %}
+                                <label class="flex items-center gap-2 cursor-pointer font-bold px-3 py-1.5 rounded-lg transition
+                                    {% if val == 'PRESENT' %}hover:bg-emerald-50 text-emerald-700
+                                    {% elif val == 'ABSENT' %}hover:bg-red-50 text-red-700
+                                    {% else %}hover:bg-amber-50 text-amber-700{% endif %}">
+                                    <input type="radio" name="att_{{ student.id }}" value="{{ val }}"
+                                        {% if val == 'PRESENT' %}checked{% endif %}
+                                        class="accent-current w-4 h-4">
+                                    {{ lbl }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="px-6 py-5 bg-slate-50/50 flex justify-end">
+                        <button type="submit" class="btn-primary shadow-lg shadow-brand-500/30">
+                            <i class="fa-solid fa-save mr-1.5"></i>Save Attendance
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                <div class="p-12 text-center text-slate-400 text-sm">
+                    <div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-user-group text-3xl text-slate-300"></i>
+                    </div>
+                    <p class="font-semibold text-slate-600">No students enrolled</p>
+                    <p class="text-xs mt-1">There are no students enrolled in this section yet.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Enter Marks -->
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="text-base font-bold text-slate-900 font-heading">
+                        <i class="fa-solid fa-pencil text-amber-500 mr-2"></i>Enter / Update Student Marks
+                    </h3>
+                </div>
+                {% if students %}
+                <form method="POST" class="p-6 space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save_marks">
+                    
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/60">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Subject for Marks Entry</label>
+                        <select name="subject_id" required class="input-field max-w-md bg-white">
+                            {% for asgn in assignments %}
+                            {% if asgn.section.id == selected_section.id %}
+                            <option value="{{ asgn.subject.id }}">{{ asgn.subject.name }} ({{ asgn.subject.code }})</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-slate-200/80">
+                        <table class="w-full text-sm">
+                            <thead class="bg-slate-100/50 text-slate-500 uppercase tracking-wider text-xs font-bold">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">Student Name</th>
+                                    <th class="px-4 py-3 text-left w-48">Mark (0–100)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                {% for student in students %}
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="px-4 py-3 font-semibold text-slate-800">{{ student.full_name }}</td>
+                                    <td class="px-4 py-3">
+                                        <input type="number" name="mark_{{ student.id }}" min="0" max="100" step="0.5" placeholder="—"
+                                            class="w-full input-field !py-1.5 font-mono text-center">
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="btn-primary !bg-gradient-to-r !from-amber-500 !to-amber-600 shadow-lg shadow-amber-500/30">
+                            <i class="fa-solid fa-cloud-upload-alt mr-1.5"></i>Submit Marks for Approval
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Record Conduct (Homeroom only) -->
+            {% if homeroom_data.has_homeroom %}
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-900 font-heading">
+                        <i class="fa-solid fa-star text-purple-500 mr-2"></i>Record Student Conduct (Homeroom)
+                    </h3>
+                </div>
+                <form method="POST" class="p-6 space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="record_conduct">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Student</label>
+                            <select name="student_id" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                {% for student in students %}
+                                <option value="{{ student.id }}">{{ student.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Conduct Grade</label>
+                            <select name="conduct_grade" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                {% for val, lbl in conduct_grades.choices %}
+                                <option value="{{ val }}">{{ lbl }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Remarks</label>
+                            <input type="text" name="remarks" placeholder="Optional remarks…"
+                                class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-5 py-2 rounded-xl text-sm shadow transition transform active:scale-95">
+                            <i class="fa-solid fa-award mr-1.5"></i>Save Conduct Record
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- No section selected -->
+            <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+                <i class="fa-solid fa-layer-group text-4xl text-slate-300 mb-3 block"></i>
+                <h3 class="text-lg font-bold text-slate-600 font-heading">Select a Section</h3>
+                <p class="text-sm text-slate-400 mt-1">Select a section from the panel above to manage attendance and marks.</p>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <!-- ── Right Col: Leave + Events ── -->
+        <div class="space-y-6">
+
+            <!-- Submit Leave Request -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-900 font-heading">
+                        <i class="fa-solid fa-file-signature text-blue-500 mr-2"></i>Request Leave
+                    </h3>
+                </div>
+                <form method="POST" class="p-5 space-y-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="submit_leave">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Leave Type</label>
+                        <select name="leave_type" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            {% for val, lbl in leave_types.choices %}
+                            <option value="{{ val }}">{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">From</label>
+                            <input type="date" name="start_date" required class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">To</label>
+                            <input type="date" name="end_date" required class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Reason</label>
+                        <textarea name="reason" rows="2" placeholder="Reason for leave…" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-sm transition transform active:scale-95">
+                        <i class="fa-solid fa-paper-plane mr-1.5"></i>Submit Request
+                    </button>
+                </form>
+
+                <!-- My Leave History -->
+                {% if my_leaves %}
+                <div class="border-t border-slate-100 divide-y divide-slate-100 max-h-48 overflow-y-auto text-xs">
+                    {% for leave in my_leaves %}
+                    <div class="flex items-center justify-between px-5 py-2.5">
+                        <div>
+                            <p class="font-semibold text-slate-800">{{ leave.get_leave_type_display }}</p>
+                            <p class="text-[10px] text-slate-400">{{ leave.start_date }} – {{ leave.end_date }}</p>
+                        </div>
+                        <span class="badge {% if leave.status == 'APPROVED' %}badge-green{% elif leave.status == 'REJECTED' %}badge-red{% else %}badge-yellow{% endif %}">
+                            {{ leave.get_status_display }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Recent Marks Submitted -->
+            {% if section_marks %}
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-900 font-heading">
+                        <i class="fa-solid fa-list-check text-amber-500 mr-2"></i>Recently Submitted Marks
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto text-xs">
+                    {% for m in section_marks %}
+                    <div class="flex items-center justify-between px-5 py-2.5">
+                        <div>
+                            <p class="font-semibold text-slate-800">{{ m.enrollment.student.full_name|default:"—" }}</p>
+                            <p class="text-[10px] text-slate-400">{{ m.assessment_component.subject.name|default:"—" }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-extrabold font-mono text-brand-600">{{ m.mark_value }}</p>
+                            <span class="badge {% if m.status == 'APPROVED' %}badge-green{% else %}badge-yellow{% endif %}">{{ m.get_status_display }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- School Events -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 bg-slate-50">
+                    <h3 class="text-sm font-bold text-slate-900 font-heading">
+                        <i class="fa-solid fa-calendar-days text-amber-500 mr-2"></i>School Events
+                    </h3>
+                </div>
+                <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto text-xs">
+                    {% for evt in school_events %}
+                    <div class="flex items-start justify-between gap-2 px-5 py-3">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-slate-900 truncate">{{ evt.title }}</p>
+                            <p class="text-[10px] text-slate-400">{{ evt.start_date }}</p>
+                        </div>
+                        <span class="badge badge-blue flex-shrink-0">{{ evt.get_event_type_display }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="px-5 py-5 text-center text-slate-400">No upcoming events.</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}

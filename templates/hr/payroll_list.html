@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">{{ title }}</h1>
+            <p class="text-xs text-slate-500 mt-1">Manage monthly payroll calculations and auto-generate staff payslips.</p>
+        </div>
+        <a href="{% url 'hr:dashboard' %}" class="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg transition">
+            <i class="fa-solid fa-arrow-left"></i>Back to HR Hub
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Payroll Periods Table -->
+        <div class="lg:col-span-2 bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <h3 class="text-sm font-bold text-slate-900">Payroll Periods</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead class="bg-slate-50 uppercase font-bold text-slate-500 text-[10px] tracking-wider">
+                        <tr>
+                            <th class="px-6 py-3 text-left">Period Name</th>
+                            <th class="px-6 py-3 text-left">Date Range</th>
+                            <th class="px-6 py-3 text-left">Status</th>
+                            <th class="px-6 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        {% for period in periods %}
+                        <tr>
+                            <td class="px-6 py-4 font-bold text-slate-900">
+                                {{ period.name }}
+                            </td>
+                            <td class="px-6 py-4 text-slate-600 font-mono">
+                                {{ period.start_date }} - {{ period.end_date }}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if period.is_processed %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                    Processed
+                                </span>
+                                {% else %}
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    Pending Processing
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <form method="post" action="{% url 'hr:process_payroll' period.id %}" class="inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow transition">
+                                        <i class="fa-solid fa-play mr-1"></i>{% if period.is_processed %}Re-Process{% else %}Run Payroll{% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-slate-400 text-xs">No payroll periods found. Create one to begin processing salaries.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Create Period Form -->
+        <div class="bg-white p-6 shadow-sm border border-slate-200 rounded-2xl h-fit space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 font-heading">New Payroll Period</h3>
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                    <i class="fa-solid fa-plus mr-1.5"></i>Create Period
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

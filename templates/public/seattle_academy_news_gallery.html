@@ -1,0 +1,438 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News, Events & Gallery — Seattle Academy</title>
+    <meta name="description" content="Explore news, global competition achievements, STEM science fairs, campus gallery, and event updates from Seattle Academy Ethiopia.">
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        saBlue: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#0b1329',
+                        },
+                        saOrange: {
+                            400: '#fb923c',
+                            500: '#f97316',
+                            600: '#ea580c',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        html { scroll-behavior: smooth; }
+        .header-shadow { box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.12); }
+        
+        .eth-stripe {
+            height: 4px;
+            background: linear-gradient(90deg, #009b48 0%, #ffda44 50%, #d21034 100%);
+        }
+
+        .wow-card {
+            background: #ffffff;
+            border-radius: 1.75rem;
+            box-shadow: 0 10px 35px -10px rgba(37, 99, 235, 0.08);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+        }
+        .wow-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 55px -12px rgba(37, 99, 235, 0.18);
+            border-color: rgba(37, 99, 235, 0.35);
+        }
+
+        .mesh-bg {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(249, 115, 22, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
+        }
+    </style>
+</head>
+<body class="mesh-bg text-slate-800 font-sans antialiased overflow-x-hidden">
+
+    <!-- Top Announcement Bar -->
+    <div class="bg-slate-950 text-white text-xs py-2.5 px-4 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Updates
+                </span>
+                <span class="text-slate-300 text-[11px] font-medium hidden md:inline">
+                    🎓 Seattle Academy — News, Global Competitions & Student Achievement Gallery.
+                </span>
+            </div>
+            <div class="flex items-center gap-5 text-[11px] text-slate-300 font-medium">
+                <a href="tel:+251937381801" class="hover:text-saOrange-500 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-phone text-saOrange-500"></i> +251 937 381 801
+                </a>
+                <span class="text-slate-700">|</span>
+                <a href="{% url 'seattle_academy_home' %}" class="hover:text-saOrange-500 transition flex items-center gap-1">
+                    <i class="fa-solid fa-house text-saOrange-500"></i> Main Website
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN HEADER -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md header-shadow transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo Badge -->
+                <a href="{% url 'seattle_academy_home' %}" class="flex items-center gap-3.5 group">
+                    <div class="w-12 h-12 rounded-2xl bg-white p-1 shadow-md border border-slate-100 group-hover:scale-105 transition transform flex items-center justify-center overflow-hidden">
+                        <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <span class="font-heading font-extrabold text-2xl tracking-tight text-saBlue-600 group-hover:text-saBlue-700 transition">Seattle Academy</span>
+                        <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">News, Events & Media Gallery</p>
+                    </div>
+                </a>
+
+                <!-- Back to Main Site & Portal Login -->
+                <div class="flex items-center gap-3">
+                    <a href="{% url 'seattle_academy_home' %}" 
+                       class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-left text-saBlue-600"></i>
+                        Main Website
+                    </a>
+                    <a href="{% url 'seattle_academy_login' %}" 
+                       class="px-5 py-2.5 rounded-xl bg-saBlue-600 hover:bg-saBlue-700 text-white font-bold text-xs shadow-md shadow-saBlue-600/30 transition flex items-center gap-2">
+                        <i class="fa-solid fa-lock text-saOrange-400"></i>
+                        Portal Sign In
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="eth-stripe"></div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="py-16 bg-gradient-to-b from-blue-50/60 via-white to-slate-50 border-b border-slate-200/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100/90 text-saBlue-700 text-xs font-bold mb-4 border border-blue-200">
+                <i class="fa-solid fa-newspaper text-saOrange-500"></i> Official Media Portal
+            </div>
+
+            <h1 class="font-heading font-black text-4xl sm:text-5xl lg:text-6xl text-slate-900 tracking-tight">
+                News, Events & <span class="bg-gradient-to-r from-saBlue-600 to-saOrange-500 bg-clip-text text-transparent">Student Achievements</span>
+            </h1>
+            
+            <p class="mt-4 text-slate-600 text-base max-w-2xl mx-auto leading-relaxed">
+                Stay updated with the latest press releases, international competition successes, science fairs, and campus event photo gallery from Seattle School.
+            </p>
+
+            <!-- Category Filter Buttons -->
+            <div class="mt-8 flex flex-wrap justify-center gap-3">
+                <button onclick="filterMedia('all')" class="filter-btn active px-5 py-2.5 rounded-xl text-xs font-extrabold bg-saBlue-600 text-white shadow-md transition">
+                    All Media & News
+                </button>
+                <button onclick="filterMedia('stem')" class="filter-btn px-5 py-2.5 rounded-xl text-xs font-extrabold bg-white text-slate-700 hover:bg-slate-100 shadow-sm border border-slate-200 transition">
+                    🌍 International STEM
+                </button>
+                <button onclick="filterMedia('regional')" class="filter-btn px-5 py-2.5 rounded-xl text-xs font-extrabold bg-white text-slate-700 hover:bg-slate-100 shadow-sm border border-slate-200 transition">
+                    🏆 Regional Champions
+                </button>
+                <button onclick="filterMedia('campus')" class="filter-btn px-5 py-2.5 rounded-xl text-xs font-extrabold bg-white text-slate-700 hover:bg-slate-100 shadow-sm border border-slate-200 transition">
+                    🏫 Campus Life
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 1: FEATURED NEWS & ARTICLES -->
+    <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between mb-12">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-saBlue-600">Press Releases</span>
+                    <h2 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 mt-1">Featured News Stories</h2>
+                </div>
+                <span class="text-xs text-slate-500 font-semibold hidden sm:inline">Showing {{ news_list|length }} Published Articles</span>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-10">
+                {% for item in news_list %}
+                <div class="media-card wow-card overflow-hidden flex flex-col justify-between" data-category="{{ item.category|lower }}">
+                    <div>
+                        <div class="relative h-80 sm:h-96 bg-slate-900 overflow-hidden">
+                            {% if item.image %}
+                            <img src="{{ item.image.url }}" alt="{{ item.title }}" class="w-full h-full object-cover object-top hover:scale-105 transition duration-500">
+                            {% elif item.image_url %}
+                            <img src="{% static item.image_url %}" alt="{{ item.title }}" class="w-full h-full object-cover object-top hover:scale-105 transition duration-500">
+                            {% else %}
+                            <div class="w-full h-full flex items-center justify-center bg-slate-800 text-white">
+                                <i class="fa-solid fa-newspaper text-6xl text-saBlue-400"></i>
+                            </div>
+                            {% endif %}
+
+                            <div class="absolute top-4 left-4 bg-saBlue-600 text-white text-[11px] font-extrabold px-3.5 py-1 rounded-full shadow-lg">
+                                {{ item.category }}
+                            </div>
+                            {% if item.badge_text %}
+                            <div class="absolute top-4 right-4 bg-saOrange-500 text-white text-[11px] font-extrabold px-3.5 py-1.5 rounded-xl shadow-lg">
+                                {{ item.badge_text }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="p-8 space-y-4">
+                            <div class="flex items-center gap-2 text-xs font-bold text-saBlue-600">
+                                <i class="fa-solid fa-calendar-day"></i> Published {{ item.created_at|date:"F d, Y" }}
+                            </div>
+                            <h3 class="font-heading font-black text-2xl text-slate-900 leading-snug hover:text-saBlue-600 transition">
+                                {{ item.title }}
+                            </h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                {{ item.content }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="px-8 pb-8 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+                        <span><i class="fa-solid fa-location-dot text-saOrange-500 mr-1.5"></i> {{ item.location|default:"Addis Ababa, Ethiopia" }}</span>
+                        <button onclick="openNewsModal('{{ item.title|escapejs }}', '{{ item.content|escapejs }}', '{% if item.image %}{{ item.image.url }}{% elif item.image_url %}{% static item.image_url %}{% endif %}')" 
+                                class="font-extrabold text-saBlue-600 hover:text-saBlue-700 flex items-center gap-1">
+                            Read Full Story <i class="fa-solid fa-chevron-right text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-slate-500 text-center col-span-2 py-12">No news stories published yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: PHOTO & MEDIA GALLERY -->
+    <section class="py-20 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between mb-12">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-saOrange-600">Photo Showcase</span>
+                    <h2 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 mt-1">Seattle Academy Photo Gallery</h2>
+                </div>
+                <span class="text-xs text-slate-500 font-semibold hidden sm:inline">Click any image to view in Fullscreen Lightbox</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {% for item in gallery_list %}
+                <div class="wow-card overflow-hidden group cursor-pointer" 
+                     onclick="openImageModal('{% if item.image %}{{ item.image.url }}{% elif item.image_url %}{% static item.image_url %}{% endif %}', '{{ item.title|escapejs }} — {{ item.caption|escapejs }}')">
+                    <div class="relative h-80 bg-slate-900 overflow-hidden">
+                        {% if item.image %}
+                        <img src="{{ item.image.url }}" alt="{{ item.title }}" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-500">
+                        {% elif item.image_url %}
+                        <img src="{% static item.image_url %}" alt="{{ item.title }}" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-500">
+                        {% else %}
+                        <div class="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-saBlue-600 p-6 text-center">
+                            <i class="fa-solid fa-camera-retro text-5xl mb-3"></i>
+                            <p class="font-bold text-sm text-slate-900">{{ item.title }}</p>
+                        </div>
+                        {% endif %}
+
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end p-6">
+                            <div class="text-white">
+                                <span class="px-2.5 py-0.5 bg-saOrange-500 text-white rounded-md text-[10px] font-bold uppercase mb-2 inline-block">{{ item.category }}</span>
+                                <p class="font-bold text-base">{{ item.title }}</p>
+                                <p class="text-xs text-slate-300 mt-1">{{ item.caption }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-white text-center border-t border-slate-100">
+                        <p class="font-bold text-sm text-slate-900">{{ item.title }}</p>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-slate-500 text-center col-span-3 py-12">No gallery photos available yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: UPCOMING 2018 E.C. EVENTS CALENDAR TIMELINE -->
+    <section class="py-20 bg-white border-t border-slate-200">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <span class="text-xs font-bold uppercase tracking-widest text-saBlue-600">Calendar Timeline</span>
+                <h2 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 mt-1">Upcoming Events & Orientation</h2>
+                <div class="w-16 h-1.5 bg-saOrange-500 rounded-full mx-auto mt-4"></div>
+            </div>
+
+            <div class="space-y-6">
+                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-saBlue-600 text-white flex flex-col items-center justify-center font-bold shrink-0">
+                            <span class="text-xs uppercase font-semibold">SEP</span>
+                            <span class="text-xl font-black">15</span>
+                        </div>
+                        <div>
+                            <span class="px-2.5 py-0.5 bg-blue-100 text-saBlue-700 rounded-full font-bold text-[10px]">Academic Calendar</span>
+                            <h4 class="font-heading font-bold text-lg text-slate-900 mt-1">2018 E.C. Term 1 First Day of Classes</h4>
+                            <p class="text-xs text-slate-500">Official opening of academic term for KG through High School (Grade 12).</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold text-slate-700 bg-white px-4 py-2 rounded-xl border border-slate-200">All Students</span>
+                </div>
+
+                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-saOrange-500 text-white flex flex-col items-center justify-center font-bold shrink-0">
+                            <span class="text-xs uppercase font-semibold">OCT</span>
+                            <span class="text-xl font-black">04</span>
+                        </div>
+                        <div>
+                            <span class="px-2.5 py-0.5 bg-orange-100 text-saOrange-700 rounded-full font-bold text-[10px]">STEM Workshop</span>
+                            <h4 class="font-heading font-bold text-lg text-slate-900 mt-1">Annual Inter-School Robotics & Coding Orientation</h4>
+                            <p class="text-xs text-slate-500">High School & Middle School STEM club enrollment briefing.</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold text-slate-700 bg-white px-4 py-2 rounded-xl border border-slate-200">Grade 7 – 12</span>
+                </div>
+
+                <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex flex-col items-center justify-center font-bold shrink-0">
+                            <span class="text-xs uppercase font-semibold">NOV</span>
+                            <span class="text-xl font-black">12</span>
+                        </div>
+                        <div>
+                            <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold text-[10px]">National Exam</span>
+                            <h4 class="font-heading font-bold text-lg text-slate-900 mt-1">Grade 8 & 12 National Mock Examination Prep</h4>
+                            <p class="text-xs text-slate-500">First round intensive mock exam review session after school hours.</p>
+                        </div>
+                    </div>
+                    <span class="text-xs font-bold text-slate-700 bg-white px-4 py-2 rounded-xl border border-slate-200">Grade 8 & 12</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-950 text-white py-12 border-t border-slate-900">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
+            <div class="flex items-center justify-center gap-3">
+                <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-9 h-9 object-contain bg-white rounded-lg p-0.5">
+                <span class="font-heading font-extrabold text-xl text-white">Seattle Academy</span>
+            </div>
+            <p class="text-xs text-slate-400 max-w-md mx-auto">
+                News, Events & Media Gallery • Powered by Ethiopian School SaaS Enterprise Edition.
+            </p>
+            <div class="pt-4 border-t border-slate-900 text-xs text-slate-500 flex justify-between items-center max-w-xl mx-auto">
+                <a href="{% url 'seattle_academy_home' %}" class="hover:text-white">Main Website</a>
+                <span>•</span>
+                <a href="{% url 'seattle_academy_login' %}" class="hover:text-white">Portal Sign In</a>
+                <span>•</span>
+                <a href="tel:+251937381801" class="hover:text-white">+251 937 381 801</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- News Full Story Modal -->
+    <div id="newsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden z-50 items-center justify-center p-4" onclick="closeNewsModal()">
+        <div class="bg-white max-w-2xl w-full rounded-3xl p-6 sm:p-8 space-y-4 relative shadow-2xl overflow-y-auto max-h-[90vh]" onclick="event.stopPropagation()">
+            <button onclick="closeNewsModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl font-bold">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="newsModalImg" src="" alt="Story Image" class="w-full h-64 object-cover object-top rounded-2xl mb-4">
+            <h3 id="newsModalTitle" class="font-heading font-black text-2xl text-slate-900"></h3>
+            <p id="newsModalContent" class="text-slate-600 text-sm leading-relaxed whitespace-pre-line"></p>
+        </div>
+    </div>
+
+    <!-- Image Lightbox Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden z-50 items-center justify-center p-4" onclick="closeImageModal()">
+        <div class="relative max-w-4xl w-full text-center space-y-4" onclick="event.stopPropagation()">
+            <button onclick="closeImageModal()" class="absolute -top-10 right-0 text-white hover:text-saOrange-400 text-2xl font-bold">
+                <i class="fa-solid fa-xmark"></i> Close
+            </button>
+            <img id="modalImg" src="" alt="Full Preview" class="max-h-[85vh] w-auto mx-auto rounded-2xl shadow-2xl border-2 border-white/20">
+            <p id="modalCaption" class="text-white font-bold text-base mt-2"></p>
+        </div>
+    </div>
+
+    <script>
+        function openNewsModal(title, content, imgUrl) {
+            document.getElementById('newsModalTitle').innerText = title;
+            document.getElementById('newsModalContent').innerText = content;
+            const img = document.getElementById('newsModalImg');
+            if (imgUrl) {
+                img.src = imgUrl;
+                img.classList.remove('hidden');
+            } else {
+                img.classList.add('hidden');
+            }
+            document.getElementById('newsModal').classList.remove('hidden');
+            document.getElementById('newsModal').classList.add('flex');
+        }
+        function closeNewsModal() {
+            document.getElementById('newsModal').classList.add('hidden');
+            document.getElementById('newsModal').classList.remove('flex');
+        }
+
+        function openImageModal(src, caption) {
+            document.getElementById('modalImg').src = src;
+            document.getElementById('modalCaption').innerText = caption;
+            document.getElementById('imageModal').classList.remove('hidden');
+            document.getElementById('imageModal').classList.add('flex');
+        }
+        function closeImageModal() {
+            document.getElementById('imageModal').classList.add('hidden');
+            document.getElementById('imageModal').classList.remove('flex');
+        }
+
+        function filterMedia(category) {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.className = 'filter-btn px-5 py-2.5 rounded-xl text-xs font-extrabold bg-white text-slate-700 hover:bg-slate-100 shadow-sm border border-slate-200 transition';
+            });
+            event.target.className = 'filter-btn active px-5 py-2.5 rounded-xl text-xs font-extrabold bg-saBlue-600 text-white shadow-md transition';
+
+            const cards = document.querySelectorAll('.media-card');
+            cards.forEach(card => {
+                if (category === 'all') {
+                    card.style.display = 'flex';
+                } else {
+                    const cardCat = card.getAttribute('data-category') || '';
+                    if (cardCat.includes(category)) {
+                        card.style.display = 'flex';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

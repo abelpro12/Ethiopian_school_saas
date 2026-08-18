@@ -1,0 +1,449 @@
+{% extends 'base.html' %}
+{% block title %}Schools & Tenants — Super Admin{% endblock %}
+
+{% block content %}
+<div class="space-y-4 sm:space-y-6 pb-10">
+    <!-- Header Banner -->
+    <div class="glass-dark text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden group border border-white/10">
+        <div class="absolute -right-12 -bottom-12 w-72 h-72 bg-gradient-to-tr from-purple-600/30 to-indigo-600/30 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition duration-700"></div>
+        <div class="absolute -left-12 -top-12 w-60 h-60 bg-gradient-to-br from-emerald-600/20 to-teal-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+            <div>
+                <div class="inline-flex items-center gap-2 text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-3.5 py-1.5 rounded-full font-extrabold uppercase tracking-widest shadow-inner backdrop-blur-md">
+                    <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                    Tenant Management Command
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight font-heading mt-3 text-white">
+                    Schools & Tenants
+                </h1>
+                <p class="text-sm text-slate-300/90 mt-1.5 max-w-2xl leading-relaxed">
+                    Manage all provisioned Ethiopian tenant schools across the multi-tenant SaaS infrastructure.
+                </p>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap w-full sm:w-auto">
+                <a href="{% url 'platform:subscription_management' %}" class="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-xs font-bold border border-white/15 backdrop-blur-md transition flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-gift text-purple-300"></i>
+                    <span>Subscriptions & Free Trials</span>
+                </a>
+                <button onclick="openModal('provisionModal')"
+                    class="btn-primary flex items-center gap-2.5 flex-shrink-0 justify-center bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 hover:from-purple-500 hover:to-brand-500 border border-purple-400/40 shadow-xl shadow-purple-950/50 text-sm font-bold py-3 px-5 rounded-2xl">
+                    <i class="fa-solid fa-plus-circle text-lg"></i>
+                    Provision New School
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tenant School Registry Table -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-sm shadow-sm">
+                        <i class="fa-solid fa-building-columns"></i>
+                    </div>
+                    All Provisioned Tenant Schools
+                </h3>
+                <p class="text-xs text-slate-500 mt-1">Full registry of school accounts, domain aliases, calendar settings, and subscriptions</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3.5 py-1.5 rounded-full shadow-xs">
+                    Total Registered: {{ schools|length }}
+                </span>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-100/70 text-slate-600 uppercase tracking-wider text-[11px] font-bold border-b border-slate-200/80">
+                    <tr>
+                        <th class="px-5 py-4">Code</th>
+                        <th class="px-5 py-4">School Name</th>
+                        <th class="px-5 py-4">Subdomain</th>
+                        <th class="px-5 py-4">Region / Woreda</th>
+                        <th class="px-5 py-4">Calendar</th>
+                        <th class="px-5 py-4">Subscription</th>
+                        <th class="px-5 py-4">Created</th>
+                        <th class="px-5 py-4">Status</th>
+                        <th class="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for sch in schools %}
+                    <tr class="hover:bg-slate-50/80 transition-all">
+                        <td class="px-5 py-4 font-mono font-bold text-purple-600 bg-purple-50/30 rounded-l-xl">{{ sch.code }}</td>
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md shadow-purple-500/20 flex-shrink-0">
+                                    {{ sch.name|slice:":1" }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900 leading-tight">{{ sch.name }}</p>
+                                    {% if sch.motto %}<p class="text-[11px] text-slate-400 font-normal mt-0.5">{{ sch.motto }}</p>{% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 font-mono text-brand-600">
+                            <a href="{% url 'platform:school_detail' sch.id %}" class="inline-flex items-center gap-1.5 bg-brand-50/80 hover:bg-brand-100 text-brand-700 px-2.5 py-1 rounded-lg text-xs font-semibold border border-brand-200/60 transition group">
+                                <span>{{ sch.subdomain }}.ethiopiaschools.et</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-brand-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition"></i>
+                            </a>
+                        </td>
+                        <td class="px-5 py-4 text-slate-600 text-xs font-medium">
+                            <span class="inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-location-dot text-slate-400"></i>
+                                {{ sch.region|default:"—" }}{% if sch.woreda %} / {{ sch.woreda }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4">
+                            <span class="badge badge-gray">
+                                🇪🇹 {{ sch.get_calendar_preference_display }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4">
+                            {% with sub=sch.subscription_safe %}
+                            {% if sub %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border {{ sub.status_badge_class }}">
+                                <i class="fa-solid {% if sub.days_remaining <= 0 %}fa-triangle-exclamation{% elif sub.status == 'TRIAL' %}fa-gift{% else %}fa-shield-halved{% endif %} text-[9px]"></i>
+                                {% if sub.days_remaining <= 0 %}Expired{% elif sub.status == 'TRIAL' %}Trial: {{ sub.days_remaining }}d left{% else %}Active: {{ sub.days_remaining }}d left{% endif %}
+                            </span>
+                            {% else %}
+                            <span class="text-xs text-slate-400 font-semibold">No Sub</span>
+                            {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="px-5 py-4 text-slate-500 font-mono text-xs">{{ sch.created_at|date:"M d, Y" }}</td>
+                        <td class="px-5 py-4">
+                            <span class="badge {{ sch.display_status.badge }}">
+                                {% if sch.is_active %}<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>{% endif %}
+                                {{ sch.display_status.label }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-right">
+                            <div class="flex items-center justify-end gap-1.5">
+                                <form method="POST" action="{% url 'platform:school_action' sch.id %}" class="inline-block" onsubmit="return confirm('Are you sure you want to perform this action on {{ sch.name }}?');">
+                                    {% csrf_token %}
+                                    {% if sch.is_active %}
+                                        <input type="hidden" name="action" value="suspend">
+                                        <button type="submit" class="inline-flex items-center gap-1 text-[11px] bg-red-50 hover:bg-red-100 text-red-700 px-2.5 py-1.5 rounded-xl font-bold border border-red-200/80 shadow-xs transition" title="Suspend Tenant">
+                                            <i class="fa-solid fa-ban text-[10px]"></i> Suspend
+                                        </button>
+                                    {% else %}
+                                        <input type="hidden" name="action" value="activate">
+                                        <button type="submit" class="inline-flex items-center gap-1 text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1.5 rounded-xl font-bold border border-emerald-200/80 shadow-xs transition" title="Activate Tenant">
+                                            <i class="fa-solid fa-circle-check text-[10px]"></i> Activate
+                                        </button>
+                                    {% endif %}
+                                </form>
+
+                                <button onclick="openSubModal('{{ sch.id }}', '{{ sch.name|escapejs }}', '{% if sch.subscription %}{{ sch.subscription.status }}{% else %}TRIAL{% endif %}', '{% if sch.subscription %}{{ sch.subscription.days_remaining }}{% else %}0{% endif %}')" class="inline-flex items-center gap-1 text-[11px] bg-purple-50 hover:bg-purple-100 text-purple-700 px-2.5 py-1.5 rounded-xl font-bold border border-purple-200/80 shadow-xs transition" title="Manage Subscription & Free Trial">
+                                    <i class="fa-solid fa-gift text-[10px]"></i> Sub
+                                </button>
+
+                                <button type="button" onclick="openModal('deleteModal_{{ sch.id }}')" class="inline-flex items-center gap-1 text-[11px] bg-rose-50 hover:bg-rose-100 text-rose-700 px-2.5 py-1.5 rounded-xl font-bold border border-rose-200/80 shadow-xs transition" title="Delete Tenant School">
+                                    <i class="fa-solid fa-trash-can text-[10px]"></i> Delete
+                                </button>
+
+                                <form method="POST" action="{% url 'platform:enter_context' sch.id %}" class="inline-block">
+                                    {% csrf_token %}
+                                    <button type="submit" class="inline-flex items-center gap-1 text-[11px] bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-3 py-1.5 rounded-xl font-bold shadow-md shadow-indigo-500/20 transition" title="Act as this school">
+                                        <i class="fa-solid fa-right-to-bracket text-[10px]"></i> Enter
+                                    </button>
+                                </form>
+
+                                <!-- Delete School Password Confirmation Modal -->
+                                <div id="deleteModal_{{ sch.id }}" class="hidden modal-overlay text-left whitespace-normal" onclick="if(event.target===this)closeModal('deleteModal_{{ sch.id }}')">
+                                    <div class="bg-white dark:bg-slate-900 max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border border-red-200 dark:border-red-900/50 transform transition-all">
+                                        <div class="bg-gradient-to-r from-red-700 via-rose-800 to-red-900 px-6 py-5 flex items-center justify-between text-white border-b border-red-800">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white text-lg flex-shrink-0 shadow-inner">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </div>
+                                                <div>
+                                                    <h3 class="text-base font-bold font-heading">Delete Tenant School</h3>
+                                                    <p class="text-[11px] text-red-100">Permanent data removal request</p>
+                                                </div>
+                                            </div>
+                                            <button type="button" onclick="closeModal('deleteModal_{{ sch.id }}')" class="text-white/70 hover:text-white font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition">✕</button>
+                                        </div>
+
+                                        <form method="POST" action="{% url 'platform:school_action' sch.id %}" class="p-6 space-y-5 text-sm">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="school_action_type" value="delete">
+
+                                            <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-4 rounded-2xl space-y-2">
+                                                <div class="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-xs">
+                                                    <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+                                                    <span>Are you sure you want to remove this school?</span>
+                                                </div>
+                                                <p class="text-xs text-red-800 dark:text-red-300/90 leading-relaxed whitespace-normal break-words text-wrap">
+                                                    You are about to permanently delete <strong class="font-extrabold underline">{{ sch.name }}</strong> ({{ sch.code }}). All associated students, teachers, classes, grades, and records will be deleted immediately. This action <strong>cannot be undone</strong>.
+                                                </p>
+                                            </div>
+
+                                            <div class="space-y-2">
+                                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                                    <i class="fa-solid fa-lock text-slate-400 mr-1"></i>
+                                                    Enter Super Admin Password to Confirm *
+                                                </label>
+                                                <input type="password" name="password" required placeholder="Your super admin password"
+                                                    class="w-full border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition">
+                                            </div>
+
+                                            <div class="flex items-center justify-end gap-3 pt-2">
+                                                <button type="button" onclick="closeModal('deleteModal_{{ sch.id }}')" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                                                    No, Cancel
+                                                </button>
+                                                <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-red-600/30 transition flex items-center gap-2">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                    <span>Yes, Permanently Delete</span>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="px-5 py-12 text-center">
+                            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <i class="fa-solid fa-building-circle-xmark text-2xl text-slate-300"></i>
+                            </div>
+                            <p class="font-bold text-slate-600">No tenant schools provisioned yet</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Provision School Modal -->
+<div id="provisionModal" class="hidden modal-overlay" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+        <div class="bg-gradient-to-r from-purple-600 to-brand-600 px-6 py-4 flex items-center justify-between">
+            <h3 class="text-base font-bold text-white font-heading">
+                <i class="fa-solid fa-plus-circle mr-2"></i>Provision New Tenant School
+            </h3>
+            <button onclick="closeModal('provisionModal')"
+                class="text-white/60 hover:text-white font-bold w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition">✕</button>
+        </div>
+        <form method="POST" action="{% url 'platform:provision_school' %}" class="p-6 space-y-4 text-sm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="provision_school">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">School Name *</label>
+                <input type="text" name="name" required placeholder="e.g. Addis Ababa Model Academy"
+                    class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">School Code *</label>
+                    <input type="text" name="code" required placeholder="AAMA"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 font-mono uppercase focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Subdomain *</label>
+                    <div class="relative">
+                        <input type="text" name="subdomain" required placeholder="aama"
+                            class="w-full border border-slate-300 rounded-xl px-4 py-2.5 font-mono lowercase focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-0.5">{name}.ethiopiaschools.et</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Region</label>
+                    <input type="text" name="region" placeholder="e.g. Addis Ababa"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Woreda</label>
+                    <input type="text" name="woreda" placeholder="e.g. Woreda 03"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Admin Email</label>
+                    <input type="email" name="admin_email" placeholder="admin@school.edu.et"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Phone</label>
+                    <input type="text" name="phone" placeholder="+251 91 234 5678"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Calendar Preference</label>
+                <select name="calendar_preference" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 transition">
+                    <option value="ETHIOPIAN">🇪🇹 Ethiopian Calendar (E.C.)</option>
+                    <option value="GREGORIAN">📅 Gregorian Calendar (G.C.)</option>
+                    <option value="BOTH">📆 Dual Calendar System</option>
+                </select>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 flex items-start gap-2.5">
+                <i class="fa-solid fa-shield-halved text-amber-600 text-sm mt-0.5"></i>
+                <div>
+                    <strong class="font-bold block text-amber-900">Secure Initial Provisioning</strong>
+                    <span>An admin account (<strong>admin_{subdomain}</strong>) will be created with a secure temporary password. The admin will be forced to set a custom password on first login.</span>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="closeModal('provisionModal')"
+                    class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-sm shadow transition transform active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-server"></i>
+                    Provision School
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Manage Subscription Modal -->
+<div id="subModal" class="hidden modal-overlay" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-white dark:bg-slate-900 max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transform transition-all">
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 px-6 py-5 flex items-center justify-between text-white border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300">
+                    <i class="fa-solid fa-gift text-base"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold font-heading">Manage Subscription</h3>
+                    <p class="text-[10px] text-slate-300">Grant subscription days or update tenant status</p>
+                </div>
+            </div>
+            <button onclick="closeModal('subModal')" class="text-slate-400 hover:text-white font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition">✕</button>
+        </div>
+        
+        <form id="subForm" method="POST" action="{% url 'subscriptions:super_admin_action' %}" class="p-6 space-y-5 text-sm">
+            {% csrf_token %}
+            <input type="hidden" name="school_id" id="subModalSchoolId" value="">
+            <input type="hidden" name="action" value="set_status">
+
+            <div class="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Selected School Tenant</span>
+                <h4 id="subModalSchoolName" class="text-base font-extrabold text-slate-900 dark:text-white font-heading mt-0.5">Addis Model School</h4>
+            </div>
+
+            <!-- Custom Status & Days to Add -->
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Status Override</label>
+                    <select name="status" id="presetStatusInput" class="w-full border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                        <option value="ACTIVE" selected>⚡ Active Subscription</option>
+                        <option value="TRIAL">🎁 Free Trial</option>
+                        <option value="EXPIRED">⚠️ Expired</option>
+                        <option value="SUSPENDED">🛑 Suspended</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Days to Add / Grant</label>
+                    <input type="number" name="days" id="presetDaysInput" value="0" min="0" step="1" class="w-full border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none">
+                    <p class="text-[11px] text-slate-400 mt-1">Starts from 0 days by default. Enter any number of days to extend or grant access.</p>
+                </div>
+
+                <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save Subscription Changes</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete School Confirmation & Password Modal -->
+<div id="deleteSchoolModal" class="hidden modal-overlay text-left" onclick="if(event.target===this)closeModal('deleteSchoolModal')">
+    <div class="bg-white dark:bg-slate-900 max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border border-red-200 dark:border-red-900/50 transform transition-all">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-red-700 via-rose-800 to-red-900 px-6 py-5 flex items-center justify-between text-white border-b border-red-800">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-white text-lg flex-shrink-0 shadow-inner">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold font-heading">Delete Tenant School</h3>
+                    <p class="text-[11px] text-red-100">Permanent data removal request</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeModal('deleteSchoolModal')" class="text-white/70 hover:text-white font-bold w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition">✕</button>
+        </div>
+
+        <form id="deleteSchoolForm" method="POST" action="" class="p-6 space-y-5 text-sm">
+            {% csrf_token %}
+            <input type="hidden" name="school_action_type" value="delete">
+
+            <!-- Confirmation Warning Box -->
+            <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-4 rounded-2xl space-y-2">
+                <div class="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-xs">
+                    <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+                    <span>Are you sure you want to remove this school?</span>
+                </div>
+                <p class="text-xs text-red-800 dark:text-red-300/90 leading-relaxed whitespace-normal break-words text-wrap">
+                    You are about to permanently delete <strong id="deleteModalSchoolName" class="font-extrabold underline"></strong>. All associated students, teachers, classes, grades, and records will be deleted immediately. This action <strong>cannot be undone</strong>.
+                </p>
+            </div>
+
+            <!-- Password Input -->
+            <div class="space-y-2">
+                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <i class="fa-solid fa-lock text-slate-400 mr-1"></i>
+                    Enter Super Admin Password to Confirm *
+                </label>
+                <input type="password" name="password" required placeholder="Your super admin password"
+                    class="w-full border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-semibold bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition">
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="closeModal('deleteSchoolModal')" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                    No, Cancel
+                </button>
+                <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-red-600/30 transition flex items-center gap-2">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Yes, Permanently Delete</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openSubModal(schoolId, schoolName, status, daysRemaining) {
+    document.getElementById('subModalSchoolName').innerText = schoolName;
+    document.getElementById('subModalSchoolId').value = schoolId;
+    document.getElementById('presetDaysInput').value = '0';
+    openModal('subModal');
+}
+
+function setStatusPreset(statusVal, daysVal) {
+    document.getElementById('presetStatusInput').value = statusVal;
+    document.getElementById('presetDaysInput').value = daysVal;
+}
+
+function promptDeleteSchool(actionUrl, schoolName) {
+    const modalName = document.getElementById('deleteModalSchoolName');
+    const form = document.getElementById('deleteSchoolForm');
+    if (modalName) modalName.innerText = schoolName;
+    if (form) form.setAttribute('action', actionUrl);
+    openModal('deleteSchoolModal');
+}
+</script>
+{% endblock %}

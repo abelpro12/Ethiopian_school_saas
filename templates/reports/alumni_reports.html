@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Alumni Reports | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Alumni Reports</h1>
+        <p class="text-sm text-slate-500">Generate graduation lists and bulk official transcripts</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <a href="{% url 'bulk_historical_import' %}" class="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-bold hover:bg-blue-100 transition-colors shadow-sm flex items-center gap-2">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Bulk Import Legacy Grades
+        </a>
+    </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+    <div class="p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <!-- Filter Form -->
+        <form method="GET" action="{% url 'alumni_reports' %}" class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <label for="academic_year" class="text-sm font-semibold text-slate-700">Filter by Graduation Year:</label>
+                <select name="academic_year" id="academic_year" class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                    <option value="">All Alumni</option>
+                    {% for ay in academic_years %}
+                    <option value="{{ ay.id }}" {% if selected_ay == str_id %}selected{% endif %}>{{ ay.display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
+                Apply Filter
+            </button>
+        </form>
+
+        <!-- Export Actions -->
+        <div class="flex items-center gap-2">
+            <a href="{% url 'export_alumni_list' %}?academic_year={{ selected_ay }}" class="px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-file-csv"></i> Export CSV List
+            </a>
+            <a href="{% url 'bulk_transcripts_pdf' %}?academic_year={{ selected_ay }}" class="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-bold hover:bg-brand-700 transition-colors shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf"></i> Download Bulk Transcripts (ZIP)
+            </a>
+        </div>
+    </div>
+
+    <!-- Alumni List Preview -->
+    <div class="p-6">
+        <h3 class="text-sm font-bold text-slate-800 mb-4">{{ alumni_list.count }} Alumni Found</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-500 font-medium">
+                    <tr>
+                        <th class="py-3 px-4 rounded-tl-lg">Student ID</th>
+                        <th class="py-3 px-4">Name</th>
+                        <th class="py-3 px-4">Gender</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 text-right rounded-tr-lg">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for student in alumni_list %}
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="py-3 px-4 font-mono text-slate-600">{{ student.student_id }}</td>
+                        <td class="py-3 px-4 font-medium text-slate-900">{{ student.full_name }}</td>
+                        <td class="py-3 px-4 text-slate-600">{{ student.get_gender_display }}</td>
+                        <td class="py-3 px-4">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-brand-100 text-brand-800">
+                                {{ student.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <a href="{% url 'students:admin_profile' student.id %}" class="text-brand-600 hover:text-brand-700 font-medium text-xs">
+                                View Profile
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-slate-500">
+                            No alumni records found for this selection.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Admissions Dashboard | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 pb-8">
+
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white p-5 sm:p-7 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+            <div>
+                <p class="text-[10px] text-brand-300 uppercase tracking-widest font-bold mb-1">Student Admissions</p>
+                <h1 class="font-heading text-2xl sm:text-3xl font-extrabold text-white">Admissions Dashboard</h1>
+                <p class="text-xs text-slate-300 mt-1">Review and manage student applications for {{ school.name }}</p>
+            </div>
+            {% if request.user.role == 'SCHOOL_ADMIN' or request.user.role == 'REGISTRAR' or request.user.role == 'PRINCIPAL' or request.user.role == 'SUPER_ADMIN' %}
+            <div class="flex items-center gap-2">
+                <a href="{% url 'students:bulk_import' %}"
+                   class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-emerald-600/30 transition whitespace-nowrap">
+                    <i class="fa-solid fa-file-csv"></i> Bulk CSV Import
+                </a>
+                <a href="{% url 'students:public_admission' %}" target="_blank"
+                   class="flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-brand-600/30 transition whitespace-nowrap">
+                    <i class="fa-solid fa-link"></i> Public Link
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        {% for status, label, color in admission_stats|default:'' %}
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 text-center stat-card">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ label }}</p>
+            <p class="text-2xl font-extrabold font-heading mt-1 {{ color }}">{{ status }}</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Applications Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-4 sm:px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h2 class="font-heading font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-file-pen text-brand-500"></i>
+                Applications
+                <span class="ml-1 text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono font-bold">{{ applications|length }}</span>
+            </h2>
+        </div>
+
+        <!-- Mobile Card View -->
+        <div class="sm:hidden divide-y divide-slate-100">
+            {% for app in applications %}
+            <div class="p-4">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">{{ app.first_name }} {{ app.last_name }}</p>
+                        <p class="text-[11px] font-mono text-slate-400">{{ app.application_number }}</p>
+                    </div>
+                    {% if app.status == 'PENDING' %}
+                    <span class="badge badge-yellow flex-shrink-0">Pending</span>
+                    {% elif app.status == 'ACCEPTED' %}
+                    <span class="badge badge-green flex-shrink-0">Accepted</span>
+                    {% elif app.status == 'REJECTED' %}
+                    <span class="badge badge-red flex-shrink-0">Rejected</span>
+                    {% elif app.status == 'REGISTERED' %}
+                    <span class="badge badge-blue flex-shrink-0">Registered</span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-4 text-xs text-slate-500 mb-3">
+                    <span><i class="fa-solid fa-user mr-1"></i>{{ app.get_gender_display }}</span>
+                    <span><i class="fa-solid fa-graduation-cap mr-1"></i>Grade {{ app.grade_level }}</span>
+                    <span><i class="fa-regular fa-calendar mr-1"></i>{{ app.created_at|date:"M d, Y" }}</span>
+                </div>
+                <a href="{% url 'students:review_application' app.id %}"
+                   class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition">
+                    <i class="fa-solid fa-eye"></i> Review Application
+                </a>
+            </div>
+            {% empty %}
+            <div class="py-16 text-center text-slate-400">
+                <i class="fa-solid fa-file-circle-xmark text-4xl mb-3 block opacity-25"></i>
+                <p class="text-sm font-medium">No applications found.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop Table View -->
+        <div class="hidden sm:block overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="py-3 px-4 rounded-l-lg">App Number</th>
+                        <th class="py-3 px-4">Applicant Name</th>
+                        <th class="py-3 px-4">Gender</th>
+                        <th class="py-3 px-4">Grade</th>
+                        <th class="py-3 px-4">Date Applied</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 rounded-r-lg">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for app in applications %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-4 font-mono text-slate-600 text-xs">{{ app.application_number }}</td>
+                        <td class="py-3 px-4 font-semibold text-slate-800">{{ app.first_name }} {{ app.last_name }}</td>
+                        <td class="py-3 px-4 text-slate-600">{{ app.get_gender_display }}</td>
+                        <td class="py-3 px-4 text-slate-600">Grade {{ app.grade_level }}</td>
+                        <td class="py-3 px-4 text-slate-500">{{ app.created_at|date:"M d, Y" }}</td>
+                        <td class="py-3 px-4">
+                            {% if app.status == 'PENDING' %}
+                            <span class="badge badge-yellow">Pending Review</span>
+                            {% elif app.status == 'ACCEPTED' %}
+                            <span class="badge badge-green">Accepted</span>
+                            {% elif app.status == 'REJECTED' %}
+                            <span class="badge badge-red">Rejected</span>
+                            {% elif app.status == 'REGISTERED' %}
+                            <span class="badge badge-blue">Registered</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            <a href="{% url 'students:review_application' app.id %}"
+                               class="inline-flex items-center gap-1.5 text-brand-600 hover:text-white hover:bg-brand-600 border border-brand-200 hover:border-brand-600 font-bold text-xs px-3 py-1.5 rounded-lg transition">
+                                <i class="fa-solid fa-eye text-[10px]"></i> Review
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-16 text-center text-slate-400">
+                            <i class="fa-solid fa-file-circle-xmark text-4xl mb-3 block opacity-25"></i>
+                            <p class="text-sm font-medium">No applications found.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

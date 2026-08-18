@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% load calendar_tags %}
+
+{% block title %}Log Attendance - {{ section.name }} | {{ active_school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- Top Hero Header -->
+    <div class="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-teal-500/30 flex-shrink-0">
+                    <i class="fa-solid fa-clipboard-user text-white text-3xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Log Attendance</h1>
+                        <span class="bg-teal-500/20 text-teal-300 font-bold text-xs px-3.5 py-1 rounded-full border border-teal-500/30 shadow-sm flex items-center gap-1.5">
+                            <i class="fa-solid fa-layer-group text-teal-400"></i> {{ section.name }} (Grade {{ section.grade.name }})
+                        </span>
+                    </div>
+                    <p class="text-slate-300 text-xs sm:text-sm mt-1.5 flex items-center gap-2">
+                        <span><i class="fa-solid fa-calendar-day text-teal-400"></i> Active Date: <strong class="text-white">{{ date|school_date:active_school }}</strong></span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <a href="?date={{ date|date:'Y-m-d' }}&export=excel" class="bg-emerald-600/40 hover:bg-emerald-600/60 text-emerald-100 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-emerald-500/40 transition flex items-center gap-2 shadow-sm" title="Download Excel (.csv) file">
+                    <i class="fa-solid fa-file-excel text-emerald-300"></i> Export Excel
+                </a>
+                <button type="button" onclick="window.print()" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2" title="Print or Save as PDF Document">
+                    <i class="fa-solid fa-file-pdf text-rose-300"></i> Save PDF / Print
+                </button>
+                <a href="{% url 'attendance:reports' %}" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-4 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie"></i> Reports
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Calendar Navigator Component (Same as Homeroom Portal) -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+                    <i class="fa-regular fa-calendar-check"></i>
+                </div>
+                <div>
+                    <h2 class="font-heading font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        Attendance Calendar Navigator
+                        <div class="inline-flex items-center gap-1.5 bg-teal-50 px-3 py-0.5 rounded-full border border-teal-100 text-xs font-bold text-teal-700">
+                            <a href="?date={{ prev_month_date }}" class="hover:text-teal-900 transition px-1" title="Previous Month">
+                                <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                            </a>
+
+                            <span>{{ eth_month_label }}</span>
+
+                            <a href="?date={{ next_month_date }}" class="hover:text-teal-900 transition px-1" title="Next Month">
+                                <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            </a>
+                        </div>
+                    </h2>
+                    <p class="text-xs text-slate-500">Click any day to view or record attendance. Green badges (<i class="fa-solid fa-check text-emerald-500 text-[10px]"></i>) indicate saved attendance.</p>
+                </div>
+            </div>
+
+            <!-- Direct Date Picker (Eth Popover for EC / Native Input for GC) -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Direct Date:</span>
+                
+                {% if calendar_preference == 'ETHIOPIAN' %}
+                <div class="relative inline-block text-left" 
+                     id="ethDatePickerWrapper"
+                     data-selected-year="{{ selected_eth_year|default:2016 }}"
+                     data-selected-month="{{ selected_eth_month|default:1 }}"
+                     data-selected-day="{{ selected_eth_day|default:0 }}"
+                     data-ay-start="{{ ay_start_str }}"
+                     data-ay-end="{{ ay_end_str }}">
+                    <button type="button" 
+                            onclick="toggleEthCalendarPopover()"
+                            class="bg-slate-900 border border-slate-700 hover:border-cyan-400 text-white rounded-xl text-xs font-extrabold px-3.5 py-2 flex items-center gap-2 shadow-sm transition cursor-pointer">
+                        <i class="fa-solid fa-calendar-days text-cyan-400"></i>
+                        <span>{{ eth_month_name }} {{ selected_eth_day }}, {{ selected_eth_year }} E.C.</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                    </button>
+
+                    <!-- Dark Ethiopian Calendar Popover -->
+                    <div id="ethCalendarPopover" 
+                         class="hidden absolute right-0 mt-2 w-72 bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-700/90 z-50 animate-in fade-in duration-150">
+                        
+                        <!-- Month & Year Control Header -->
+                        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                            <button type="button" onclick="navigateEthMonth(-1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+
+                            <div class="flex items-center gap-1.5">
+                                <select id="ethPopoverMonthSelect" onchange="renderEthPopoverCalendar()" class="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-cyan-400 cursor-pointer">
+                                    {% for m_val, m_name in eth_month_choices %}
+                                    <option value="{{ m_val }}" {% if m_val == selected_eth_month %}selected{% endif %}>{{ m_name }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                <input type="number" id="ethPopoverYearInput" value="{{ selected_eth_year }}" min="1990" max="2100" onchange="renderEthPopoverCalendar()" class="w-16 bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-cyan-400 text-center">
+                            </div>
+
+                            <button type="button" onclick="navigateEthMonth(1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+
+                        <!-- Weekday Headers -->
+                        <div class="grid grid-cols-7 text-center text-[10px] font-bold text-rose-400 mb-2">
+                            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                        </div>
+
+                        <!-- Days Grid -->
+                        <div id="ethPopoverDaysGrid" class="grid grid-cols-7 text-center gap-1 text-xs">
+                            <!-- JS Populates Days -->
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="mt-3 pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
+                            <button type="button" onclick="toggleEthCalendarPopover()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition">
+                                Close
+                            </button>
+                            <span class="text-[10px] text-teal-400 font-bold uppercase">Ethiopian Calendar</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Gregorian Native Date Input -->
+                <form method="get" class="flex items-center gap-2">
+                    <input type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}" 
+                           {% if ay_start_str %}min="{{ ay_start_str }}"{% endif %}
+                           {% if ay_end_str %}max="{{ ay_end_str }}"{% endif %}
+                           class="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-3 py-2 focus:ring-2 focus:ring-teal-500 cursor-pointer shadow-sm"
+                           onchange="this.form.submit()">
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Horizontal Scrollable Calendar Day Tiles -->
+        <div class="overflow-x-auto pb-2 scrollbar-thin">
+            <div class="flex gap-2.5 min-w-max">
+                {% for day in month_days %}
+                <a href="?date={{ day.date_str }}" 
+                   class="group relative flex flex-col items-center justify-between p-3 rounded-2xl w-16 h-20 transition-all duration-200 border text-center cursor-pointer select-none
+                   {% if day.is_selected %}
+                       bg-teal-600 text-white border-teal-600 shadow-md shadow-teal-600/30 scale-105 z-10
+                   {% elif day.is_today %}
+                       bg-teal-50 text-teal-900 border-teal-300 font-bold hover:bg-teal-100
+                   {% else %}
+                       bg-slate-50/80 text-slate-700 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300
+                   {% endif %}">
+                    
+                    <!-- Weekday Header -->
+                    <span class="text-[10px] uppercase font-bold tracking-wider opacity-75">
+                        {{ day.weekday }}
+                    </span>
+
+                    <!-- Day Number -->
+                    <span class="text-lg font-black tracking-tight my-0.5">
+                        {{ day.day_num }}
+                    </span>
+
+                    <!-- Status Indicator -->
+                    <div class="flex items-center justify-center h-4">
+                        {% if day.has_attendance %}
+                            <span class="w-4 h-4 rounded-full {% if day.is_selected %}bg-emerald-400 text-slate-950 ring-2 ring-emerald-300/80{% else %}bg-emerald-500 text-white{% endif %} flex items-center justify-center text-[9px] font-black shadow-sm" title="Attendance Saved">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                        {% else %}
+                            <span class="w-2 h-2 rounded-full {% if day.is_selected %}bg-white/50{% else %}bg-slate-300{% endif %}" title="Pending Attendance"></span>
+                        {% endif %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Form & Interactive Roster Card -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <form method="post" id="sectionAttendanceForm">
+            {% csrf_token %}
+            {{ formset.management_form }}
+
+            <!-- Controls Header -->
+            <div class="p-6 border-b border-slate-100 bg-slate-50/60 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-lg">
+                        <i class="fa-solid fa-users-line"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-heading font-extrabold text-slate-800 text-base">Class Roster ({{ formset|length }} Students)</h2>
+                        <p class="text-xs text-slate-500">Record attendance status & optional absence reason for {{ date|date:'F d, Y' }}.</p>
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <button type="button" onclick="markAllStatus('PRESENT')" class="bg-white border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 text-slate-700 font-bold rounded-xl px-3.5 py-2 text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-check-double text-emerald-600"></i> All Present
+                    </button>
+                    <button type="button" onclick="markAllStatus('ABSENT')" class="bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 hover:text-rose-700 text-slate-700 font-bold rounded-xl px-3.5 py-2 text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-user-xmark text-rose-600"></i> All Absent
+                    </button>
+
+                    <a href="?date={{ date|date:'Y-m-d' }}&export=excel" class="bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 font-bold rounded-xl px-3.5 py-2 text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer" title="Export Excel Spreadsheet">
+                        <i class="fa-solid fa-file-excel text-emerald-600"></i> Excel
+                    </a>
+                    <button type="button" onclick="window.print()" class="bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 font-bold rounded-xl px-3.5 py-2 text-xs transition shadow-sm flex items-center gap-1.5 cursor-pointer" title="Save PDF or Print Document">
+                        <i class="fa-solid fa-file-pdf text-rose-500"></i> PDF / Print
+                    </button>
+                    
+                    <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+                    <button type="submit" class="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold rounded-xl px-5 py-2.5 text-xs transition shadow-md shadow-teal-600/20 flex items-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Attendance
+                    </button>
+                </div>
+            </div>
+
+            <!-- Student Roster Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider border-b border-slate-200/80">
+                        <tr>
+                            <th class="py-4 px-6">Student Information</th>
+                            <th class="py-4 px-6 text-center">Monthly Attendance Record</th>
+                            <th class="py-4 px-6 text-center">Attendance Status</th>
+                            <th class="py-4 px-6">Reason (Optional)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for row in student_rows %}
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <!-- Student Info -->
+                            <td class="py-4 px-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-teal-50 text-teal-700 font-bold flex items-center justify-center text-xs border border-teal-100 flex-shrink-0">
+                                        {{ row.student.first_name|slice:":1" }}{{ row.student.last_name|slice:":1" }}
+                                    </div>
+                                    <div>
+                                        <span class="font-extrabold text-slate-900 text-sm block">{{ row.student.full_name }}</span>
+                                        <span class="text-xs text-slate-400 font-mono">ID: {{ row.student.student_id }}</span>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Monthly Performance Preview (All Data) -->
+                            <td class="py-4 px-6 text-center">
+                                {% if row.monthly_stats %}
+                                    <div class="inline-flex flex-col items-center">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-black text-xs {% if row.monthly_stats.rate >= 85 %}text-emerald-600{% elif row.monthly_stats.rate >= 70 %}text-amber-600{% else %}text-rose-600{% endif %}">
+                                                {{ row.monthly_stats.rate }}%
+                                            </span>
+                                            <span class="text-[11px] text-slate-400 font-medium">({{ row.monthly_stats.present }}/{{ row.monthly_stats.total }} days)</span>
+                                        </div>
+                                        <div class="w-24 bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1">
+                                            <div class="h-full rounded-full progress-fill-bar {% if row.monthly_stats.rate >= 85 %}bg-emerald-500{% elif row.monthly_stats.rate >= 70 %}bg-amber-500{% else %}bg-rose-500{% endif %}" data-width="{{ row.monthly_stats.rate }}"></div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-slate-400 text-xs italic">No prior logs</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Attendance Select/Status -->
+                            <td class="py-4 px-6 text-center">
+                                <div class="max-w-xs mx-auto">
+                                    <select name="status_{{ row.student.id }}" class="attendance-select border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-3 py-2 focus:ring-2 focus:ring-teal-500 w-full shadow-sm cursor-pointer">
+                                        {% for val, label in attendance_status_choices %}
+                                            <option value="{{ val }}" {% if row.status == val %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </td>
+
+                            <!-- Reason Input -->
+                            <td class="py-4 px-6">
+                                <div class="max-w-sm">
+                                    <input type="text" name="reason_{{ row.student.id }}" value="{{ row.reason }}" placeholder="Optional reason..." class="border border-slate-200 text-slate-800 text-xs font-medium rounded-xl px-3 py-2 focus:ring-2 focus:ring-teal-500 w-full shadow-sm">
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="py-12 text-center text-slate-400">
+                                <i class="fa-solid fa-user-slash text-3xl mb-2 text-slate-300"></i>
+                                <p class="text-xs font-semibold">No active students enrolled in this section for the active academic year.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Bottom Action Footer -->
+            <div class="px-6 py-4 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs text-slate-500 font-medium">
+                    <i class="fa-solid fa-shield-halved text-teal-600 mr-1"></i> Data saved here automatically updates section reports & student report cards.
+                </span>
+                <button type="submit" class="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold rounded-xl px-6 py-2.5 text-xs transition shadow-md shadow-teal-600/20 inline-flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-check-double"></i> Save Attendance Records
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<script>
+    function markAllStatus(statusValue) {
+        const selects = document.querySelectorAll('select.attendance-select');
+        selects.forEach(select => {
+            select.value = statusValue;
+        });
+    }
+
+    // Ethiopian Calendar Popover Functions
+    function ethiopianToGregorianJS(ethYear, ethMonth, ethDay) {
+        let n = 30 * (ethMonth - 1) + ethDay - 1;
+        let r = (ethMonth === 13 && ethDay === 6) ? 1460 : ((ethYear % 4) * 365 + n);
+        let c = Math.floor((ethYear - Math.floor(r / 365) + Math.floor(r / 1460)) / 4);
+        let ord_val = 2796 + 1461 * c + r;
+        let d = new Date(Date.UTC(1970, 0, 1));
+        d.setUTCDate(d.getUTCDate() + (ord_val - 719163));
+        let y = d.getUTCFullYear();
+        let m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        let day = String(d.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    const ethWrapElement = document.getElementById('ethDatePickerWrapper');
+    let currentEthYear = ethWrapElement ? parseInt(ethWrapElement.dataset.selectedYear || '2016', 10) : 2016;
+    let currentEthMonth = ethWrapElement ? parseInt(ethWrapElement.dataset.selectedMonth || '1', 10) : 1;
+    let targetEthYear = currentEthYear;
+    let targetEthMonth = currentEthMonth;
+    let targetEthDay = ethWrapElement ? parseInt(ethWrapElement.dataset.selectedDay || '0', 10) : 0;
+    let ayStartStr = ethWrapElement ? (ethWrapElement.dataset.ayStart || '') : '';
+    let ayEndStr = ethWrapElement ? (ethWrapElement.dataset.ayEnd || '') : '';
+
+    function toggleEthCalendarPopover() {
+        const pop = document.getElementById('ethCalendarPopover');
+        if (pop) {
+            pop.classList.toggle('hidden');
+            if (!pop.classList.contains('hidden')) {
+                renderEthPopoverCalendar();
+            }
+        }
+    }
+
+    function navigateEthMonth(delta) {
+        currentEthMonth += delta;
+        if (currentEthMonth > 13) {
+            currentEthMonth = 1;
+            currentEthYear++;
+        } else if (currentEthMonth < 1) {
+            currentEthMonth = 13;
+            currentEthYear--;
+        }
+        const mSel = document.getElementById('ethPopoverMonthSelect');
+        const yInp = document.getElementById('ethPopoverYearInput');
+        if (mSel) mSel.value = currentEthMonth;
+        if (yInp) yInp.value = currentEthYear;
+        renderEthPopoverCalendar();
+    }
+
+    function renderEthPopoverCalendar() {
+        const mSel = document.getElementById('ethPopoverMonthSelect');
+        const yInp = document.getElementById('ethPopoverYearInput');
+        if (mSel) currentEthMonth = parseInt(mSel.value, 10);
+        if (yInp) currentEthYear = parseInt(yInp.value, 10);
+
+        const grid = document.getElementById('ethPopoverDaysGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        let firstGregStr = ethiopianToGregorianJS(currentEthYear, currentEthMonth, 1);
+        let parts = firstGregStr.split('-');
+        let firstGregDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+        let startDayOfWeek = firstGregDate.getUTCDay();
+
+        let numDays = (currentEthMonth === 13) ? ((currentEthYear % 4 === 3) ? 6 : 5) : 30;
+
+        for (let i = 0; i < startDayOfWeek; i++) {
+            let blank = document.createElement('div');
+            blank.className = 'py-1 text-slate-700 font-mono text-center';
+            blank.innerText = '';
+            grid.appendChild(blank);
+        }
+
+        for (let d = 1; d <= numDays; d++) {
+            let gregIso = ethiopianToGregorianJS(currentEthYear, currentEthMonth, d);
+            let btn = document.createElement('button');
+            btn.type = 'button';
+
+            let isSelected = (currentEthYear === targetEthYear && currentEthMonth === targetEthMonth && d === targetEthDay);
+            
+            let isWithinAy = true;
+            if (ayStartStr && gregIso < ayStartStr) isWithinAy = false;
+            if (ayEndStr && gregIso > ayEndStr) isWithinAy = false;
+
+            let baseClasses = 'py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ';
+            if (isSelected) {
+                baseClasses += 'bg-cyan-500 text-slate-950 font-black ring-2 ring-cyan-300 shadow-md ';
+            } else if (!isWithinAy) {
+                baseClasses += 'text-slate-600 opacity-40 cursor-not-allowed ';
+            } else {
+                baseClasses += 'text-slate-200 hover:bg-slate-800 hover:text-white ';
+            }
+
+            btn.className = baseClasses;
+            btn.innerText = d;
+
+            if (isWithinAy) {
+                btn.onclick = function() {
+                    window.location.href = '?date=' + gregIso;
+                };
+            }
+
+            grid.appendChild(btn);
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('ethDatePickerWrapper');
+        const pop = document.getElementById('ethCalendarPopover');
+        if (wrap && pop && !wrap.contains(e.target) && !pop.classList.contains('hidden')) {
+            pop.classList.add('hidden');
+        }
+    });
+
+    document.querySelectorAll('.progress-fill-bar').forEach(function(el) {
+        if (el.dataset.width) {
+            el.style.width = el.dataset.width + '%';
+        }
+    });
+</script>
+{% endblock %}

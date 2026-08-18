@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+{% block title %}Parent & Guardian Portal — EthioSchool SaaS{% endblock %}
+
+{% block content %}
+<div class="space-y-6 pb-10">
+
+    <!-- ── Header ── -->
+    <div class="glass-dark text-white rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden group">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-brand-500/20 rounded-full blur-3xl pointer-events-none group-hover:bg-brand-500/30 transition"></div>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center font-extrabold text-white text-2xl shadow-lg shadow-amber-500/30 flex-shrink-0 border border-amber-400/30">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+                <div>
+                    <p class="text-[10px] text-brand-300 uppercase tracking-widest font-bold mb-1">Guardian Portal</p>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-white font-heading tracking-tight">
+                        {{ user.get_full_name|default:user.username }}
+                    </h1>
+                    <p class="text-xs text-slate-300 mt-1">
+                        {% if parent and parent.phone %}
+                        <i class="fa-solid fa-phone text-xs mr-1 text-slate-400"></i>{{ parent.phone }}
+                        {% else %}
+                        <i class="fa-solid fa-users text-xs mr-1 text-slate-400"></i>Parent / Guardian Account
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="glass border border-emerald-500/30 text-emerald-300 px-3 py-1.5 rounded-full text-xs font-bold">
+                    <i class="fa-solid fa-children mr-1"></i>{{ child_summaries|length }} Child{% if child_summaries|length != 1 %}ren{% endif %} Linked
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parent Quick Apps Grid -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-extrabold text-slate-800 font-heading uppercase tracking-wider">Parent Communication & School Hubs</h3>
+            <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200/60">Quick Access</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <a href="/messaging/inbox/" class="group p-3.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition flex-shrink-0">
+                    <i class="fa-solid fa-comments"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-bold text-slate-800 group-hover:text-emerald-700 block">Message Teachers</span>
+                    <span class="text-[10px] text-slate-400">Direct Communication</span>
+                </div>
+            </a>
+            <a href="/calendar/" class="group p-3.5 bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/80 hover:border-indigo-300 rounded-xl transition flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-sm shadow-md shadow-indigo-500/20 group-hover:scale-110 transition flex-shrink-0">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-bold text-slate-800 group-hover:text-indigo-700 block">School Calendar</span>
+                    <span class="text-[10px] text-slate-400">Exams & Events</span>
+                </div>
+            </a>
+            <a href="/library/" class="group p-3.5 bg-slate-50 hover:bg-sky-50/60 border border-slate-200/80 hover:border-sky-300 rounded-xl transition flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-sm shadow-md shadow-sky-500/20 group-hover:scale-110 transition flex-shrink-0">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-bold text-slate-800 group-hover:text-sky-700 block">Library Catalog</span>
+                    <span class="text-[10px] text-slate-400">Search Books</span>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Children Academic Summaries ── -->
+    {% if child_summaries %}
+    <div class="space-y-6">
+        {% for cs in child_summaries %}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
+            <!-- Child Header -->
+            <div class="bg-gradient-to-r from-slate-50 to-brand-50 px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-brand-500 flex items-center justify-center font-bold text-white text-base shadow flex-shrink-0">
+                        {{ cs.student.full_name|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <h2 class="text-base font-extrabold text-slate-900 font-heading">{{ cs.student.full_name }}</h2>
+                        <p class="text-xs text-slate-500 font-mono">ID: {{ cs.student.student_id }}</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs" x-data="{ openSem: false }">
+                    <span class="badge {% if cs.att_pct >= 80 %}badge-green{% elif cs.att_pct >= 60 %}badge-yellow{% else %}badge-red{% endif %}">
+                        <i class="fa-solid fa-calendar-check mr-1"></i>Attendance: {{ cs.att_pct }}%
+                    </span>
+                    <span class="badge badge-blue">
+                        <i class="fa-solid fa-book mr-1"></i>{{ cs.marks.count }} Results
+                    </span>
+
+                    <!-- Report Card Dropdown -->
+                    <div class="relative inline-block text-left">
+                        <button @click="openSem = !openSem" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition flex items-center gap-1">
+                            <i class="fa-solid fa-file-pdf"></i> Report Card <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                        </button>
+                        <div x-show="openSem" @click.outside="openSem = false" x-transition class="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs space-y-0.5" style="display: none;">
+                            <a href="{% url 'download_report_card_pdf' cs.student.id '1st-semester' %}" class="block px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">
+                                <i class="fa-solid fa-file-lines text-emerald-600 mr-1.5"></i> 1st Semester Report Card
+                            </a>
+                            <a href="{% url 'download_report_card_pdf' cs.student.id '2nd-semester' %}" class="block px-3 py-1.5 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">
+                                <i class="fa-solid fa-file-lines text-emerald-600 mr-1.5"></i> 2nd Semester Report Card
+                            </a>
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <a href="{% url 'download_report_card_pdf' cs.student.id 'annual' %}" class="block px-3 py-1.5 text-brand-700 font-bold hover:bg-brand-50">
+                                <i class="fa-solid fa-award text-brand-600 mr-1.5"></i> Annual (Avg of 2 Semesters)
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Results -->
+            {% if cs.marks %}
+            <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/30">
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-4">
+                    <i class="fa-solid fa-chart-line text-brand-500 mr-1.5"></i>Academic Results
+                </h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-100/50 text-slate-500 uppercase tracking-wider text-xs font-bold border-b border-slate-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left">Subject</th>
+                                <th class="px-4 py-3 text-left">Score</th>
+                                <th class="px-4 py-3 text-left">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for m in cs.marks %}
+                            <tr class="hover:bg-slate-50/50 transition">
+                                <td class="px-4 py-3 font-bold text-slate-800">{{ m.assessment_component.subject.name|default:"—" }}</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-baseline gap-1">
+                                        <span class="font-extrabold font-mono text-brand-600 text-base">{{ m.mark_value|default:"—" }}</span>
+                                        <span class="font-mono text-slate-400 text-xs">/ {{ m.assessment_component.max_marks|default:"100" }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="badge badge-green">{{ m.get_status_display }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Fee Invoices & Records -->
+            <div class="px-6 py-4">
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
+                    <i class="fa-solid fa-file-invoice-dollar text-emerald-500 mr-1.5"></i>Fee Invoices & Records
+                </h4>
+                <div class="space-y-2">
+                    {% for inv in cs.invoices %}
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-emerald-300 transition">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="font-bold text-slate-900 text-sm">{{ inv.invoice_number }}</p>
+                                <span class="badge {% if inv.status == 'PAID' %}badge-green{% elif inv.status == 'OVERDUE' %}badge-red{% else %}badge-yellow{% endif %}">
+                                    {{ inv.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-4 mt-1 text-xs text-slate-500">
+                                <span>Total: <strong class="text-slate-800 font-mono">{{ inv.total_amount }} ETB</strong></span>
+                                <span>Balance: <strong class="{% if inv.remaining_balance > 0 %}text-red-600{% else %}text-emerald-600{% endif %} font-mono">{{ inv.remaining_balance }} ETB</strong></span>
+                                <span>Due: <strong class="text-slate-700">{{ inv.due_date }}</strong></span>
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0">
+                            {% if inv.remaining_balance > 0 %}
+                            <span class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-800 font-bold px-3.5 py-2 rounded-xl text-xs">
+                                <i class="fa-solid fa-building-columns text-amber-600"></i> Pay at School Finance
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 font-bold px-4 py-2 rounded-xl text-xs">
+                                <i class="fa-solid fa-circle-check"></i> Fully Settled
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="p-4 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-inbox text-2xl text-slate-300 mb-1 block"></i>
+                        No active invoices for {{ cs.student.full_name }}.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- No linked children -->
+    <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+        <i class="fa-solid fa-user-slash text-4xl text-slate-300 mb-4"></i>
+        <h3 class="text-lg font-bold text-slate-600 font-heading">No Students Linked</h3>
+        <p class="text-sm text-slate-400 mt-2">No student profiles are linked to this parent account yet.<br>Please contact the school admin to link your children.</p>
+    </div>
+    {% endif %}
+
+    <!-- ── School Events Calendar ── -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <h3 class="text-sm font-bold text-slate-900 font-heading">
+                <i class="fa-solid fa-calendar-days text-amber-500 mr-2"></i>School Calendar & Upcoming Events
+            </h3>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+            {% for evt in school_events %}
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-brand-300 transition">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <p class="font-semibold text-slate-900 text-sm leading-tight">{{ evt.title }}</p>
+                    <span class="badge badge-blue flex-shrink-0">{{ evt.get_event_type_display }}</span>
+                </div>
+                <p class="text-[10px] text-slate-400 font-mono">
+                    <i class="fa-solid fa-calendar mr-1"></i>
+                    {{ evt.start_date }}{% if evt.end_date != evt.start_date %} – {{ evt.end_date }}{% endif %}
+                </p>
+            </div>
+            {% empty %}
+            <div class="col-span-3 py-6 text-center text-slate-400 text-sm">
+                No upcoming school events scheduled.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

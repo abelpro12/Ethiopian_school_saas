@@ -1,0 +1,1170 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Ethiopian School Management SaaS — Multi-Tenant Enterprise Platform">
+    <meta name="calendar-preference" content="{{ calendar_preference|default:'ETHIOPIAN' }}">
+    <!-- PWA Web App Manifest & Mobile Meta -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <title>{% block title %}EthioSchool SaaS{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#EEF2FF', 100: '#E0E7FF', 200: '#C7D2FE',
+                            300: '#A5B4FC', 400: '#818CF8', 500: '#6366F1',
+                            600: '#4F46E5', 700: '#4338CA', 800: '#3730A3',
+                            900: '#312E81', 950: '#1e1b4b',
+                        },
+                        eth: { green: '#009B48', yellow: '#FFD100', red: '#EF2126' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; }
+        h1,h2,h3,h4,h5,h6,.font-heading { font-family: 'Outfit', sans-serif; }
+
+        /* Prevent body horizontal scroll */
+        html, body { max-width: 100%; overflow-x: hidden; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #818cf8; }
+        #sidebar::-webkit-scrollbar-track { background: #0f172a; }
+        #sidebar::-webkit-scrollbar-thumb { background: #334155; }
+
+        /* Nav items */
+        .nav-active { background: linear-gradient(135deg, #4F46E5, #6366F1) !important; color: #fff !important; box-shadow: 0 4px 15px rgba(79,70,229,0.35); }
+        .nav-active i { color: #fff !important; }
+
+        .nav-link { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:10px; font-size:13px; font-weight:500; color:#94a3b8; transition:all .2s ease; white-space:nowrap; min-height: 44px; }
+        .nav-link:hover { background:rgba(30,41,59,0.8); color:#f1f5f9; transform:translateX(2px); }
+        .nav-link:hover i { color:#818cf8; }
+        .nav-link i { width:18px; text-align:center; font-size:13px; color:#475569; transition:color .2s; flex-shrink:0; }
+
+        /* Glass card & Dark Glass */
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(241, 245, 249, 0.8); }
+        .glass-dark { background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 27, 75, 0.92) 50%, rgba(15, 23, 42, 0.96) 100%); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.12); }
+        .glass-stat-dark { background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-stat-dark:hover { background: rgba(30, 41, 59, 0.75); border-color: rgba(165, 180, 252, 0.3); }
+
+        /* Standardized Components */
+        .btn-primary { background: linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #4338CA 100%); color: white; font-weight: 700; padding: 0.625rem 1.25rem; border-radius: 0.875rem; box-shadow: 0 4px 18px 0 rgba(79, 70, 229, 0.4); transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 44px; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(79, 70, 229, 0.5); }
+        .btn-primary:active { transform: translateY(0) scale(0.98); }
+
+        .btn-secondary { background: #ffffff; color: #0f172a; font-weight: 600; padding: 0.625rem 1rem; border-radius: 0.875rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.04); transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 44px; }
+        .btn-secondary:hover { background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06); }
+        .btn-secondary:active { transform: translateY(0) scale(0.98); }
+
+        .input-field { width: 100%; padding: 0.625rem 0.875rem; border-radius: 0.875rem; border: 1px solid #e2e8f0; background: #ffffff; transition: all 0.2s; outline: none; font-size: 0.875rem; min-height: 44px; }
+        .input-field:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12); }
+
+        /* Stat card */
+        .stat-card { transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow .25s ease, border-color .25s ease; }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -10px rgba(0,0,0,0.12), 0 10px 20px -5px rgba(0,0,0,0.06); }
+
+        /* Alerts */
+        @keyframes slideIn { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+        .alert-msg { animation: slideIn .3s ease; }
+
+        /* Modal - Mobile safe */
+        .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); z-index:50; display:flex; align-items:center; justify-content:center; padding:12px; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.95) translateY(10px); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); width: 100%; max-height: 92vh; overflow-y: auto; }
+        .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
+
+        /* Ethiopian flag stripe */
+        .eth-stripe { height:3px; background:linear-gradient(to right, #009B48 33.3%, #FFD100 33.3% 66.6%, #EF2126 66.6%); }
+
+        /* Table hover & styling */
+        tbody tr { transition: all .18s ease; }
+        tbody tr:hover { background: rgba(248, 250, 252, 0.9); }
+
+        /* Responsive Table Wrapper */
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+        /* Badges */
+        .badge { display:inline-flex; align-items:center; gap: 4px; padding:3px 12px; border-radius:9999px; font-size:11px; font-weight:700; letter-spacing:0.02em; white-space:nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .badge-green { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-red { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        .badge-yellow { background: #fef9c3; color: #a16207; border: 1px solid #fef08a; }
+        .badge-blue { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .badge-purple { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+        .badge-gray { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .badge-orange { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+        .badge-teal { background: #ccfbf1; color: #0f766e; border: 1px solid #99f6e4; }
+
+        /* Sidebar layout */
+        #sidebar { width:260px; min-width:260px; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+        /* Mobile sidebar overlay */
+        #sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index:39; opacity:0; transition:opacity .4s ease; }
+        #sidebar-overlay.active { display:block; opacity:1; }
+
+        @media (max-width: 1023px) {
+            #sidebar {
+                position: fixed; left:0; top:0; height:100vh; z-index:40;
+                transform: translateX(-100%);
+            }
+            #sidebar.open { transform: translateX(0); }
+        }
+
+        /* Responsive typography */
+        @media (max-width: 640px) {
+            .stat-card h2 { font-size: 1.5rem !important; }
+            .stat-card { padding: 14px !important; }
+            /* Mobile touch targets - all interactive elements min 44px */
+            button, a, select, input[type=checkbox], input[type=radio] { min-height: 36px; }
+            input, select, textarea { font-size: 16px !important; } /* Prevents iOS auto-zoom */
+        }
+
+        /* Smooth page transitions */
+        main { scroll-behavior: smooth; }
+
+        /* Section label */
+        .nav-section { padding:8px 12px 4px; font-size:10px; font-weight:800; color:#475569; letter-spacing:0.1em; text-transform:uppercase; margin-top: 1rem; }
+
+        /* Form select/input minimum touch size */
+        select, input[type="text"], input[type="email"], input[type="password"],
+        input[type="number"], input[type="date"], input[type="search"], textarea {
+            min-height: 42px;
+        }
+
+        /* Card hover lift */
+        .card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+
+        /* Dynamic Portal Theme for all schools */
+        .eth-stripe { background: linear-gradient(to right, #2563eb 50%, #f97316 50%) !important; }
+        .nav-active { background: linear-gradient(135deg, #2563eb, #3b82f6) !important; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4) !important; }
+        .nav-link:hover i { color: #3b82f6 !important; }
+        .btn-primary { background: linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #1d4ed8 100%) !important; box-shadow: 0 4px 18px 0 rgba(37, 99, 235, 0.4) !important; }
+
+        /* Mobile action button row */
+        .mobile-action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mobile-action-row > * { flex: 1; min-width: 120px; }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full bg-slate-50 text-slate-800 antialiased flex overflow-hidden seattle-theme">
+
+
+{% if user.is_authenticated %}
+<!-- ═══════════════ MOBILE OVERLAY ═══════════════ -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<aside id="sidebar" class="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 flex flex-col flex-shrink-0 overflow-y-auto shadow-2xl">
+    <div class="eth-stripe"></div>
+
+    <!-- Logo & Close Button (mobile) -->
+    <div class="h-16 flex items-center px-5 border-b border-slate-800/60 gap-3 justify-between">
+        <div class="flex items-center gap-3">
+            {% if active_school and active_school.logo %}
+            <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg shadow-blue-600/30 flex-shrink-0 border border-slate-700/50 overflow-hidden">
+                <img src="{{ active_school.logo.url }}" alt="School Logo" class="w-full h-full object-contain">
+            </div>
+            {% elif user.school and user.school.logo %}
+            <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg shadow-blue-600/30 flex-shrink-0 border border-slate-700/50 overflow-hidden">
+                <img src="{{ user.school.logo.url }}" alt="School Logo" class="w-full h-full object-contain">
+            </div>
+            {% elif active_school and active_school.code == 'SEA' or active_school and active_school.code == 'SEATTLE' or user.school and user.school.code == 'SEA' or user.school and user.school.code == 'SEATTLE' %}
+            <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg shadow-blue-600/30 flex-shrink-0 border border-slate-700/50 overflow-hidden">
+                <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Logo" class="w-full h-full object-contain">
+            </div>
+            {% else %}
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center shadow-lg shadow-brand-600/30 flex-shrink-0">
+                <i class="fa-solid fa-graduation-cap text-white text-sm"></i>
+            </div>
+            {% endif %}
+
+            <div class="overflow-hidden">
+                <p class="font-heading font-extrabold text-white text-sm leading-tight truncate">
+                    {% if active_school %}{{ active_school.name }}{% elif user.school %}{{ user.school.name }}{% else %}EthioSchool SaaS{% endif %}
+                </p>
+                <p class="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Portal System</p>
+            </div>
+        </div>
+
+        <!-- Close button (mobile only) -->
+        <button onclick="closeSidebar()" class="lg:hidden w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+    </div>
+
+
+    <!-- School Badge -->
+    <div class="mx-3 mt-3 mb-1 bg-gradient-to-r from-slate-800/80 to-slate-800/40 rounded-xl p-3 border border-slate-700/30">
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Active Tenant</p>
+        <p class="text-xs font-bold text-white truncate leading-snug">{% if active_school %}{{ active_school.name }}{% else %}Platform Core{% endif %}</p>
+        {% if active_school %}
+        <span class="text-[10px] font-mono font-bold text-emerald-400">{{ active_school.code }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 px-3 py-3 space-y-0.5 text-xs overflow-y-auto">
+        <a href="{% url 'index' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-gauge-high"></i><span>Dashboard</span>
+        </a>
+
+        {% if request.user.role == 'SUPER_ADMIN' and not active_school %}
+        <div class="nav-section mt-2">Platform Management</div>
+        <a href="{% url 'platform:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-server w-5 text-center"></i><span>Platform Dashboard</span>
+        </a>
+        <a href="{% url 'platform:school_list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-school w-5 text-center"></i><span>Schools & Tenants</span>
+        </a>
+        <a href="{% url 'platform:subscription_management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-gift w-5 text-center"></i><span>Subscriptions & Free Trials</span>
+        </a>
+        {% endif %}
+
+        {% if request.user.role != 'SUPER_ADMIN' or active_school %}
+        
+        {# === 1. SCHOOL ADMIN, PRINCIPAL & REGISTRAR (Full Administrative & Records Hub) === #}
+        {% if user.role == 'SCHOOL_ADMIN' or user.role == 'PRINCIPAL' or user.role == 'REGISTRAR' or user.is_superuser or user.role == 'SUPER_ADMIN' %}
+        <div class="nav-section mt-2">School Administration</div>
+        <a href="{% url 'admin_dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-building-columns text-brand-400"></i><span>School Admin Hub</span>
+        </a>
+        <a href="{% url 'user_management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-shield text-brand-400"></i><span>User Management</span>
+        </a>
+        <a href="{% url 'id_card_generator' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-id-card text-purple-400"></i><span>ID Cards & QR Studio</span>
+        </a>
+        <a href="{% url 'manage_news' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-newspaper text-blue-400"></i><span>Website News</span>
+        </a>
+        <a href="{% url 'manage_gallery' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-images text-orange-400"></i><span>Website Gallery</span>
+        </a>
+        <a href="{% url 'manage_contact_messages' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-inbox text-emerald-400"></i><span>Contact Messages</span>
+        </a>
+
+        <div class="nav-section mt-3">Academic Management</div>
+        <a href="{% url 'academics:config' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calendar-days text-brand-400"></i><span>Academics Config</span>
+        </a>
+        <a href="{% url 'timetable:manage' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-clock text-brand-400"></i><span>Timetable Config</span>
+        </a>
+        <a href="{% url 'assessments:components' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-list-check text-brand-400"></i><span>Assessments Config</span>
+        </a>
+        <a href="{% url 'assessments:review' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-check-double text-emerald-400"></i><span>Review Marks</span>
+        </a>
+        <a href="{% url 'assessments:report_cards' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-file-signature text-amber-400"></i><span>Report Cards</span>
+        </a>
+        <a href="{% url 'assessments:period_close' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-flag-checkered text-violet-400"></i><span>Semester Close</span>
+        </a>
+        <a href="{% url 'assessments:annual_dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-rotate text-emerald-400"></i><span>Annual Promotion Engine</span>
+        </a>
+        <a href="/reports/moe/" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-chart-column text-indigo-400"></i><span>MoE Statistics</span>
+        </a>
+
+        <div class="nav-section mt-3">Students & Admissions</div>
+        <a href="{% url 'students:admissions' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-plus text-brand-400"></i><span>Admissions</span>
+        </a>
+        <a href="{% url 'students:bulk_import' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-file-csv text-emerald-400"></i><span>Bulk Student Import</span>
+        </a>
+        <a href="{% url 'students:lifecycle' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-graduate text-amber-400"></i><span>Student Directory & Alumni</span>
+        </a>
+        <a href="{% url 'enrollment:promote_students' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-graduation-cap text-indigo-400"></i><span>Enrollment & Promotion</span>
+        </a>
+        <a href="{% url 'students:at_risk' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400"></i><span>At-Risk Students</span>
+        </a>
+        <a href="{% url 'discipline:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-gavel text-red-400"></i><span>Discipline Incidents</span>
+        </a>
+        <a href="{% url 'attendance:reports' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-clipboard-user text-teal-400"></i><span>Attendance Reports</span>
+        </a>
+
+        <div class="nav-section mt-3">Operations & Finance</div>
+        <a href="{% url 'teachers:management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-chalkboard-user text-brand-400"></i><span>Teachers & Staff</span>
+        </a>
+        <a href="{% url 'hr:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calculator text-indigo-400"></i><span>HR & Payroll</span>
+        </a>
+        <a href="{% url 'attendance:staff_attendance' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-clock text-blue-400"></i><span>Staff Attendance</span>
+        </a>
+        <a href="{% url 'finance:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-wallet text-emerald-400"></i><span>Financial Management</span>
+        </a>
+        <a href="{% url 'library:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library Dashboard</span>
+        </a>
+        {% endif %}
+
+        {# === 3. ACCOUNTANT (Billing, Invoices, Fees, Payments) === #}
+        {% if user.role == 'ACCOUNTANT' %}
+        <div class="nav-section mt-2">Financial Control</div>
+        <a href="{% url 'finance:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-wallet text-emerald-400"></i><span>Finance Dashboard</span>
+        </a>
+        <a href="{% url 'finance:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-tags text-indigo-400"></i><span>Fee Structures & Tariffs</span>
+        </a>
+        <a href="{% url 'finance:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-file-invoice-dollar text-brand-400"></i><span>Student Invoices</span>
+        </a>
+        <a href="{% url 'students:lifecycle' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-users text-amber-400"></i><span>Student Directory</span>
+        </a>
+        <a href="{% url 'hr:payroll_list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-money-check-dollar text-teal-400"></i><span>Payroll Disbursals</span>
+        </a>
+        {% endif %}
+
+        {# === 4. HR MANAGER (Staff, Contracts, Leaves, Payroll) === #}
+        {% if user.role == 'HR_MANAGER' %}
+        <div class="nav-section mt-2">Human Resources</div>
+        <a href="{% url 'hr:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calculator text-indigo-400"></i><span>HR & Payroll Dashboard</span>
+        </a>
+        <a href="{% url 'teachers:management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-chalkboard-user text-brand-400"></i><span>Teachers & Staff Roster</span>
+        </a>
+        <a href="{% url 'hr:contracts' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-file-contract text-emerald-400"></i><span>Staff Contracts</span>
+        </a>
+        <a href="{% url 'hr:payroll_list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-money-bill-wave text-teal-400"></i><span>Payroll Periods</span>
+        </a>
+        <a href="{% url 'attendance:staff_attendance' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-clock text-blue-400"></i><span>Staff Attendance</span>
+        </a>
+        <a href="{% url 'hr:performance' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-star text-amber-400"></i><span>Performance Reviews</span>
+        </a>
+        {% endif %}
+
+        {# === 5. LIBRARIAN === #}
+        {% if user.role == 'LIBRARIAN' %}
+        <div class="nav-section mt-2">Library Control</div>
+        <a href="{% url 'library:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-bookmark text-sky-400"></i><span>Borrow & Return Control</span>
+        </a>
+        <a href="{% url 'library:catalog' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Book Catalog</span>
+        </a>
+        <a href="{% url 'library:add_book' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-circle-plus text-emerald-400"></i><span>Add New Book</span>
+        </a>
+        {% endif %}
+
+        {# === 6. TEACHER === #}
+        {% if user.role == 'TEACHER' %}
+        <div class="nav-section mt-2">Teaching</div>
+        <a href="{% url 'teachers:subjects' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open text-brand-400"></i><span>My Subjects</span>
+        </a>
+        <a href="{% url 'assessments:mark_entry' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-clipboard-check text-indigo-400"></i><span>Gradebook</span>
+        </a>
+        <a href="{% url 'teachers:homeroom' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-users-rectangle text-brand-400"></i><span>Homeroom Portal</span>
+        </a>
+        <a href="{% url 'attendance:tutorial_attendance' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-graduation-cap text-purple-400"></i><span>Tutorial Attendance</span>
+        </a>
+        <a href="{% url 'homework:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-pen-to-square text-amber-400"></i><span>Homework</span>
+        </a>
+        <a href="{% url 'discipline:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-triangle-exclamation text-red-400"></i><span>Discipline</span>
+        </a>
+        <a href="{% url 'attendance:reports' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-clipboard-user text-teal-400"></i><span>Attendance Reports</span>
+        </a>
+        <a href="{% url 'library:catalog' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library Catalog</span>
+        </a>
+        {% endif %}
+
+        {# === 7. PARENT / GUARDIAN === #}
+        {% if user.role == 'PARENT' %}
+        <div class="nav-section mt-2">Guardian</div>
+        <a href="{% url 'parent_portal' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-users-between-lines text-amber-400"></i><span>Parent Portal</span>
+        </a>
+        <a href="{% url 'library:catalog' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library Catalog</span>
+        </a>
+        {% endif %}
+
+        {# === 8. STUDENT === #}
+        {% if user.role == 'STUDENT' %}
+        <div class="nav-section mt-2">My Academics</div>
+        <a href="{% url 'student_portal' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-graduate text-indigo-400"></i><span>My Academic Portal</span>
+        </a>
+        <a href="/homework/" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-pen-to-square text-amber-400"></i><span>My Homework</span>
+        </a>
+        <a href="{% url 'library:catalog' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library Catalog</span>
+        </a>
+        {% endif %}
+
+        <!-- Available to all roles in school context -->
+        <div class="nav-section mt-3">Communication</div>
+        <a href="/messaging/inbox/" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-comments text-emerald-400"></i><span>Messages</span>
+        </a>
+        <a href="/library/" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library</span>
+        </a>
+        <a href="/calendar/" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calendar-days text-amber-400"></i><span>School Calendar</span>
+        </a>
+
+        <div class="nav-section mt-3">Tools</div>
+        <button type="button" onclick="openSearchModal()" class="nav-link w-full text-left cursor-pointer flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-magnifying-glass text-slate-500"></i>
+                <span>Centralized Search</span>
+            </div>
+            <kbd class="text-[9px] bg-slate-800 border border-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-mono hidden sm:inline">⌘K</kbd>
+        </button>
+        {% endif %}
+        <!-- End of school operational links -->
+
+        {% if request.user.role == 'SUPER_ADMIN' and not active_school %}
+        <div class="nav-section mt-3">System Tools</div>
+        {% endif %}
+        
+        <a href="{% url 'health_check' %}" class="nav-link" target="_blank" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-heart-pulse text-emerald-400"></i><span>System Health</span>
+        </a>
+    </nav>
+
+    <!-- User Card -->
+    <div class="border-t border-slate-800/60 p-3.5 flex items-center gap-2.5 bg-slate-950/60">
+        <button type="button" onclick="openModal('myProfileModal')" class="flex-1 flex items-center gap-2.5 min-w-0 text-left hover:opacity-90 transition group cursor-pointer" title="Edit My Account Username & Password">
+            <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-600 to-purple-600 flex items-center justify-center font-bold text-white text-xs flex-shrink-0 shadow-md shadow-brand-600/20 group-hover:scale-105 transition">
+                {{ user.username|slice:":1"|upper }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-xs font-bold text-white truncate flex items-center gap-1">
+                    {{ user.get_full_name|default:user.username }}
+                    <i class="fa-solid fa-gear text-[10px] text-slate-400 group-hover:text-brand-300"></i>
+                </p>
+                <p class="text-[10px] text-slate-500 truncate">{{ user.get_role_display }}</p>
+            </div>
+        </button>
+        <a href="{% url 'logout' %}" title="Sign Out" class="text-slate-500 hover:text-red-400 transition p-2 rounded-lg hover:bg-slate-800 flex-shrink-0">
+            <i class="fa-solid fa-right-from-bracket text-sm"></i>
+        </a>
+    </div>
+</aside>
+{% endif %}
+
+<!-- ═══════════════ MAIN AREA ═══════════════ -->
+<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+    {% if user.is_authenticated %}
+    <!-- Top Bar -->
+    <header class="h-14 bg-white/80 backdrop-blur-xl border-b border-slate-200/60 px-4 sm:px-6 flex items-center justify-between flex-shrink-0 z-20 shadow-sm">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Mobile sidebar toggle -->
+            <button class="lg:hidden text-slate-600 hover:text-brand-600 p-2 rounded-xl hover:bg-brand-50 transition" onclick="toggleSidebar()" aria-label="Toggle menu">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <!-- Mobile logo -->
+            <div class="lg:hidden flex items-center gap-1.5 sm:gap-2">
+                <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-brand-600 to-purple-600 flex items-center justify-center shadow flex-shrink-0">
+                    <i class="fa-solid fa-graduation-cap text-white text-[10px]"></i>
+                </div>
+                <span class="font-heading font-extrabold text-slate-900 text-sm hidden sm:block">EthioSchool</span>
+            </div>
+            <!-- Global Search Button (Mobile & Desktop) -->
+            <button type="button" onclick="openSearchModal()"
+                class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-500 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs border border-slate-200 transition w-36 sm:w-72 cursor-pointer shadow-xs">
+                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                <span class="truncate">Search students, staff…</span>
+                <kbd class="ml-auto text-[9px] bg-white border border-slate-300 text-slate-400 px-1.5 py-0.5 rounded font-mono hidden sm:inline">⌘K</kbd>
+            </button>
+        </div>
+        <div class="flex items-center gap-2 sm:gap-3">
+            {% if active_school %}
+            <a href="{% if active_school.code == 'SEA' or active_school.code == 'SEATTLE' %}/seattle-academy/{% else %}/{% endif %}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition shadow-xs">
+                <i class="fa-solid fa-globe text-blue-600"></i>
+                <span class="hidden sm:inline">{{ active_school.name }} Website</span>
+            </a>
+            {% elif user.school %}
+            <a href="{% if user.school.code == 'SEA' or user.school.code == 'SEATTLE' %}/seattle-academy/{% else %}/{% endif %}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition shadow-xs">
+                <i class="fa-solid fa-globe text-blue-600"></i>
+                <span class="hidden sm:inline">{{ user.school.name }} Website</span>
+            </a>
+            {% endif %}
+
+
+            {% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'SCHOOL_ADMIN' or request.user.role == 'PRINCIPAL' or request.user.is_superuser %}
+            {% if active_school %}
+                {% with sub=active_school.subscription_safe %}
+                {% if sub %}
+                <div class="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border shadow-sm whitespace-nowrap {{ sub.status_badge_class }}" title="Subscription Status">
+                    <i class="fa-solid {% if sub.days_remaining <= 0 %}fa-triangle-exclamation{% elif sub.days_remaining <= 7 %}fa-clock{% elif sub.status == 'TRIAL' %}fa-gift{% else %}fa-shield-halved{% endif %} text-xs"></i>
+                    <span>
+                        {% if sub.days_remaining <= 0 %}
+                            Expired
+                        {% elif sub.status == 'TRIAL' %}
+                            <span class="hidden sm:inline">Trial: </span>{{ sub.days_remaining }}d<span class="hidden sm:inline"> left</span>
+                        {% else %}
+                            <span class="hidden sm:inline">Sub: </span>{{ sub.days_remaining }}d<span class="hidden sm:inline"> left</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                {% endwith %}
+            {% elif request.school %}
+                {% with sub=request.school.subscription_safe %}
+                {% if sub %}
+                <div class="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold border shadow-sm whitespace-nowrap {{ sub.status_badge_class }}" title="Subscription Status">
+                    <i class="fa-solid {% if sub.days_remaining <= 0 %}fa-triangle-exclamation{% elif sub.days_remaining <= 7 %}fa-clock{% elif sub.status == 'TRIAL' %}fa-gift{% else %}fa-shield-halved{% endif %} text-xs"></i>
+                    <span>
+                        {% if sub.days_remaining <= 0 %}
+                            Expired
+                        {% elif sub.status == 'TRIAL' %}
+                            <span class="hidden sm:inline">Trial: </span>{{ sub.days_remaining }}d<span class="hidden sm:inline"> left</span>
+                        {% else %}
+                            <span class="hidden sm:inline">Sub: </span>{{ sub.days_remaining }}d<span class="hidden sm:inline"> left</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                {% endwith %}
+            {% endif %}
+            {% endif %}
+
+            {% if request.user.is_authenticated %}
+            <form action="{% url 'academics:switch_calendar' %}" method="POST" class="inline-block">
+                {% csrf_token %}
+                <select name="calendar_preference" onchange="this.form.submit()" class="bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] sm:text-xs font-bold rounded-full focus:ring-emerald-500 focus:border-emerald-500 block p-1 sm:p-1.5 px-2 sm:px-3 appearance-none cursor-pointer hover:bg-emerald-100 transition shadow-sm whitespace-nowrap" title="Click to switch calendar system between Ethiopian (E.C.) & Gregorian (G.C.)">
+                    <option value="ETHIOPIAN" {% if calendar_preference == 'ETHIOPIAN' %}selected{% endif %}>🇪🇹 <span class="hidden sm:inline">Ethiopian </span>(E.C.)</option>
+                    <option value="GREGORIAN" {% if calendar_preference == 'GREGORIAN' %}selected{% endif %}>🌐 <span class="hidden sm:inline">Gregorian </span>(G.C.)</option>
+                </select>
+            </form>
+            {% endif %}
+            
+            {% if available_academic_years %}
+            <form action="{% url 'academics:switch_year' %}" method="POST" class="hidden sm:block">
+                {% csrf_token %}
+                <select name="year_id" onchange="this.form.submit()" class="bg-brand-50 border border-brand-200 text-brand-700 text-xs font-bold rounded-full focus:ring-brand-500 focus:border-brand-500 block p-1.5 px-3 appearance-none cursor-pointer hover:bg-brand-100 transition">
+                    {% for year in available_academic_years %}
+                    <option value="{{ year.id }}" {% if current_academic_year and current_academic_year.id == year.id %}selected{% endif %}>
+                        {% if calendar_preference == 'GREGORIAN' %}{{ year.gregorian_start_date.year }}/{{ year.gregorian_end_date.year }} G.C.{% else %}{{ year.ethiopian_year }} E.C.{% endif %} {% if year.is_active %}(Active){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+            <button class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center relative transition" title="Notifications">
+                <i class="fa-regular fa-bell text-sm"></i>
+                <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+            </button>
+        </div>
+    </header>
+    {% endif %}
+
+    <!-- Page Content -->
+    <main class="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-7">
+        <!-- Super Admin Context Banner -->
+        {% if request.user.role == 'SUPER_ADMIN' or request.user.is_superuser %}
+            {% if active_school %}
+            <div class="mb-5 bg-indigo-600 text-white px-4 py-3 rounded-xl flex items-center justify-between text-sm shadow-md">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-user-tie text-lg text-indigo-200"></i>
+                    <span><strong>SUPER ADMIN:</strong> Acting as <strong>{{ active_school.name }}</strong> <span class="text-indigo-200">({{ active_school.code }})</span></span>
+                </div>
+                <form action="{% url 'platform:exit_context' %}" method="post" class="m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="bg-indigo-800 hover:bg-indigo-900 px-4 py-2 rounded-lg border border-indigo-500 text-xs font-bold shadow-sm transition flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Exit Context
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+        {% endif %}
+        <!-- Flash Messages -->
+        {% if messages %}
+        <div class="mb-5 space-y-2 max-w-5xl">
+            {% for message in messages %}
+            <div class="alert-msg flex items-center gap-3 p-3.5 rounded-xl text-sm font-medium border shadow-sm
+                {% if message.tags == 'error' %}bg-red-50 border-red-200 text-red-800
+                {% elif message.tags == 'warning' %}bg-amber-50 border-amber-200 text-amber-800
+                {% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %}">
+                <i class="fa-solid {% if message.tags == 'error' %}fa-circle-xmark text-red-500{% elif message.tags == 'warning' %}fa-triangle-exclamation text-amber-500{% else %}fa-circle-check text-emerald-500{% endif %} flex-shrink-0"></i>
+                <span class="flex-1">{{ message }}</span>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-slate-600 flex-shrink-0">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="h-10 bg-white border-t border-slate-200/60 px-4 sm:px-6 flex items-center justify-between text-xs text-slate-500 flex-shrink-0">
+        <span class="truncate">Ethiopian School Management SaaS &copy; 2026</span>
+        <span class="flex items-center gap-2 flex-shrink-0">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="font-medium text-emerald-700 hidden sm:inline">All Systems Operational</span>
+        </span>
+    </footer>
+</div>
+
+<!-- Legacy search modal removed — unified modal below at #centralSearchModal -->
+
+<script>
+    // Sidebar toggle functions
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.toggle('open');
+        if (sidebar.classList.contains('open')) {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+    function closeSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    function closeSidebarOnMobile() {
+        if (window.innerWidth < 1024) closeSidebar();
+    }
+
+    // Modal toggle functions
+    function openModal(id) {
+        const el = document.getElementById(id);
+        if(el) {
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('active'), 10);
+        }
+    }
+    function closeModal(id) {
+        const el = document.getElementById(id);
+        if(el) {
+            el.classList.remove('active');
+            setTimeout(() => el.classList.add('hidden'), 300);
+        }
+    }
+
+    // Close sidebar on resize to desktop
+    window.addEventListener('resize', () => {
+        if (window.innerWidth >= 1024) closeSidebar();
+    });
+
+    // Highlight active nav link
+    document.addEventListener('DOMContentLoaded', () => {
+        const path = window.location.pathname;
+        document.querySelectorAll('.nav-link').forEach(link => {
+            if (link.href && new URL(link.href).pathname === path) {
+                link.classList.add('nav-active');
+            }
+        });
+    });
+
+    // --- ETHIOPIAN CALENDAR AUTOMATIC DATE PICKER REPLACEMENT ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const prefMeta = document.querySelector('meta[name="calendar-preference"]');
+        const pref = prefMeta ? prefMeta.getAttribute('content') : 'GREGORIAN';
+        if (pref !== 'ETHIOPIAN') return;
+
+        function ethiopianToGregorian(ey, em, ed) {
+            let n = 30 * (em - 1) + ed - 1;
+            let r;
+            if (em === 13 && ed === 6) { r = 1460; } 
+            else { r = (ey % 4) * 365 + n; }
+            let c = Math.floor((ey - Math.floor(r / 365) + Math.floor(r / 1460)) / 4);
+            let ordVal = 2796 + 1461 * c + r;
+            let diffDays = ordVal - 719163;
+            let jsDate = new Date(Date.UTC(1970, 0, 1 + diffDays));
+            return jsDate.toISOString().split('T')[0];
+        }
+
+        function gregorianToEthiopian(jsDate) {
+            let ordVal = Math.floor(jsDate.getTime() / 86400000) + 719163;
+            let r = (ordVal - 2796) % 1461;
+            let n = (r % 365) + 365 * Math.floor(r / 1460);
+            let ey = 4 * Math.floor((ordVal - 2796) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
+            let em = Math.floor(n / 30) + 1;
+            let ed = (n % 30) + 1;
+            return {ey, em, ed};
+        }
+
+        const dateInputs = document.querySelectorAll('input[type="date"]');
+        dateInputs.forEach(input => {
+            if (input.hasAttribute('data-no-ec')) return;
+            
+            // Hide original input
+            input.style.display = 'none';
+
+            // Create container
+            const container = document.createElement('div');
+            container.className = "flex gap-2 w-full";
+            
+            // Copy relevant classes from input (excluding w-full to avoid overflow in flex)
+            const inputClasses = input.className.replace('w-full', '').trim();
+
+            // Create Month Select
+            const monthSelect = document.createElement('select');
+            monthSelect.className = "flex-1 " + inputClasses;
+            monthSelect.required = input.required;
+            const months = ["Meskerem (1)", "Tikimt (2)", "Hidar (3)", "Tahsas (4)", "Tir (5)", "Yekatit (6)", "Megabit (7)", "Miazia (8)", "Ginbot (9)", "Sene (10)", "Hamle (11)", "Nehase (12)", "Pagume (13)"];
+            months.forEach((m, i) => {
+                let opt = document.createElement('option');
+                opt.value = i + 1;
+                opt.textContent = m;
+                monthSelect.appendChild(opt);
+            });
+
+            // Create Day Input
+            const dayInput = document.createElement('input');
+            dayInput.type = "number";
+            dayInput.className = "w-20 " + inputClasses;
+            dayInput.placeholder = "Day";
+            dayInput.min = "1";
+            dayInput.max = "30";
+            dayInput.required = input.required;
+
+            // Create Year Input
+            const yearInput = document.createElement('input');
+            yearInput.type = "number";
+            yearInput.className = "w-24 " + inputClasses;
+            yearInput.placeholder = "Year";
+            yearInput.min = "2000";
+            yearInput.required = input.required;
+
+            container.appendChild(monthSelect);
+            container.appendChild(dayInput);
+            container.appendChild(yearInput);
+            
+            input.parentNode.insertBefore(container, input.nextSibling);
+
+            function updateOriginalDate() {
+                let m = parseInt(monthSelect.value);
+                let d = parseInt(dayInput.value);
+                let y = parseInt(yearInput.value);
+                if (m && d && y) {
+                    input.value = ethiopianToGregorian(y, m, d);
+                } else {
+                    input.value = "";
+                }
+            }
+
+            monthSelect.addEventListener('change', updateOriginalDate);
+            dayInput.addEventListener('input', updateOriginalDate);
+            yearInput.addEventListener('input', updateOriginalDate);
+
+            // Pre-fill logic if original input has a value
+            if (input.value) {
+                let jsDate = new Date(input.value + "T00:00:00Z");
+                if (!isNaN(jsDate.getTime())) {
+                    let ec = gregorianToEthiopian(jsDate);
+                    monthSelect.value = ec.em;
+                    dayInput.value = ec.ed;
+                    yearInput.value = ec.ey;
+                }
+            } else {
+                // Default to current EC year/month/day
+                let now = new Date();
+                let ec = gregorianToEthiopian(now);
+                monthSelect.value = ec.em;
+                dayInput.value = ec.ed;
+                yearInput.value = ec.ey;
+                updateOriginalDate(); // update hidden input with today's date
+            }
+        });
+    });
+</script>
+
+<!-- ═══════════════ CENTRALIZED SEARCH MODAL (⌘K / Ctrl+K) ═══════════════ -->
+<div id="searchModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:flex-start;justify-content:center;padding-top:6rem;padding-left:1rem;padding-right:1rem;">
+    <div style="background:#fff;border-radius:1.5rem;box-shadow:0 25px 60px rgba(0,0,0,0.25);border:1px solid #e2e8f0;width:100%;max-width:640px;overflow:hidden;position:relative;" onclick="event.stopPropagation()">
+        <!-- Search Input Header -->
+        <div style="padding:1rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:0.75rem;background:#f8fafc;">
+            <i class="fa-solid fa-magnifying-glass" style="color:#818cf8;font-size:1.1rem;"></i>
+            <input type="text" id="centralSearchInput" autocomplete="off"
+                placeholder="Search students (ID/Name), staff, parents, invoices, payments..."
+                style="flex:1;background:transparent;border:none;outline:none;font-size:0.875rem;font-weight:500;color:#1e293b;font-family:inherit;">
+            <button type="button" onclick="closeSearchModal()"
+                style="color:#94a3b8;font-size:0.7rem;font-weight:700;background:#e2e8f0;border:none;padding:0.25rem 0.6rem;border-radius:0.5rem;cursor:pointer;font-family:inherit;">ESC</button>
+        </div>
+
+        <!-- Search Results Body -->
+        <div id="searchResultsContainer" style="max-height:60vh;overflow-y:auto;padding:1rem;">
+            <div id="searchDefaultState" style="text-align:center;padding:2rem 1rem;color:#94a3b8;">
+                <i class="fa-solid fa-compass" style="font-size:2rem;margin-bottom:0.5rem;color:#cbd5e1;display:block;"></i>
+                <p style="font-size:0.75rem;font-weight:600;color:#64748b;">Type at least 2 characters to search across school entities</p>
+                <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+                    <span style="font-size:0.7rem;background:#f1f5f9;padding:0.2rem 0.6rem;border-radius:9999px;color:#475569;">Students</span>
+                    <span style="font-size:0.7rem;background:#f1f5f9;padding:0.2rem 0.6rem;border-radius:9999px;color:#475569;">Parents</span>
+                    <span style="font-size:0.7rem;background:#f1f5f9;padding:0.2rem 0.6rem;border-radius:9999px;color:#475569;">Teachers</span>
+                    <span style="font-size:0.7rem;background:#f1f5f9;padding:0.2rem 0.6rem;border-radius:9999px;color:#475569;">Staff</span>
+                    <span style="font-size:0.7rem;background:#f1f5f9;padding:0.2rem 0.6rem;border-radius:9999px;color:#475569;">Invoices</span>
+                    <span style="font-size:0.7rem;background:#f1f5f9;padding:0.2rem 0.6rem;border-radius:9999px;color:#475569;">Payments</span>
+                </div>
+            </div>
+
+            <div id="searchLoadingState" style="display:none;text-align:center;padding:2rem 1rem;color:#94a3b8;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem;margin-bottom:0.5rem;color:#6366f1;display:block;"></i>
+                <p style="font-size:0.75rem;">Searching school database...</p>
+            </div>
+
+            <div id="searchResultsList" style="display:none;">
+                <!-- Grouped results injected via JS -->
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:0.6rem 1rem;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;font-size:0.7rem;color:#94a3b8;font-weight:500;">
+            <span><i class="fa-solid fa-keyboard"></i> Press <kbd style="background:#fff;border:1px solid #e2e8f0;padding:0.1rem 0.4rem;border-radius:0.25rem;font-family:monospace;">Ctrl+K</kbd> or <kbd style="background:#fff;border:1px solid #e2e8f0;padding:0.1rem 0.4rem;border-radius:0.25rem;font-family:monospace;">⌘K</kbd> anytime</span>
+            <span>EthioSchool Search</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.openSearchModal = function() {
+        const modal = document.getElementById('searchModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        // Reset state
+        const input = document.getElementById('centralSearchInput');
+        const defaultState = document.getElementById('searchDefaultState');
+        const loadingState = document.getElementById('searchLoadingState');
+        const resultsList = document.getElementById('searchResultsList');
+        if (defaultState) defaultState.style.display = 'block';
+        if (loadingState) loadingState.style.display = 'none';
+        if (resultsList) { resultsList.style.display = 'none'; resultsList.innerHTML = ''; }
+        if (input) {
+            input.value = '';
+            setTimeout(() => input.focus(), 60);
+        }
+    };
+
+    window.closeSearchModal = function() {
+        const modal = document.getElementById('searchModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    // Close on backdrop click
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('searchModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) closeSearchModal();
+            });
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        const isK = e.key && e.key.toLowerCase() === 'k';
+        if ((e.metaKey || e.ctrlKey) && isK) {
+            e.preventDefault();
+            const modal = document.getElementById('searchModal');
+            if (modal && modal.style.display === 'flex') {
+                closeSearchModal();
+            } else {
+                openSearchModal();
+            }
+        }
+        if (e.key === 'Escape') closeSearchModal();
+    });
+
+    let searchTimer = null;
+    document.addEventListener('DOMContentLoaded', function() {
+        const centralSearchInput = document.getElementById('centralSearchInput');
+        if (!centralSearchInput) return;
+        centralSearchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimer);
+            const query = e.target.value.trim();
+
+            const defaultState = document.getElementById('searchDefaultState');
+            const loadingState = document.getElementById('searchLoadingState');
+            const resultsList = document.getElementById('searchResultsList');
+
+            if (query.length < 2) {
+                if (defaultState) defaultState.style.display = 'block';
+                if (loadingState) loadingState.style.display = 'none';
+                if (resultsList) { resultsList.style.display = 'none'; resultsList.innerHTML = ''; }
+                return;
+            }
+
+            if (defaultState) defaultState.style.display = 'none';
+            if (loadingState) loadingState.style.display = 'block';
+            if (resultsList) resultsList.style.display = 'none';
+
+            searchTimer = setTimeout(() => {
+                fetch(`/api/centralized-search/?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (loadingState) loadingState.style.display = 'none';
+                        if (resultsList) resultsList.style.display = 'block';
+                        renderSearchResults(data.results || {});
+                    })
+                    .catch(err => {
+                        if (loadingState) loadingState.style.display = 'none';
+                        if (resultsList) {
+                            resultsList.style.display = 'block';
+                            resultsList.innerHTML = '<div style="padding:1rem;text-align:center;color:#ef4444;font-size:0.75rem;">Failed to fetch results. Please try again.</div>';
+                        }
+                    });
+            }, 250);
+        });
+    });
+
+    function renderSearchResults(results) {
+        const container = document.getElementById('searchResultsList');
+        container.innerHTML = '';
+
+        const categories = [
+            { key: 'students', label: 'Students', icon: 'fa-user-graduate', color: 'indigo' },
+            { key: 'parents', label: 'Parents', icon: 'fa-user-group', color: 'amber' },
+            { key: 'teachers', label: 'Teachers', icon: 'fa-chalkboard-user', color: 'purple' },
+            { key: 'staff', label: 'Staff', icon: 'fa-id-badge', color: 'blue' },
+            { key: 'invoices', label: 'Invoices', icon: 'fa-file-invoice-dollar', color: 'emerald' },
+            { key: 'payments', label: 'Payments', icon: 'fa-receipt', color: 'teal' }
+        ];
+
+        let totalCount = 0;
+        categories.forEach(cat => {
+            const items = results[cat.key] || [];
+            if (items.length > 0) {
+                totalCount += items.length;
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'space-y-1.5';
+
+                const header = document.createElement('div');
+                header.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 flex items-center gap-1.5';
+                header.innerHTML = `<i class="fa-solid ${cat.icon}"></i> ${cat.label} (${items.length})`;
+                groupDiv.appendChild(header);
+
+                items.forEach(item => {
+                    const a = document.createElement('a');
+                    a.href = item.url;
+                    a.className = 'flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-100 transition group border border-transparent hover:border-slate-200';
+                    a.innerHTML = `
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-brand-50 group-hover:text-brand-600 flex items-center justify-center flex-shrink-0 transition text-xs font-bold">
+                                <i class="fa-solid ${item.icon}"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-xs font-bold text-slate-800 group-hover:text-brand-600 truncate">${item.title}</p>
+                                <p class="text-[11px] text-slate-500 truncate">${item.subtitle}</p>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-semibold bg-slate-100 group-hover:bg-brand-100 group-hover:text-brand-700 text-slate-600 px-2 py-0.5 rounded-md flex-shrink-0 ml-2">${item.badge}</span>
+                    `;
+                    groupDiv.appendChild(a);
+                });
+
+                container.appendChild(groupDiv);
+            }
+        });
+
+        if (totalCount === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-slate-400">
+                    <i class="fa-solid fa-box-open text-3xl mb-2 text-slate-300"></i>
+                    <p class="text-xs font-semibold text-slate-500">No matching records found across students, staff, or finance.</p>
+                </div>
+            `;
+        }
+    }
+</script>
+
+<!-- PWA Installation Banner -->
+<div id="pwaInstallBanner" style="display:none" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 bg-slate-900/95 border border-brand-500/40 p-4 rounded-2xl shadow-2xl backdrop-blur-xl text-white flex items-center justify-between gap-3 animate-bounce">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center text-white shrink-0">
+            <i class="fa-solid fa-mobile-screen-button text-lg"></i>
+        </div>
+        <div>
+            <p class="text-xs font-bold text-white">Install EthioSchool App</p>
+            <p class="text-[10px] text-slate-300">Add to home screen for fast mobile access</p>
+        </div>
+    </div>
+    <div class="flex items-center gap-2">
+        <button id="pwaInstallBtn" class="bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition">Install</button>
+        <button onclick="document.getElementById('pwaInstallBanner').style.display='none'" class="text-slate-400 hover:text-white text-xs p-1"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+</div>
+
+<!-- PWA Service Worker Registration -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/static/js/sw.js').then(function(reg) {
+                console.log('[EthioSchool PWA] ServiceWorker registered with scope:', reg.scope);
+            }).catch(function(err) {
+                console.warn('[EthioSchool PWA] ServiceWorker registration failed:', err);
+            });
+        });
+    }
+
+    // Capture PWA Install Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner) banner.style.display = 'flex';
+    });
+
+    const installBtn = document.getElementById('pwaInstallBtn');
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('[EthioSchool PWA] User choice outcome:', outcome);
+                deferredPrompt = null;
+                document.getElementById('pwaInstallBanner').style.display = 'none';
+            }
+        });
+    }
+</script>
+
+<!-- My Account Credentials Modal -->
+{% if user.is_authenticated %}
+<div id="myProfileModal" class="modal-overlay">
+    <div class="modal-content bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+        <form action="{% url 'update_my_credentials' %}" method="POST">
+            {% csrf_token %}
+            <div class="px-6 py-5 bg-gradient-to-r from-purple-700 via-indigo-700 to-brand-700 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-white text-base">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-white text-base">Account Credentials</h3>
+                        <p class="text-xs text-purple-200">{{ user.get_role_display }} Account Settings</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeModal('myProfileModal')" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <!-- User Info Badge -->
+                <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-purple-600 flex items-center justify-center font-bold text-white text-sm">
+                        {{ user.username|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">{{ user.get_full_name|default:user.username }}</p>
+                        <p class="text-xs text-slate-500 font-mono">Role: {{ user.get_role_display }}</p>
+                    </div>
+                </div>
+
+                <!-- Username Field -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        <i class="fa-solid fa-at text-brand-500 mr-1"></i> Username
+                    </label>
+                    <input type="text" name="new_username" value="{{ user.username }}" required minlength="3"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 font-mono text-sm text-slate-900 font-bold transition">
+                    <p class="text-[11px] text-slate-400 mt-1">Your username used for logging into the platform.</p>
+                </div>
+
+                <!-- Password Fields -->
+                <div class="border-t border-slate-100 pt-3">
+                    <p class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                        <i class="fa-solid fa-key text-amber-500 mr-1"></i> Change Password <span class="text-[10px] font-normal text-slate-400">(Leave blank to keep current)</span>
+                    </p>
+                    <div class="space-y-3">
+                        <input type="password" name="new_password" minlength="6"
+                               class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm transition"
+                               placeholder="Enter new password (min 6 chars)">
+                        <input type="password" name="confirm_password" minlength="6"
+                               class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm transition"
+                               placeholder="Confirm new password">
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+                <button type="button" onclick="closeModal('myProfileModal')" class="flex-1 py-2.5 text-slate-600 font-medium text-sm bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-brand-600 hover:from-purple-500 hover:to-brand-500 text-white font-bold text-sm rounded-xl shadow-md transition">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
+
+

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sign in to Ethiopian School Management SaaS">
+    <title>Sign In — EthioSchool SaaS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter','sans-serif'], heading: ['Outfit','sans-serif'] },
+                    colors: {
+                        brand: { 400:'#818CF8', 500:'#6366F1', 600:'#4F46E5', 700:'#4338CA', 900:'#312E81' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        h1,h2,h3,h4,h5,h6 { font-family: 'Outfit', sans-serif; }
+        .eth-bg {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #312e81 70%, #0f172a 100%);
+        }
+        .card-glow { box-shadow: 0 0 0 1px rgba(99,102,241,.15), 0 25px 80px rgba(0,0,0,.5), 0 0 60px rgba(79,70,229,.12); }
+        .cred-btn {
+            display:flex; justify-content:space-between; align-items:center;
+            padding:10px 14px; border-radius:10px; border:1px solid #1e293b;
+            background:#0f172a; transition:all .15s; cursor:pointer;
+        }
+        .cred-btn:hover { border-color:#4F46E5; background:#1e1b4b; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .fade-up { animation: fadeUp .5s ease forwards; }
+        .eth-stripe { height:3px; background:linear-gradient(to right, #009B48 33.3%, #FFD100 33.3% 66.6%, #EF2126 66.6%); }
+
+        /* Animated dots in background */
+        .dot { position:absolute; border-radius:50%; opacity:0.06; }
+    </style>
+</head>
+<body class="min-h-screen eth-bg flex flex-col items-center justify-center p-4 py-10 relative overflow-x-hidden overflow-y-auto">
+
+    <!-- Decorative blobs -->
+    <div class="absolute top-1/4 -left-32 w-80 h-80 rounded-full bg-brand-600 opacity-10 blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-purple-700 opacity-10 blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md mx-auto fade-up relative z-10">
+
+        <!-- Logo / Brand -->
+        <div class="text-center mb-8">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-600 to-purple-600 flex items-center justify-center mx-auto shadow-xl shadow-brand-600/30 mb-4">
+                <i class="fa-solid fa-graduation-cap text-white text-2xl"></i>
+            </div>
+            <h1 class="text-3xl font-extrabold text-white tracking-tight font-heading">EthioSchool <span class="text-brand-400">SaaS</span></h1>
+            <p class="text-slate-400 text-sm mt-1">Multi-Tenant School Management Platform</p>
+            <div class="eth-stripe w-24 mx-auto mt-4 rounded-full"></div>
+        </div>
+
+        <!-- Login Card -->
+        <div class="bg-slate-900/80 border border-slate-700/50 rounded-3xl overflow-hidden card-glow">
+            <div class="p-8 space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-white font-heading">Welcome back</h2>
+                    <p class="text-sm text-slate-400 mt-1">Sign in to access your portal</p>
+                </div>
+
+                <!-- Error Messages -->
+                {% if messages %}
+                {% for message in messages %}
+                <div class="flex items-center gap-3 p-3 bg-red-900/40 border border-red-700/50 rounded-xl text-sm text-red-300">
+                    <i class="fa-solid fa-circle-exclamation text-red-400"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- Axes lockout banner -->
+                {% if request.GET.locked %}
+                <div class="flex items-start gap-3 p-4 bg-amber-900/40 border border-amber-700/50 rounded-xl text-sm text-amber-200">
+                    <i class="fa-solid fa-shield-halved text-amber-400 mt-0.5"></i>
+                    <div>
+                        <p class="font-bold text-amber-300">Account Temporarily Locked</p>
+                        <p class="text-xs mt-0.5 text-amber-400">Too many failed login attempts. Please wait <strong>1 hour</strong> and try again, or contact your system administrator.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Login Form -->
+                <form method="POST" action="" id="loginForm" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label for="usernameInput" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Username</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+                            <input type="text" id="usernameInput" name="username" required autocomplete="username"
+                                placeholder="Enter your username"
+                                class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 pl-10 pr-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="passwordInput" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+                            <input type="password" id="passwordInput" name="password" required autocomplete="current-password"
+                                placeholder="Enter your password"
+                                class="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 pl-10 pr-12 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+                            <button type="button" onclick="togglePwd()" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition">
+                                <i id="eyeIcon" class="fa-regular fa-eye text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg shadow-brand-600/30 transition transform active:scale-[.98] flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        Sign In to Dashboard
+                    </button>
+                </form>
+            </div>
+
+            <!-- Platform Info Banner -->
+            <div class="bg-slate-950/60 px-8 py-4 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-600">
+                <span><i class="fa-solid fa-shield-halved text-emerald-600 mr-1"></i> Secure Multi-Tenant Architecture</span>
+                <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    All systems operational
+                </span>
+            </div>
+        </div>
+
+        <div class="text-center text-xs text-slate-500 mt-6 space-y-1.5">
+            <p>Ethiopian School Management SaaS — Enterprise v2.0</p>
+            <p>
+                <a href="/seattle-academy/login/" class="text-purple-400 hover:text-purple-300 font-medium hover:underline inline-flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-school text-xs"></i> Switch to Seattle Academy School Portal Sign-In
+                </a>
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        function togglePwd() {
+            const inp = document.getElementById('passwordInput');
+            const ico = document.getElementById('eyeIcon');
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                ico.className = 'fa-regular fa-eye-slash text-sm';
+            } else {
+                inp.type = 'password';
+                ico.className = 'fa-regular fa-eye text-sm';
+            }
+        }
+    </script>
+</body>
+</html>

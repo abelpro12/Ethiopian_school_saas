@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}My Subjects | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">My Subjects</h1>
+        <p class="text-sm text-slate-500">Manage assessments and marks for your assigned sections.</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for assignment in assignments %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:border-brand-300 transition">
+        <div class="p-6 flex-1">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-800">
+                    {{ assignment.subject.code }}
+                </span>
+                <span class="text-xs text-slate-500 font-medium">{{ assignment.academic_year.display_name }}</span>
+            </div>
+            
+            <h3 class="text-lg font-bold text-slate-800">{{ assignment.subject.name }}</h3>
+            <p class="text-sm text-slate-600 mt-1">
+                Grade: <span class="font-semibold">{{ assignment.section.grade.name }} {% if assignment.section.grade.stream_type != 'GEN' %}({{ assignment.section.grade.get_stream_type_display }}){% endif %}</span>
+            </p>
+            <p class="text-sm text-slate-600">
+                Section: <span class="font-semibold">{{ assignment.section.name }}</span>
+                {% if assignment.section.stream and assignment.section.stream.code != 'GEN' %}
+                &bull; Stream: <span class="font-semibold text-brand-700">{{ assignment.section.stream.name }}</span>
+                {% endif %}
+            </p>
+            <p class="text-xs text-slate-500 mt-3"><i class="fa-solid fa-users mr-1"></i> {{ assignment.section.capacity }} Students (Max)</p>
+        </div>
+        <div class="border-t border-slate-100 bg-slate-50 px-6 py-4">
+            <a href="{% url 'teachers:assessments' assignment.id %}" class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-700 transition">
+                <i class="fa-solid fa-pen-to-square mr-2"></i> Manage Marks
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full py-12 text-center text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">
+        <i class="fa-solid fa-book-open-reader text-4xl mb-3 text-slate-300 block"></i>
+        <p>No subjects are currently assigned to you for this academic year.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

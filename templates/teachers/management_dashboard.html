@@ -1,0 +1,420 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Management | {{ school.name }}{% endblock %}
+
+{% block content %}
+<!-- Page Header & Key Metrics -->
+<div class="mb-6 space-y-6">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-purple-100 text-purple-800 uppercase tracking-wider">Faculty Administration</span>
+                <span class="text-xs text-slate-400 font-mono">{{ school.code }}</span>
+            </div>
+            <h1 class="font-heading text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Teacher Management</h1>
+            <p class="text-sm text-slate-500">Manage faculty profiles, homeroom classroom assignments, subject workloads, and employment status.</p>
+        </div>
+        <div class="flex items-center flex-wrap gap-2.5">
+            <button type="button" onclick="openModal('addTeacherModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs transition transform active:scale-95 flex items-center space-x-2 shadow-sm">
+                <i class="fa-solid fa-chalkboard-user text-xs text-purple-400"></i>
+                <span>+ Add Teacher</span>
+            </button>
+            <a href="{% url 'teachers:assignments' %}" class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl px-4 py-2.5 transition flex items-center gap-2 shadow-md shadow-brand-600/20">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <span>Assign Subjects & Sections</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg font-bold">
+                <i class="fa-solid fa-chalkboard-user"></i>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Teachers</p>
+                <h3 class="text-xl font-bold text-slate-800 font-mono">{{ total_teachers }}</h3>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
+                <i class="fa-solid fa-user-check"></i>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Full Time</p>
+                <h3 class="text-xl font-bold text-slate-800 font-mono">{{ full_time_count }}</h3>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-bold">
+                <i class="fa-solid fa-school"></i>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Homeroom Teachers</p>
+                <h3 class="text-xl font-bold text-slate-800 font-mono">{{ homeroom_count }}</h3>
+            </div>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg font-bold">
+                <i class="fa-solid fa-door-open"></i>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Sections</p>
+                <h3 class="text-xl font-bold text-slate-800 font-mono">{{ sections.count }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Teachers Main Table Card -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <!-- Filter/Search Bar -->
+    <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="relative w-full sm:w-80">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="teacherSearchInput" onkeyup="filterTeachersTable()" placeholder="Search by name, ID, or specialization..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500">
+        </div>
+        <div class="text-xs text-slate-500 font-medium">
+            Showing <strong class="text-slate-800" id="visibleTeacherCount">{{ teachers.count }}</strong> teachers
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm whitespace-nowrap" id="teachersTable">
+            <thead class="bg-slate-50 text-slate-500 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
+                <tr>
+                    <th class="py-3.5 px-4">Teacher ID & Name</th>
+                    <th class="py-3.5 px-4">Department / Specialization</th>
+                    <th class="py-3.5 px-4">Workload</th>
+                    <th class="py-3.5 px-4">Homeroom Class</th>
+                    <th class="py-3.5 px-4">Status</th>
+                    <th class="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for teacher in teachers %}
+                <tr class="hover:bg-slate-50/80 transition teacher-row">
+                    <!-- Teacher Name & ID -->
+                    <td class="py-3.5 px-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                                {{ teacher.user.first_name|slice:":1"|upper }}{{ teacher.user.last_name|slice:":1"|upper }}
+                            </div>
+                            <div>
+                                <span class="font-bold text-slate-900 block leading-tight teacher-name">{{ teacher.user.get_full_name }}</span>
+                                <span class="text-[11px] font-mono text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded font-semibold border border-purple-200/60 teacher-id">{{ teacher.employee_id }}</span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Department / Specialization -->
+                    <td class="py-3.5 px-4">
+                        <div class="space-y-0.5">
+                            <span class="font-semibold text-slate-800 text-xs block teacher-spec">
+                                {{ teacher.specialization|default:teacher.department|default:"General Academics" }}
+                            </span>
+                            {% if teacher.department and teacher.department != teacher.specialization %}
+                            <span class="text-[11px] text-slate-400 block">{{ teacher.department }}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Workload -->
+                    <td class="py-3.5 px-4">
+                        <div class="space-y-1">
+                            <span class="font-bold text-slate-800 font-mono text-xs">{{ teacher.total_weekly_periods }}</span>
+                            <span class="text-xs text-slate-500">periods/wk</span>
+                            {% if teacher.assigned_subjects %}
+                            <div class="flex flex-wrap gap-1 mt-1 max-w-xs">
+                                {% for sub in teacher.assigned_subjects|slice:":3" %}
+                                <span class="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium">{{ sub }}</span>
+                                {% endfor %}
+                                {% if teacher.assigned_subjects|length > 3 %}
+                                <span class="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-medium">+{{ teacher.assigned_subjects|length|add:"-3" }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Homeroom Class Section -->
+                    <td class="py-3.5 px-4">
+                        {% if teacher.homeroom_section %}
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200/80 shadow-xs">
+                            <i class="fa-solid fa-chalkboard-user text-indigo-600 text-xs"></i>
+                            <span class="font-bold text-xs text-indigo-900">{{ teacher.homeroom_display }}</span>
+                            <button type="button" onclick="openHomeroomModal('{{ teacher.id }}', '{{ teacher.user.get_full_name|escapejs }}', '{{ teacher.homeroom_section.id }}')" class="ml-1 text-[11px] text-indigo-400 hover:text-indigo-700 font-bold" title="Change Homeroom Section">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </div>
+                        {% else %}
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-xl text-xs text-slate-400 bg-slate-50 border border-slate-200/60 italic">
+                                <i class="fa-solid fa-circle-minus mr-1 text-slate-300"></i> Not Assigned
+                            </span>
+                            <button type="button" onclick="openHomeroomModal('{{ teacher.id }}', '{{ teacher.user.get_full_name|escapejs }}', '')" class="text-[11px] text-brand-600 hover:text-brand-800 font-bold underline" title="Assign a Homeroom Section">
+                                + Assign
+                            </button>
+                        </div>
+                        {% endif %}
+                    </td>
+
+                    <!-- Employment Status -->
+                    <td class="py-3.5 px-4">
+                        {% if teacher.employment_status == 'FULL_TIME' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100/80 text-emerald-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Full Time
+                        </span>
+                        {% elif teacher.employment_status == 'PART_TIME' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Part Time
+                        </span>
+                        {% elif teacher.employment_status == 'CONTRACT' %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Contract
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Action Buttons -->
+                    <td class="py-3.5 px-4 text-right">
+                        <div class="flex items-center justify-end gap-1.5">
+                            <!-- Quick Edit Profile -->
+                            <button type="button" onclick="openEditTeacherModal('{{ teacher.id }}', '{{ teacher.employee_id|escapejs }}', '{{ teacher.user.first_name|escapejs }}', '{{ teacher.user.last_name|escapejs }}', '{{ teacher.department|default:''|escapejs }}', '{{ teacher.specialization|default:''|escapejs }}', '{{ teacher.employment_status }}', '{{ teacher.homeroom_section.id|default:'' }}')" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition shadow-2xs" title="Edit Teacher Details">
+                                <i class="fa-solid fa-user-pen"></i> Edit
+                            </button>
+
+                            <!-- Update Status Dropdown -->
+                            <div x-data="{ open: false }" class="relative inline-block">
+                                <button @click="open = !open" class="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition shadow-2xs flex items-center gap-1">
+                                    <span>Status</span> <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                </button>
+                                <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-20 p-1.5 text-left" style="display: none;">
+                                    <form method="post" action="{% url 'teachers:management' %}" class="space-y-0.5">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="update_status">
+                                        <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+                                        <button type="submit" name="status" value="FULL_TIME" class="w-full text-left px-3 py-1.5 text-xs hover:bg-emerald-50 rounded-lg text-slate-700 font-medium">✓ Full Time</button>
+                                        <button type="submit" name="status" value="PART_TIME" class="w-full text-left px-3 py-1.5 text-xs hover:bg-sky-50 rounded-lg text-slate-700 font-medium">✓ Part Time</button>
+                                        <button type="submit" name="status" value="CONTRACT" class="w-full text-left px-3 py-1.5 text-xs hover:bg-amber-50 rounded-lg text-slate-700 font-medium">✓ Contract</button>
+                                        <button type="submit" name="status" value="INACTIVE" class="w-full text-left px-3 py-1.5 text-xs hover:bg-rose-50 rounded-lg text-rose-600 font-medium">✕ Inactive</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="py-12 text-center text-slate-400">
+                        <i class="fa-solid fa-chalkboard-user text-4xl mb-3 text-slate-300 block"></i>
+                        <p class="font-bold text-slate-600 text-sm">No teachers registered yet.</p>
+                        <p class="text-xs text-slate-400 mt-1">Click "+ Add Teacher" above to register faculty members.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Add Teacher -->
+<div id="addTeacherModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Add New Teacher</h3>
+            <button type="button" onclick="closeModal('addTeacherModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'teachers:management' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_teacher">
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold text-slate-700">Teacher Employee ID</label>
+                    <span class="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-mono font-medium border border-purple-200">⚡ Auto-Generated (Editable)</span>
+                </div>
+                <input type="text" name="employee_id" required value="{{ suggested_teacher_id }}" placeholder="TCH-101" class="w-full px-3 py-2 border rounded-xl font-mono text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">First Name</label>
+                    <input type="text" name="first_name" required placeholder="Kibre" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Last Name</label>
+                    <input type="text" name="last_name" required placeholder="Worku" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Specialization / Subject</label>
+                <input type="text" name="specialization" required placeholder="Physics & Mathematics" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Department (Optional)</label>
+                <input type="text" name="department" placeholder="e.g. Natural Science" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Assign Homeroom Section (Optional)</label>
+                <select name="homeroom_section_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                    <option value="none">-- None (Not Homeroom Teacher) --</option>
+                    {% for sec in sections %}
+                    <option value="{{ sec.id }}">Section {{ sec.grade.name }} - {{ sec.name }} ({{ sec.stream.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('addTeacherModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow">Save Teacher</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Teacher Profile -->
+<div id="editTeacherModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center gap-2">
+                <i class="fa-solid fa-user-pen text-purple-600"></i> Edit Teacher Profile
+            </h3>
+            <button type="button" onclick="closeModal('editTeacherModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'teachers:management' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_teacher">
+            <input type="hidden" id="editTeacherId" name="teacher_id">
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Employee ID</label>
+                <input type="text" id="editEmpId" readonly class="w-full px-3 py-2 bg-slate-100 border rounded-xl font-mono text-xs text-slate-600">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">First Name *</label>
+                    <input type="text" id="editFirstName" name="first_name" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Last Name *</label>
+                    <input type="text" id="editLastName" name="last_name" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Specialization / Subjects</label>
+                <input type="text" id="editSpecialization" name="specialization" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Department</label>
+                <input type="text" id="editDepartment" name="department" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Employment Status</label>
+                <select id="editEmploymentStatus" name="employment_status" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-bold">
+                    <option value="FULL_TIME">Full Time</option>
+                    <option value="PART_TIME">Part Time</option>
+                    <option value="CONTRACT">Contract</option>
+                    <option value="INACTIVE">Inactive</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Homeroom Class Section</label>
+                <select id="editHomeroomSection" name="homeroom_section_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                    <option value="none">-- None (Not Assigned) --</option>
+                    {% for sec in sections %}
+                    <option value="{{ sec.id }}">Section {{ sec.grade.name }} - {{ sec.name }} ({{ sec.stream.name }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('editTeacherModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow">Update Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Quick Homeroom Assignment -->
+<div id="homeroomModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center gap-2">
+                <i class="fa-solid fa-chalkboard-user text-indigo-600"></i> Assign Homeroom Class
+            </h3>
+            <button type="button" onclick="closeModal('homeroomModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'teachers:management' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_homeroom">
+            <input type="hidden" id="homeroomTeacherId" name="teacher_id">
+
+            <div>
+                <p class="text-slate-600 mb-1">Assigning homeroom for teacher:</p>
+                <p class="font-bold text-slate-900 text-sm" id="homeroomTeacherName"></p>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Select Class Section</label>
+                <select id="homeroomSectionSelect" name="section_id" class="w-full px-3 py-2.5 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-800">
+                    <option value="none">-- Remove Homeroom Assignment --</option>
+                    {% for sec in sections %}
+                    <option value="{{ sec.id }}">Section {{ sec.grade.name }} - {{ sec.name }} ({{ sec.stream.name }})</option>
+                    {% endfor %}
+                </select>
+                <p class="text-[11px] text-slate-400 mt-1.5">Homeroom teachers manage daily attendance, conduct, and report card distribution for this section.</p>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('homeroomModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow">Save Homeroom Assignment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditTeacherModal(id, empId, fname, lname, dept, spec, status, homeroomSecId) {
+    document.getElementById('editTeacherId').value = id;
+    document.getElementById('editEmpId').value = empId;
+    document.getElementById('editFirstName').value = fname;
+    document.getElementById('editLastName').value = lname;
+    document.getElementById('editDepartment').value = dept;
+    document.getElementById('editSpecialization').value = spec;
+    document.getElementById('editEmploymentStatus').value = status;
+    document.getElementById('editHomeroomSection').value = homeroomSecId || 'none';
+    openModal('editTeacherModal');
+}
+
+function openHomeroomModal(id, teacherName, currentSecId) {
+    document.getElementById('homeroomTeacherId').value = id;
+    document.getElementById('homeroomTeacherName').innerText = teacherName;
+    document.getElementById('homeroomSectionSelect').value = currentSecId || 'none';
+    openModal('homeroomModal');
+}
+
+function filterTeachersTable() {
+    const query = document.getElementById('teacherSearchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('.teacher-row');
+    let visible = 0;
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = '';
+            visible++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    document.getElementById('visibleTeacherCount').innerText = visible;
+}
+</script>
+{% endblock %}

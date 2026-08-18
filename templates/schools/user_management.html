@@ -1,0 +1,497 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 pb-8">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <h1 class="font-heading text-2xl font-bold text-slate-800">User Management</h1>
+                {% if current_academic_year %}
+                <span class="bg-indigo-50 text-indigo-700 text-xs font-extrabold px-3 py-1 rounded-full border border-indigo-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-calendar-day text-indigo-500"></i> {{ current_academic_year.ethiopian_year }} E.C. {% if current_academic_year.is_active %}(Active){% else %}(Past){% endif %}
+                </span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-slate-500 mt-1">Manage user accounts, passwords, and grade/section placement.</p>
+        </div>
+    </div>
+
+    <!-- Tabs for Roles -->
+    <div class="border-b border-slate-200">
+        <nav class="-mb-px flex space-x-1 sm:space-x-6 overflow-x-auto scrollbar-thin pb-px" aria-label="Tabs">
+            {% for role_value, role_label in roles %}
+            <a href="?role={{ role_value }}"
+               class="{% if current_role == role_value %}border-brand-500 text-brand-600 font-bold border-b-2 bg-brand-50/50{% else %}border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300{% endif %} whitespace-nowrap py-3 px-3 sm:px-1 font-medium text-xs sm:text-sm transition rounded-t-lg">
+                {{ role_label }}s
+            </a>
+            {% endfor %}
+        </nav>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+        <form method="GET" class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-end gap-3">
+            <input type="hidden" name="role" value="{{ current_role }}">
+
+            <div class="flex-1 min-w-0">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Search Users</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-search text-slate-400 text-xs"></i>
+                    </div>
+                    <input type="text" name="search" value="{{ search_query }}"
+                           placeholder="Search by name or username..."
+                           class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 pl-9 p-2.5">
+                </div>
+            </div>
+
+            {% if current_role == 'STUDENT' %}
+            <div class="w-full sm:w-44">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Academic Status</label>
+                <select name="status" onchange="this.form.submit()"
+                        class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-2.5">
+                    <option value="CURRENT" {% if selected_academic_status == 'CURRENT' %}selected{% endif %}>Active Year (Enrolled + Pending)</option>
+                    <option value="ENROLLED" {% if selected_academic_status == 'ENROLLED' %}selected{% endif %}>Enrolled in {% if filter_ay %}{{ filter_ay.ethiopian_year }} E.C.{% else %}Active Year{% endif %}</option>
+                    <option value="PENDING" {% if selected_academic_status == 'PENDING' %}selected{% endif %}>⏳ Promoted / Pending Placement</option>
+                    <option value="GRADUATED" {% if selected_academic_status == 'GRADUATED' %}selected{% endif %}>🎓 Graduated / Alumni</option>
+                    <option value="ALL" {% if selected_academic_status == 'ALL' %}selected{% endif %}>All Students (All Years)</option>
+                </select>
+            </div>
+            <div class="w-full sm:w-32">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Grade</label>
+                <select name="grade" onchange="this.form.submit()"
+                        class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-2.5">
+                    <option value="">All Grades</option>
+                    {% for grade in grades %}
+                    <option value="{{ grade.id }}" {% if selected_grade_id == grade.id|stringformat:"s" %}selected{% endif %}>{{ grade.name }} {% if grade.stream_type != 'GEN' %}({{ grade.get_stream_type_display }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full sm:w-32">
+                <label class="block text-xs font-medium text-slate-700 mb-1">Section</label>
+                <select name="section" onchange="this.form.submit()"
+                        class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 p-2.5">
+                    <option value="">All Sections</option>
+                    {% for section in sections %}
+                    <option value="{{ section.id }}" {% if selected_section_id == section.id|stringformat:"s" %}selected{% endif %}>{{ section.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="flex gap-2">
+                <button type="submit"
+                        class="flex-1 sm:flex-none px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-sm transition">
+                    <i class="fa-solid fa-search mr-1.5"></i>Search
+                </button>
+                <a href="?role={{ current_role }}"
+                   class="flex-1 sm:flex-none flex items-center justify-center px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-sm rounded-xl transition">
+                    Clear
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Count -->
+    <div class="flex items-center justify-between">
+        <p class="text-sm text-slate-500">
+            Showing <strong class="text-slate-800">{{ users|length }}</strong> {{ current_role|lower }}{{ users|length|pluralize }}
+            {% if search_query %} for "<span class="text-brand-600">{{ search_query }}</span>"{% endif %}
+        </p>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div class="sm:hidden space-y-3">
+        {% for target_user in users %}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 {% if not target_user.is_active %}opacity-70{% endif %}">
+            <div class="flex items-start justify-between gap-2 mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
+                        {{ target_user.first_name|first|upper|default:"?" }}
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-800 text-sm">{{ target_user.get_full_name|default:"-" }}</p>
+                        <p class="text-[11px] font-mono text-slate-500">{{ target_user.username }}</p>
+                    </div>
+                </div>
+                {% if current_role == 'STUDENT' %}
+                    {% with enrollments=target_user.student_profile.current_enrollment_list %}
+                        {% if enrollments and enrollments.0.status == 'GRADUATED' %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                            <i class="fa-solid fa-graduation-cap text-purple-600"></i> Graduated
+                        </span>
+                        {% elif enrollments and enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <i class="fa-solid fa-clock text-amber-600"></i> Pending Placement
+                        </span>
+                        {% elif target_user.is_active %}
+                        <span class="badge badge-green flex-shrink-0">Active</span>
+                        {% else %}
+                        <span class="badge badge-red flex-shrink-0">Suspended</span>
+                        {% endif %}
+                    {% endwith %}
+                {% else %}
+                    {% if target_user.is_active %}
+                    <span class="badge badge-green flex-shrink-0">Active</span>
+                    {% else %}
+                    <span class="badge badge-red flex-shrink-0">Suspended</span>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Password Badge -->
+            {% if target_user.current_password %}
+            <div class="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
+                <p class="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-0.5">Current Password</p>
+                <p class="font-mono font-bold text-amber-900 text-sm">🔑 {{ target_user.current_password }}</p>
+            </div>
+            {% endif %}
+
+            {% if current_role == 'STUDENT' %}
+            {% with enrollments=target_user.student_profile.current_enrollment_list %}
+            {% if enrollments %}
+            <div class="bg-slate-50 rounded-xl px-3 py-2 mb-3">
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Class Placement ({{ enrollments.0.academic_year.ethiopian_year }} E.C.)</p>
+                <p class="font-bold text-slate-800 text-sm">
+                    {% if enrollments.0.status == 'GRADUATED' %}
+                        Completed Grade 12 — {{ enrollments.0.section.name }}
+                    {% else %}
+                        {{ enrollments.0.grade.name }} — {{ enrollments.0.section.name }}
+                    {% endif %}
+                    {% if enrollments.0.stream and enrollments.0.stream.code != 'GEN' %}
+                        <span class="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">({{ enrollments.0.stream.name }})</span>
+                    {% elif enrollments.0.grade.stream_type != 'GEN' %}
+                        <span class="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">({{ enrollments.0.grade.get_stream_type_display }})</span>
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+            {% endwith %}
+            {% endif %}
+
+            <div class="flex flex-wrap items-center gap-2">
+                {% if request.user.role == 'SCHOOL_ADMIN' or request.user.role == 'SUPER_ADMIN' or request.user.is_superuser or target_user.role != 'SCHOOL_ADMIN' and target_user.role != 'PRINCIPAL' or target_user.id == request.user.id %}
+                <button onclick="openUsernameModal('{{ target_user.id }}', '{{ target_user.username }}', '{{ target_user.get_full_name|escapejs }}')"
+                        class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition">
+                    <i class="fa-solid fa-user-pen"></i> Username
+                </button>
+                <button onclick="openPasswordModal('{{ target_user.id }}', '{{ target_user.username }}', '{{ target_user.get_full_name|escapejs }}')"
+                        class="flex-1 flex items-center justify-center gap-1.5 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs rounded-xl border border-brand-200 transition">
+                    <i class="fa-solid fa-key"></i> Password
+                </button>
+                {% else %}
+                <div class="w-full text-center py-1.5 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold">
+                    🔒 Self-Managed Account
+                </div>
+                {% endif %}
+                {% if target_user.id != request.user.id %}
+                <form action="{% url 'user_management' %}?role={{ current_role }}{% if selected_grade_id %}&grade={{ selected_grade_id }}{% endif %}{% if selected_section_id %}&section={{ selected_section_id }}{% endif %}" method="POST" class="flex-1" onsubmit="return confirm('Are you sure you want to {% if target_user.is_active %}suspend{% else %}reactivate{% endif %} {{ target_user.get_full_name|escapejs }}?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="user_id" value="{{ target_user.id }}">
+                    {% if target_user.is_active %}
+                    <button type="submit" class="w-full flex items-center justify-center gap-1.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-xl border border-red-200 transition">
+                        <i class="fa-solid fa-ban"></i> Suspend
+                    </button>
+                    {% else %}
+                    <button type="submit" class="w-full flex items-center justify-center gap-1.5 py-2 bg-green-50 hover:bg-green-100 text-green-700 font-bold text-xs rounded-xl border border-green-200 transition">
+                        <i class="fa-solid fa-check-circle"></i> Reactivate
+                    </button>
+                    {% endif %}
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 py-16 text-center text-slate-400">
+            <i class="fa-solid fa-users text-4xl mb-3 block opacity-25"></i>
+            <p class="text-sm font-medium">No {{ current_role|lower }}s found.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Desktop Table View -->
+    <div class="hidden sm:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="py-3 px-4 rounded-l-lg">Name</th>
+                        <th class="py-3 px-4">Username &amp; Current Password</th>
+                        {% if current_role == 'STUDENT' %}
+                        <th class="py-3 px-4">Class Placement ({% if current_academic_year %}{{ current_academic_year.ethiopian_year }} E.C.{% else %}Active Year{% endif %})</th>
+                        {% endif %}
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 rounded-r-lg">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for target_user in users %}
+                    <tr class="{% if not target_user.is_active %}bg-slate-50{% endif %} hover:bg-slate-50/50 transition">
+                        <td class="py-3 px-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center font-bold text-white text-xs flex-shrink-0">
+                                    {{ target_user.first_name|first|upper|default:"?" }}
+                                </div>
+                                <span class="font-semibold text-slate-800">{{ target_user.get_full_name|default:"-" }}</span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-xs">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="text-slate-800 font-bold bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-flex items-center gap-1.5">
+                                    {{ target_user.username }}
+                                    {% if request.user.role == 'SCHOOL_ADMIN' or request.user.role == 'SUPER_ADMIN' or request.user.is_superuser or target_user.role != 'SCHOOL_ADMIN' and target_user.role != 'PRINCIPAL' or target_user.id == request.user.id %}
+                                    <button type="button" onclick="openUsernameModal('{{ target_user.id }}', '{{ target_user.username }}', '{{ target_user.get_full_name|escapejs }}')"
+                                            class="text-indigo-600 hover:text-indigo-800 transition" title="Change Username">
+                                        <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+                                    </button>
+                                    {% endif %}
+                                </span>
+                                {% if target_user.current_password %}
+                                <span class="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/90 rounded-md font-semibold text-[11px]">
+                                    🔑 {{ target_user.current_password }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md font-semibold text-[11px]" title="Encrypted & Protected">
+                                    🔒 Protected
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% if current_role == 'STUDENT' %}
+                        <td class="py-3 px-4 text-slate-600">
+                            {% with enrollments=target_user.student_profile.current_enrollment_list %}
+                                {% if enrollments %}
+                                    {% if enrollments.0.status == 'GRADUATED' %}
+                                        <div class="flex flex-col">
+                                            <span class="font-bold text-slate-700">Completed Grade 12 — {{ enrollments.0.section.name }}</span>
+                                            <span class="text-xs font-semibold text-purple-700">
+                                                Alumni • {{ enrollments.0.academic_year.ethiopian_year }} E.C. {% if enrollments.0.stream and enrollments.0.stream.code != 'GEN' %}({{ enrollments.0.stream.name }}){% endif %}
+                                            </span>
+                                        </div>
+                                    {% elif enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
+                                        <div class="flex flex-col gap-1">
+                                            <div>
+                                                <span class="font-semibold text-slate-800">{{ enrollments.0.grade.name }} — {{ enrollments.0.section.name }}</span>
+                                                <span class="ml-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Promoted ({{ enrollments.0.academic_year.ethiopian_year }} E.C.)</span>
+                                            </div>
+                                            <div>
+                                                <a href="{% url 'enrollment:bulk_promote' %}?source_ay_id={{ enrollments.0.academic_year.id }}&source_section_id={{ enrollments.0.section.id }}&target_ay_id={{ filter_ay.id }}" 
+                                                   class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition">
+                                                    <i class="fa-solid fa-graduation-cap text-[10px]"></i> Place in {% if filter_ay %}{{ filter_ay.ethiopian_year }} E.C.{% else %}Next Grade{% endif %}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <span class="font-semibold text-slate-800">{{ enrollments.0.grade.name }}</span> — <span class="font-medium text-slate-700">{{ enrollments.0.section.name }}</span>
+                                        {% if enrollments.0.academic_year %}
+                                            <span class="ml-1 text-[11px] font-semibold {% if enrollments.0.academic_year == filter_ay %}text-emerald-700 bg-emerald-50 border-emerald-200{% else %}text-blue-700 bg-blue-50 border-blue-200{% endif %} px-2 py-0.5 rounded border">{{ enrollments.0.academic_year.ethiopian_year }} E.C.</span>
+                                        {% endif %}
+                                        {% if enrollments.0.stream and enrollments.0.stream.code != 'GEN' %}
+                                            <span class="ml-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">({{ enrollments.0.stream.name }})</span>
+                                        {% elif enrollments.0.grade.stream_type != 'GEN' %}
+                                            <span class="ml-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">({{ enrollments.0.grade.get_stream_type_display }})</span>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-slate-400 italic">Not Enrolled</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        {% endif %}
+
+                        <td class="py-3 px-4">
+                            {% if current_role == 'STUDENT' %}
+                                {% with enrollments=target_user.student_profile.current_enrollment_list %}
+                                    {% if enrollments and enrollments.0.status == 'GRADUATED' %}
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                        <i class="fa-solid fa-graduation-cap text-purple-600"></i> Graduated
+                                    </span>
+                                    {% elif enrollments and enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        <i class="fa-solid fa-clock text-amber-600"></i> Pending Placement
+                                    </span>
+                                    {% elif target_user.is_active %}
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspended
+                                    </span>
+                                    {% endif %}
+                                {% endwith %}
+                            {% else %}
+                                {% if target_user.is_active %}
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspended
+                                </span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="flex items-center gap-2">
+                                {% if request.user.role == 'SCHOOL_ADMIN' or request.user.role == 'SUPER_ADMIN' or request.user.is_superuser or target_user.role != 'SCHOOL_ADMIN' and target_user.role != 'PRINCIPAL' or target_user.id == request.user.id %}
+                                <button onclick="openUsernameModal('{{ target_user.id }}', '{{ target_user.username }}', '{{ target_user.get_full_name|escapejs }}')"
+                                        class="text-indigo-600 hover:text-indigo-800 p-1.5 rounded-lg hover:bg-indigo-50 transition" title="Change Username">
+                                    <i class="fa-solid fa-user-pen"></i>
+                                </button>
+                                <button onclick="openPasswordModal('{{ target_user.id }}', '{{ target_user.username }}', '{{ target_user.get_full_name|escapejs }}')"
+                                        class="text-brand-600 hover:text-brand-800 p-1.5 rounded-lg hover:bg-brand-50 transition" title="Reset Password">
+                                    <i class="fa-solid fa-key"></i>
+                                </button>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-semibold" title="Only School Admin or Super Admin can change credentials">
+                                    🔒 Admin-Protected
+                                </span>
+                                {% endif %}
+
+                                {% if target_user.id != request.user.id %}
+                                <form action="{% url 'user_management' %}?role={{ current_role }}{% if selected_grade_id %}&grade={{ selected_grade_id }}{% endif %}{% if selected_section_id %}&section={{ selected_section_id }}{% endif %}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to {% if target_user.is_active %}suspend{% else %}reactivate{% endif %} {{ target_user.get_full_name|escapejs }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="toggle_active">
+                                    <input type="hidden" name="user_id" value="{{ target_user.id }}">
+                                    {% if target_user.is_active %}
+                                    <button type="submit" class="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition" title="Suspend User">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                    {% else %}
+                                    <button type="submit" class="text-green-500 hover:text-green-700 p-1.5 rounded-lg hover:bg-green-50 transition" title="Reactivate User">
+                                        <i class="fa-solid fa-check-circle"></i>
+                                    </button>
+                                    {% endif %}
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-16 text-center text-slate-400">
+                            <i class="fa-solid fa-users text-4xl mb-3 block opacity-25"></i>
+                            <p>No {{ current_role|lower }}s found.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Password Reset Modal -->
+<div id="passwordModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all max-h-[90vh] overflow-y-auto">
+        <form action="{% url 'user_management' %}?role={{ current_role }}{% if selected_grade_id %}&grade={{ selected_grade_id }}{% endif %}{% if selected_section_id %}&section={{ selected_section_id }}{% endif %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="change_password">
+            <input type="hidden" name="user_id" id="modalUserId">
+
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center">
+                        <i class="fa-solid fa-key text-sm"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800">Reset Password</h3>
+                </div>
+                <button type="button" onclick="closePasswordModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <p class="text-sm text-slate-600">Resetting password for <strong id="modalName" class="text-slate-800"></strong> (<span id="modalUsername" class="font-mono text-xs text-brand-600"></span>).</p>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+                    <input type="password" name="new_password" required minlength="6"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition text-sm"
+                           placeholder="Enter new password (min. 6 chars)">
+                </div>
+            </div>
+
+            <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+                <button type="button" onclick="closePasswordModal()"
+                        class="flex-1 py-2.5 text-slate-600 font-medium text-sm bg-slate-100 hover:bg-slate-200 rounded-xl transition">Cancel</button>
+                <button type="submit"
+                        class="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl shadow-sm transition">
+                    Reset Password
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Change Username Modal -->
+<div id="usernameModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all max-h-[90vh] overflow-y-auto">
+        <form action="{% url 'user_management' %}?role={{ current_role }}{% if selected_grade_id %}&grade={{ selected_grade_id }}{% endif %}{% if selected_section_id %}&section={{ selected_section_id }}{% endif %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="change_username">
+            <input type="hidden" name="user_id" id="usernameModalUserId">
+
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                        <i class="fa-solid fa-user-pen text-sm"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800">Change Username</h3>
+                </div>
+                <button type="button" onclick="closeUsernameModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <p class="text-sm text-slate-600">Changing login username for <strong id="usernameModalName" class="text-slate-800"></strong>.</p>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">New Username</label>
+                    <input type="text" name="new_username" id="usernameModalInput" required minlength="3"
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition text-sm font-mono"
+                           placeholder="Enter new username">
+                </div>
+            </div>
+
+            <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+                <button type="button" onclick="closeUsernameModal()"
+                        class="flex-1 py-2.5 text-slate-600 font-medium text-sm bg-slate-100 hover:bg-slate-200 rounded-xl transition">Cancel</button>
+                <button type="submit"
+                        class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition">
+                    Update Username
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPasswordModal(userId, username, name) {
+        document.getElementById('modalUserId').value = userId;
+        document.getElementById('modalUsername').textContent = username;
+        document.getElementById('modalName').textContent = name;
+        openModal('passwordModal');
+    }
+
+    function closePasswordModal() {
+        closeModal('passwordModal');
+    }
+
+    function openUsernameModal(userId, username, name) {
+        document.getElementById('usernameModalUserId').value = userId;
+        document.getElementById('usernameModalInput').value = username;
+        document.getElementById('usernameModalName').textContent = name;
+        openModal('usernameModal');
+    }
+
+    function closeUsernameModal() {
+        closeModal('usernameModal');
+    }
+</script>
+{% endblock %}

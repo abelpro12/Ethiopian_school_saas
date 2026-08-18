@@ -1,0 +1,64 @@
+# Python
+*.pyc
+*.pyo
+__pycache__/
+*.pyd
+
+# Environment & Secrets
+.env
+.env.*
+*.env
+
+# Virtual Environments
+venv/
+env/
+.venv/
+
+# Django
+*.sqlite3
+media/
+staticfiles/
+db.sqlite3-journal
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+junit.xml
+coverage.xml
+
+# Logs
+*.log
+logs/
+
+# IDE & Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dev scratch scripts (local utilities, not for production)
+scratch/
+scratch_*.py
+extract_overhaul.py
+inspect_content.py
+inspect_transcript.py
+rendered_html.txt
+replace_semester.py
+replay_changes.py
+restore_files.py
+revert_script.py
+responsive_update.py
+scratch_create_table.py
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if any frontend tooling)
+node_modules/
+
+# Distribution
+dist/
+build/
+*.egg-info/

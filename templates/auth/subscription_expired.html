@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% block title %}School Subscription Expired - {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    
+    <!-- Decorative background elements -->
+    <div class="absolute inset-0 z-0 flex justify-center items-center pointer-events-none">
+        <div class="absolute w-[800px] h-[800px] bg-amber-500/10 dark:bg-amber-500/5 rounded-full blur-3xl opacity-50 -top-40 -left-40 animate-blob"></div>
+        <div class="absolute w-[600px] h-[600px] bg-red-500/10 dark:bg-red-500/5 rounded-full blur-3xl opacity-50 top-40 right-20 animate-blob animation-delay-2000"></div>
+    </div>
+
+    <div class="sm:mx-auto sm:w-full sm:max-w-xl relative z-10">
+        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl py-10 px-6 shadow-2xl sm:rounded-3xl sm:px-12 border border-white/40 dark:border-slate-800 text-center">
+            
+            <!-- Animated Lock Icon -->
+            <div class="mx-auto w-24 h-24 bg-gradient-to-br from-amber-400 to-red-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/30 mb-8 animate-bounce-slow transform rotate-3">
+                <i class="fa-solid fa-lock text-4xl text-white drop-shadow-md"></i>
+            </div>
+
+            {% if is_admin_or_principal %}
+            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+                Subscription Renewal Required
+            </h2>
+            <p class="text-slate-500 dark:text-slate-400 font-medium mb-6">
+                {{ school.name }} (Code: <span class="font-mono text-brand-600 font-bold">{{ school.code }}</span>)
+            </p>
+
+            <div class="bg-amber-50 dark:bg-amber-950/40 rounded-2xl p-4 sm:p-6 mb-6 border border-amber-100 dark:border-amber-900/50 break-words text-left">
+                <p class="text-amber-900 dark:text-amber-100 text-base sm:text-lg leading-relaxed font-bold mb-3">
+                    {% load calendar_tags %}
+                    Your school's subscription expired on <span class="text-red-600 dark:text-red-400">{{ subscription.end_date|school_date:school }}</span>.
+                </p>
+                <p class="text-amber-800/90 dark:text-amber-200/90 text-sm leading-relaxed mb-4">
+                    As a <strong>School Administrator or Principal</strong>, below is the calculated subscription payment rate required to renew full operational access for your institution:
+                </p>
+
+                <!-- Subscription Rate Breakdown Table with Explanations -->
+                <div class="bg-white/95 dark:bg-slate-900/95 rounded-2xl p-4 sm:p-5 border border-amber-200/80 dark:border-amber-800/80 shadow-md space-y-3.5 text-xs sm:text-sm font-medium">
+                    
+                    <!-- Base Platform Fee -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-slate-800 dark:text-slate-200">
+                            <span class="font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-server text-amber-500 text-xs"></i>
+                                Base Platform Fee
+                            </span>
+                            <span class="font-mono font-bold text-slate-900 dark:text-slate-100">{{ pricing_breakdown.base_fee|default:"2000.00"|floatformat:2 }} ETB</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-tight pl-5">
+                            Annual core SaaS license fee covering dedicated tenant database hosting, daily automated backups, security maintenance &amp; platform updates.
+                        </p>
+                    </div>
+
+                    <div class="border-t border-slate-100 dark:border-slate-800"></div>
+
+                    <!-- Student Seats -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-slate-800 dark:text-slate-200">
+                            <span class="font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-user-graduate text-indigo-500 text-xs"></i>
+                                Student Seats ({{ pricing_breakdown.active_students|default:0 }} @ {{ pricing_breakdown.price_per_student|default:"50.00" }} ETB)
+                            </span>
+                            <span class="font-mono font-bold text-slate-900 dark:text-slate-100">{{ pricing_breakdown.student_subtotal|default:"0.00"|floatformat:2 }} ETB</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-tight pl-5">
+                            Annual per-student seat rate for active student accounts, gradebook calculation, report cards &amp; student portal access.
+                        </p>
+                    </div>
+
+                    <div class="border-t border-slate-100 dark:border-slate-800"></div>
+
+                    <!-- Staff Seats -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-slate-800 dark:text-slate-200">
+                            <span class="font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-chalkboard-user text-emerald-500 text-xs"></i>
+                                Staff Seats ({{ pricing_breakdown.active_staff|default:0 }} @ {{ pricing_breakdown.price_per_staff|default:"100.00" }} ETB)
+                            </span>
+                            <span class="font-mono font-bold text-slate-900 dark:text-slate-100">{{ pricing_breakdown.staff_subtotal|default:"0.00"|floatformat:2 }} ETB</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-normal leading-tight pl-5">
+                            Annual per-staff seat rate for teachers, registrars, accountants, librarians, and administrative staff portal accounts.
+                        </p>
+                    </div>
+
+                    <!-- Total Amount Box -->
+                    <div class="border-t-2 border-amber-300 dark:border-amber-700 pt-3 flex justify-between items-center text-sm sm:text-base font-bold text-amber-900 dark:text-amber-100">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-receipt text-amber-600"></i>
+                            Total Subscription Rate to Pay:
+                        </span>
+                        <span class="font-mono font-black text-amber-600 dark:text-amber-400 text-lg sm:text-2xl drop-shadow-xs">{{ pricing_breakdown.total_annual_price|default:subscription.current_calculated_price|floatformat:2 }} ETB</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Box for Admins -->
+            <div class="bg-slate-900 dark:bg-black rounded-2xl p-4 sm:p-6 shadow-inner relative overflow-hidden group mb-8 w-full box-border">
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <p class="text-slate-400 dark:text-slate-500 text-xs sm:text-sm font-semibold uppercase tracking-widest mb-2">
+                    Contact Super Admin To Pay &amp; Restore Access
+                </p>
+                <a href="tel:+251937381801" class="text-2xl sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200 hover:from-amber-300 hover:to-amber-100 transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 break-all sm:break-normal">
+                    <i class="fa-solid fa-phone-volume text-amber-400 text-2xl sm:text-3xl animate-pulse"></i>
+                    +251 937 381 801
+                </a>
+            </div>
+
+            {% else %}
+
+            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-2">
+                School Access Locked
+            </h2>
+            <p class="text-slate-500 dark:text-slate-400 font-medium mb-8">
+                {{ school.name }} ({{ school.code }})
+            </p>
+
+            <div class="bg-amber-50 dark:bg-amber-950/40 rounded-2xl p-4 sm:p-6 mb-8 border border-amber-100 dark:border-amber-900/50 break-words">
+                <p class="text-amber-800 dark:text-amber-200 text-base sm:text-lg leading-relaxed font-medium">
+                    {% load calendar_tags %}
+                    Your school's subscription expired on <strong class="font-bold text-amber-900 dark:text-amber-100">{{ subscription.end_date|school_date:school }}</strong>.
+                </p>
+                <p class="text-amber-700/80 dark:text-amber-300/80 mt-2 text-sm sm:text-base">
+                    All operational features have been disabled. To restore access and renew your subscription, please contact the Super Administrator immediately.
+                </p>
+            </div>
+
+            <!-- Contact Box for Standard Users -->
+            <div class="bg-slate-900 dark:bg-black rounded-2xl p-4 sm:p-6 shadow-inner relative overflow-hidden group mb-8 w-full box-border">
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <p class="text-slate-400 dark:text-slate-500 text-xs sm:text-sm font-semibold uppercase tracking-widest mb-3">
+                    Contact Super Admin
+                </p>
+                <a href="tel:+251937381801" class="text-2xl sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200 hover:from-amber-300 hover:to-amber-100 transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 break-all sm:break-normal">
+                    <i class="fa-solid fa-phone-volume text-amber-400 text-2xl sm:text-3xl animate-pulse"></i>
+                    +251 937 381 801
+                </a>
+            </div>
+
+            {% endif %}
+
+            <div class="mt-4 flex flex-col justify-center items-center space-y-4">
+                <a href="{% url 'logout' %}" class="inline-flex items-center justify-center px-6 py-3 border border-slate-200 dark:border-slate-700 shadow-sm text-sm font-medium rounded-xl text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors w-full sm:w-auto">
+                    <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i> Sign out
+                </a>
+            </div>
+            
+        </div>
+    </div>
+</div>
+<style>
+    @keyframes blob {
+        0% { transform: translate(0px, 0px) scale(1); }
+        33% { transform: translate(30px, -50px) scale(1.1); }
+        66% { transform: translate(-20px, 20px) scale(0.9); }
+        100% { transform: translate(0px, 0px) scale(1); }
+    }
+    .animate-blob {
+        animation: blob 7s infinite;
+    }
+    .animation-delay-2000 {
+        animation-delay: 2s;
+    }
+    .animate-bounce-slow {
+        animation: bounce 3s infinite;
+    }
+</style>
+{% endblock %}

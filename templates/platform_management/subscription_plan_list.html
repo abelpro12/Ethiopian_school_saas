@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% block title %}Subscription Plans — Super Admin{% endblock %}
+
+{% block content %}
+<div class="space-y-4 sm:space-y-6 pb-10">
+
+    <!-- Header -->
+    <div class="glass border border-slate-700/50 rounded-3xl p-6 sm:p-8 relative overflow-hidden bg-slate-900">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-brand-500/20 rounded-full blur-3xl pointer-events-none transition"></div>
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+            <div>
+                <span class="text-[10px] bg-brand-500/20 text-brand-300 border border-brand-500/30 px-3 py-1.5 rounded-full font-extrabold uppercase tracking-widest shadow-inner">
+                    Monetization
+                </span>
+                <h1 class="text-3xl font-extrabold tracking-tight font-heading mt-4 text-white">
+                    Subscription Plans
+                </h1>
+                <p class="text-sm text-slate-300 mt-2">
+                    Manage SaaS pricing tiers, feature limits, and billing cycles for tenant schools.
+                </p>
+            </div>
+            <button onclick="openModal('planModal')"
+                class="btn-primary flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-center bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 border-brand-500/50 shadow-brand-600/30">
+                <i class="fa-solid fa-plus-circle text-lg"></i>
+                Create Plan
+            </button>
+        </div>
+    </div>
+
+    <!-- Plans Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for plan in plans %}
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl transition duration-300 transform hover:-translate-y-1 relative {% if not plan.is_active %}opacity-70 grayscale-[50%]{% endif %}">
+            
+            {% if plan.tier == 'PREMIUM' %}
+            <div class="absolute top-0 right-0 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-wider rounded-bl-lg shadow">
+                Enterprise
+            </div>
+            {% endif %}
+
+            <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+                    <h3 class="text-xl font-bold text-slate-900 font-heading">{{ plan.name }}</h3>
+                    <span class="badge {% if plan.is_active %}badge-green{% else %}badge-red{% endif %}">
+                        {% if plan.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </div>
+                <div class="flex items-baseline gap-1">
+                    <span class="text-3xl font-extrabold text-slate-900">{{ plan.price_per_year_etb|floatformat:0 }}</span>
+                    <span class="text-sm text-slate-500 font-bold">ETB / {{ plan.get_billing_cycle_display }}</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2 font-mono uppercase tracking-wider">{{ plan.get_tier_display }}</p>
+            </div>
+
+            <div class="p-6 space-y-4 text-sm text-slate-600">
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-users text-purple-500 w-4"></i> Students</span>
+                    <span class="font-bold text-slate-900">{% if plan.max_students == -1 %}Unlimited{% else %}{{ plan.max_students }}{% endif %}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-chalkboard-user text-indigo-500 w-4"></i> Teachers</span>
+                    <span class="font-bold text-slate-900">{% if plan.max_teachers == -1 %}Unlimited{% else %}{{ plan.max_teachers }}{% endif %}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-comment-sms text-emerald-500 w-4"></i> SMS / mo</span>
+                    <span class="font-bold text-slate-900">{{ plan.max_sms_per_month }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center gap-2"><i class="fa-solid fa-hard-drive text-amber-500 w-4"></i> Storage</span>
+                    <span class="font-bold text-slate-900">{{ plan.max_storage_mb }} MB</span>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-100 bg-slate-50 flex gap-2">
+                <button onclick="editPlan({{ plan.id }}, '{{ plan.name|escapejs }}', '{{ plan.tier }}', {{ plan.max_students }}, {{ plan.max_teachers }}, {{ plan.max_sms_per_month }}, {{ plan.max_storage_mb }}, '{{ plan.price_per_year_etb }}', '{{ plan.billing_cycle }}')" 
+                    class="flex-1 py-2 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-xs hover:bg-slate-100 transition shadow-sm">
+                    <i class="fa-solid fa-pen mr-1"></i> Edit
+                </button>
+                <form method="POST" action="{% url 'platform:toggle_subscription_plan' plan.id %}" class="flex-1" onsubmit="return confirm('Toggle status for this plan?');">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full py-2 bg-white border border-slate-200 rounded-xl font-bold text-xs hover:bg-slate-100 transition shadow-sm {% if plan.is_active %}text-red-600{% else %}text-green-600{% endif %}">
+                        {% if plan.is_active %}<i class="fa-solid fa-ban mr-1"></i> Deactivate{% else %}<i class="fa-solid fa-check mr-1"></i> Activate{% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-full py-12 text-center bg-white rounded-3xl border border-slate-200 border-dashed">
+            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fa-solid fa-tags text-2xl text-slate-300"></i>
+            </div>
+            <p class="font-bold text-slate-600">No subscription plans found.</p>
+            <p class="text-sm text-slate-400 mt-1">Create your first billing tier to monetize the platform.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- Plan Modal -->
+<div id="planModal" class="hidden modal-overlay" onclick="if(event.target===this)closeModal('planModal')">
+    <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+        <div class="bg-gradient-to-r from-brand-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+            <h3 class="text-base font-bold text-white font-heading" id="modalTitle">
+                <i class="fa-solid fa-tags mr-2"></i>Create Subscription Plan
+            </h3>
+            <button type="button" onclick="closeModal('planModal')"
+                class="text-white/60 hover:text-white font-bold w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition">✕</button>
+        </div>
+        <form method="POST" action="{% url 'platform:save_subscription_plan' %}" class="p-6 space-y-4 text-sm">
+            {% csrf_token %}
+            <input type="hidden" name="plan_id" id="plan_id">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Plan Name *</label>
+                <input type="text" name="name" id="plan_name" required placeholder="e.g. Standard Annual"
+                    class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tier *</label>
+                    <select name="tier" id="plan_tier" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                        <option value="BASIC">Basic</option>
+                        <option value="STANDARD">Standard</option>
+                        <option value="PREMIUM">Premium</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Billing Cycle *</label>
+                    <select name="billing_cycle" id="plan_billing_cycle" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                        <option value="MONTHLY">Monthly</option>
+                        <option value="QUARTERLY">Quarterly</option>
+                        <option value="YEARLY" selected>Yearly</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Price (ETB) *</label>
+                    <input type="number" step="0.01" name="price_per_year_etb" id="plan_price" required placeholder="0.00"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 transition font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Storage (MB) *</label>
+                    <input type="number" name="max_storage_mb" id="plan_storage" required placeholder="5000"
+                        class="w-full border border-slate-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 transition font-mono">
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Max Students</label>
+                    <input type="number" name="max_students" id="plan_students" required placeholder="500"
+                        class="w-full border border-slate-300 rounded text-sm px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Max Teachers</label>
+                    <input type="number" name="max_teachers" id="plan_teachers" required placeholder="30"
+                        class="w-full border border-slate-300 rounded text-sm px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Monthly SMS</label>
+                    <input type="number" name="max_sms_per_month" id="plan_sms" required placeholder="1000"
+                        class="w-full border border-slate-300 rounded text-sm px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4">
+                <button type="button" onclick="closeModal('planModal')"
+                    class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                    class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-sm shadow transition transform active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-save"></i>
+                    Save Plan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editPlan(id, name, tier, students, teachers, sms, storage, price, cycle) {
+    document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen mr-2"></i>Edit Subscription Plan';
+    document.getElementById('plan_id').value = id;
+    document.getElementById('plan_name').value = name;
+    document.getElementById('plan_tier').value = tier;
+    document.getElementById('plan_students').value = students;
+    document.getElementById('plan_teachers').value = teachers;
+    document.getElementById('plan_sms').value = sms;
+    document.getElementById('plan_storage').value = storage;
+    document.getElementById('plan_price').value = parseFloat(price).toFixed(2);
+    document.getElementById('plan_billing_cycle').value = cycle;
+    openModal('planModal');
+}
+</script>
+{% endblock %}

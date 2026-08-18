@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Log Disciplinary Incident{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto space-y-6">
+  <div class="flex items-center gap-3">
+    <a href="{% url 'discipline:list' %}" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+      <i class="fa-solid fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+      <h1 class="font-heading text-xl font-bold text-slate-800">Log Disciplinary Incident</h1>
+      <p class="text-xs text-slate-500">Record an incident involving one or more students</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Incident Title <span class="text-red-500">*</span></label>
+        <input type="text" name="title" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition" required placeholder="e.g. Disruption during exam / Vandalism">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Category <span class="text-red-500">*</span></label>
+          <select name="category" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition" required>
+            {% for val, label in category_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Severity <span class="text-red-500">*</span></label>
+          <select name="severity" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition" required>
+            {% for val, label in severity_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Incident Date <span class="text-red-500">*</span></label>
+          <input type="date" name="incident_date" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition" required value="{{ today }}">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Location (optional)</label>
+          <input type="text" name="location" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition" placeholder="e.g. Science Lab, Cafeteria">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Description <span class="text-red-500">*</span></label>
+        <textarea name="description" rows="4" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition resize-none" required placeholder="Describe what occurred in detail..."></textarea>
+      </div>
+
+      <!-- STUDENTS INVOLVED (Enrolled in Active Academic Year) -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Students Involved <span class="text-red-500">*</span></label>
+            <p class="text-[11px] text-slate-500 font-medium">Enrolled in Active Academic Year: <span class="font-bold text-brand-600">{{ current_ay.name|default:"Active Year" }}</span></p>
+          </div>
+          <span class="text-[10px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded-full">Top-Down Grade Filter</span>
+        </div>
+
+        <!-- Top-Down Filter Controls (Grade/Stream & Section) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Filter by Grade & Stream</label>
+            <select id="gradeFilter" class="w-full bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-red-500">
+              <option value="all">— All Grades & Streams —</option>
+              {% for grade in grades %}
+                <option value="{{ grade.id }}">Grade {{ grade.level }}{% if grade.stream_type != 'GEN' %} ({{ grade.get_stream_type_display }}){% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Filter by Section</label>
+            <select id="sectionFilter" class="w-full bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-red-500">
+              <option value="all">— All Sections —</option>
+              {% for section in sections %}
+                <option value="{{ section.id }}" data-grade="{{ section.grade_id }}">Grade {{ section.grade.level }} - Sec {{ section.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Grouped Student Selection Box -->
+        <div>
+          <select name="student_ids" id="studentSelect" multiple class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-red-500 h-44 shadow-inner">
+            {% for group_title, student_list in grouped_students.items %}
+              <optgroup label="📂 {{ group_title }}" class="font-bold text-slate-900 bg-slate-100 py-1" data-group-title="{{ group_title }}">
+                {% for student in student_list %}
+                  <option value="{{ student.id }}" data-grade="{{ student.grade_id }}" data-section="{{ student.section_id }}" class="py-1 px-2 text-slate-700 font-normal hover:bg-red-50">
+                    {{ student.full_name }} ({{ student.student_id }})
+                  </option>
+                {% endfor %}
+              </optgroup>
+            {% empty %}
+              <option disabled value="" class="text-slate-400 p-2 text-center">No enrolled students found in current academic year.</option>
+            {% endfor %}
+          </select>
+          <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1.5">
+            <span>Hold <kbd class="px-1 py-0.5 bg-slate-200 text-slate-700 rounded font-mono">Ctrl</kbd> (Cmd on Mac) to select multiple students.</span>
+            <button type="button" id="clearSelectionBtn" class="text-red-600 hover:underline font-bold">Clear Selection</button>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const gradeFilter = document.getElementById('gradeFilter');
+          const sectionFilter = document.getElementById('sectionFilter');
+          const studentSelect = document.getElementById('studentSelect');
+          const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+          function filterStudents() {
+            const selectedGrade = gradeFilter.value;
+            const selectedSection = sectionFilter.value;
+
+            const optgroups = studentSelect.querySelectorAll('optgroup');
+            optgroups.forEach(og => {
+              let visibleInGroup = 0;
+              const options = og.querySelectorAll('option');
+
+              options.forEach(opt => {
+                const optGrade = opt.getAttribute('data-grade');
+                const optSection = opt.getAttribute('data-section');
+
+                let matchGrade = (selectedGrade === 'all' || optGrade === selectedGrade);
+                let matchSection = (selectedSection === 'all' || optSection === selectedSection);
+
+                if (matchGrade && matchSection) {
+                  opt.style.display = '';
+                  visibleInGroup++;
+                } else {
+                  opt.style.display = 'none';
+                  opt.selected = false; // Deselect hidden options
+                }
+              });
+
+              og.style.display = visibleInGroup > 0 ? '' : 'none';
+            });
+          }
+
+          if (gradeFilter) gradeFilter.addEventListener('change', filterStudents);
+          if (sectionFilter) sectionFilter.addEventListener('change', filterStudents);
+          if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', function() {
+              Array.from(studentSelect.options).forEach(opt => opt.selected = false);
+            });
+          }
+        });
+      </script>
+
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Immediate Action Taken</label>
+          <select name="action_type" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500">
+            <option value="">— None / Pending —</option>
+            {% for val, label in action_choices %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Action Details</label>
+          <input type="text" name="action_description" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="Optional notes on immediate action">
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-4 border-t border-slate-100">
+        <button type="submit" class="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-red-500/25 transition">
+          <i class="fa-solid fa-triangle-exclamation text-xs"></i> Log Incident
+        </button>
+        <a href="{% url 'discipline:list' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-sm px-4 py-2.5 rounded-xl transition">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

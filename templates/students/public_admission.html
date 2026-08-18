@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Student Admission Application</title>
+  <meta name="description" content="Apply online for student admission. Submit your application form and track its status.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); min-height: 100vh; }
+    .glass { background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.3); }
+    .gradient-text { background: linear-gradient(135deg, #6366f1, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .form-control:focus, .form-select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .btn-submit { background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; font-weight: 600; padding: .75rem 2rem; }
+    .btn-submit:hover { opacity: .9; transform: translateY(-1px); }
+    .step-badge { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg,#6366f1,#0ea5e9); display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: .8rem; margin-right: 8px; }
+  </style>
+</head>
+<body class="py-5">
+  <div class="container" style="max-width:700px">
+    <!-- Header -->
+    <div class="text-center text-white mb-4">
+      <div style="width:70px;height:70px;background:linear-gradient(135deg,#6366f1,#0ea5e9);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+        <i class="bi bi-mortarboard-fill fs-2"></i>
+      </div>
+      <h1 class="fw-bold fs-2 gradient-text mb-1" style="-webkit-text-fill-color:white">Online Student Admission</h1>
+      <p class="opacity-75 mb-0">Fill in the form below to apply for admission. You will receive an application number to track your status.</p>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}{% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+    {% endfor %}{% endif %}
+
+    <div class="glass p-4 p-md-5">
+      <form method="post">
+        {% csrf_token %}
+        <h5 class="fw-bold mb-4"><span class="step-badge">1</span> School Information</h5>
+        <div class="mb-4">
+          <label class="form-label fw-semibold">School Code <span class="text-danger">*</span></label>
+          <input type="text" name="school_code" class="form-control" required placeholder="e.g. AIA, ABC — ask the school for their code"
+            value="{{ form_data.school_code|default:'' }}" style="text-transform:uppercase">
+          <div class="form-text">You can get the school code from the school office or their website.</div>
+        </div>
+
+        <h5 class="fw-bold mb-4 mt-4"><span class="step-badge">2</span> Student Information</h5>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+            <input type="text" name="first_name" class="form-control" required value="{{ form_data.first_name|default:'' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Middle Name <span class="text-danger">*</span></label>
+            <input type="text" name="middle_name" class="form-control" required value="{{ form_data.middle_name|default:'' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
+            <input type="text" name="last_name" class="form-control" required value="{{ form_data.last_name|default:'' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Gender <span class="text-danger">*</span></label>
+            <select name="gender" class="form-select" required>
+              <option value="M" {% if form_data.gender == 'M' %}selected{% endif %}>Male</option>
+              <option value="F" {% if form_data.gender == 'F' %}selected{% endif %}>Female</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Applying for Grade <span class="text-danger">*</span></label>
+            <select name="grade_level" class="form-select" required>
+              {% for g in "9,10,11,12"|split:"," %}
+              <option value="{{ g }}" {% if form_data.grade_level == g %}selected{% endif %}>Grade {{ g }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-semibold">Previous School (optional)</label>
+            <input type="text" name="previous_school" class="form-control" placeholder="Name of school previously attended" value="{{ form_data.previous_school|default:'' }}">
+          </div>
+        </div>
+
+        <h5 class="fw-bold mb-4 mt-4"><span class="step-badge">3</span> Parent / Guardian Information</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Parent / Guardian Name <span class="text-danger">*</span></label>
+            <input type="text" name="parent_name" class="form-control" required value="{{ form_data.parent_name|default:'' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Phone Number <span class="text-danger">*</span></label>
+            <input type="tel" name="parent_phone" class="form-control" required placeholder="e.g. 0911234567" value="{{ form_data.parent_phone|default:'' }}">
+          </div>
+        </div>
+
+        <div class="d-grid mt-4">
+          <button type="submit" class="btn btn-submit btn-primary text-white">
+            <i class="bi bi-send me-2"></i>Submit Application
+          </button>
+        </div>
+      </form>
+
+      <div class="text-center mt-4 pt-3 border-top">
+        <p class="text-muted small mb-1">Already submitted? <a href="{% url 'admission_status' %}" class="fw-semibold">Check your application status</a></p>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

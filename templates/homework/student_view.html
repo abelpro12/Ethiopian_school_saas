@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}My Homework{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/25 flex-shrink-0">
+        <i class="fa-solid fa-pen-to-square text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">My Homework</h1>
+        <p class="text-sm text-slate-500">{{ current_ay.name|default:"Pending & upcoming assignments" }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Homework Cards Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    {% for item in hw_with_status %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition group {% if item.hw.is_overdue and not item.submission %}border-red-200 bg-red-50/20{% endif %}">
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge badge-purple">{{ item.hw.subject.code }}</span>
+          {% if item.submission %}
+            <span class="badge badge-green"><i class="fa-solid fa-check text-[10px] me-1"></i>Submitted</span>
+          {% elif item.hw.is_overdue %}
+            <span class="badge badge-red"><i class="fa-solid fa-clock text-[10px] me-1"></i>Overdue</span>
+          {% else %}
+            <span class="badge badge-yellow"><i class="fa-solid fa-hourglass-half text-[10px] me-1"></i>Pending</span>
+          {% endif %}
+        </div>
+        <h3 class="font-heading font-bold text-slate-800 text-base mb-1.5 group-hover:text-brand-600 transition">{{ item.hw.title }}</h3>
+        <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">{{ item.hw.description }}</p>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-between mt-2">
+        <span class="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+          <i class="fa-regular fa-calendar text-xs"></i>
+          Due: {{ item.hw.due_date|date:"M d, Y" }}
+        </span>
+        {% if not item.submission %}
+          <a href="{% url 'homework:submit' item.hw.id %}" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs shadow-md shadow-brand-500/20 transition flex items-center gap-1.5">
+            Submit <i class="fa-solid fa-arrow-right text-[10px]"></i>
+          </a>
+        {% else %}
+          <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
+            {{ item.submission.submitted_at|date:"M d, H:i" }}
+          </span>
+        {% endif %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">
+      <i class="fa-solid fa-circle-check text-5xl text-emerald-400/30 mb-3 block"></i>
+      <p class="font-heading font-bold text-slate-700 text-base">All Caught Up!</p>
+      <p class="text-xs text-slate-400 mt-1">No pending homework assignments at this time 🎉</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

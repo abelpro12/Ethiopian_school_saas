@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Semester Close Engine{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8">
+    <div class="mb-8">
+        <h1 class="text-2xl font-bold text-gray-900">Semester Close Engine</h1>
+        <p class="text-gray-600 text-sm mt-1">Compute final results, averages, and ranks for the semester.</p>
+    </div>
+
+    <div class="bg-white shadow rounded-lg border border-gray-200 p-8 text-center">
+        <i class="fa-solid fa-gears text-6xl text-indigo-200 mb-6 block"></i>
+        <h2 class="text-xl font-bold text-gray-900 mb-2">Run Computation for {{ sem.name }} ({{ ay.display_name }})</h2>
+        <p class="text-gray-600 mb-6 max-w-lg mx-auto">
+            This will aggregate all APPROVED marks for all students, compute their final subject scores, average score, pass/fail status, and generate section/grade ranks.
+        </p>
+
+        {% if results_exist %}
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-md text-sm mb-6 max-w-lg mx-auto text-left">
+            <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+            Results have already been computed for this semester. Running this again will recalculate and overwrite the existing ranks and averages.
+        </div>
+        {% endif %}
+
+        <form method="POST" onsubmit="return confirm('Are you sure you want to run the Semester Close computation? This may take a few moments.')">
+            {% csrf_token %}
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-bold transition-colors shadow-sm text-lg">
+                <i class="fa-solid fa-play mr-2"></i> Compute Semester Results
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

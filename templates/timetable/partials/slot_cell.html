@@ -1,0 +1,26 @@
+{% if slot %}
+<div class="h-full w-full relative bg-indigo-50 border-l-4 border-indigo-500 rounded p-2 text-left group">
+    <div class="font-bold text-indigo-900 text-sm truncate">{{ slot.subject.name }}</div>
+    <div class="text-xs text-indigo-700 mt-1 truncate"><i class="fa-solid fa-user-tie mr-1"></i>{{ slot.teacher.user.get_full_name|default:slot.teacher.user.username }}</div>
+    {% if slot.room %}
+    <div class="text-xs text-indigo-600 truncate"><i class="fa-solid fa-door-open mr-1"></i>{{ slot.room }}</div>
+    {% endif %}
+    
+    <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button type="button" 
+                hx-post="{% url 'timetable:remove_slot' %}"
+                hx-vals='{"slot_id": "{{ slot.id }}"}'
+                hx-target="closest td"
+                hx-confirm="Remove this assignment from the timetable?"
+                class="text-red-500 hover:text-red-700 bg-white rounded-full p-1 shadow-sm h-6 w-6 flex items-center justify-center">
+            <i class="fa-solid fa-times text-xs"></i>
+        </button>
+    </div>
+</div>
+{% else %}
+<button type="button" 
+        class="h-full w-full min-h-[80px] border-2 border-dashed border-gray-200 rounded-md hover:border-indigo-400 hover:bg-indigo-50 transition-colors flex items-center justify-center group"
+        onclick="openAssignModal('{{ day }}', '{{ period.id }}', '{{ section.id }}')">
+    <i class="fa-solid fa-plus text-gray-300 group-hover:text-indigo-400 text-xl"></i>
+</button>
+{% endif %}

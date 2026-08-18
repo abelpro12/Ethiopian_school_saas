@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% load calendar_tags %}
+{% block title %}School Master Calendar — EthioSchool SaaS{% endblock %}
+
+{% block extra_head %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+<style>
+  .fc-toolbar-title { font-family: 'Outfit', sans-serif; font-weight: 800 !important; font-size: 1.1rem !important; color: #0f172a; }
+  .fc-button { background: #4F46E5 !important; border-color: #4338CA !important; font-size: 0.75rem !important; border-radius: 10px !important; font-weight: 600 !important; }
+  .fc-button:hover { background: #4338CA !important; }
+  .fc-button-active { background: #3730A3 !important; }
+  .fc-daygrid-day:hover { background: #EEF2FF !important; cursor: pointer; transition: background 0.2s; }
+  .fc-event { border-radius: 8px !important; border: none !important; font-size: 0.72rem !important; font-weight: 600 !important; padding: 2px 6px !important; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .fc-col-header-cell { background: #f8fafc; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; padding: 8px 0 !important; }
+  #schoolCalendar { min-height: 620px; }
+  .fc-eth-cell { display:flex; flex-direction:column; align-items:center; justify-center; padding: 2px 0; }
+  .fc-eth-num { font-size:0.85rem; font-weight:700; color:#0f172a; }
+  .fc-eth-sub { font-size:0.65rem; font-weight:600; color:#4f46e5; margin-top:-2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+  <!-- Header Card -->
+  <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-xl border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-500 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/30 flex-shrink-0">
+        <i class="fa-solid fa-calendar-days text-white text-2xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-heading text-2xl font-bold">School Master Calendar</h1>
+          {% if current_ay %}
+          <span class="bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold px-3 py-0.5 rounded-full border border-emerald-500/30">
+            {% if calendar_preference == 'GREGORIAN' %}{{ current_ay.gregorian_start_date.year }}/{{ current_ay.gregorian_end_date.year }} G.C.{% else %}{{ current_ay.ethiopian_year }} E.C.{% endif %}
+          </span>
+          {% endif %}
+        </div>
+        <p class="text-slate-400 text-xs mt-1">
+          Active Mode: <strong class="text-brand-300">{% if calendar_preference == 'GREGORIAN' %}Gregorian Calendar (G.C.){% else %}Ethiopian Academic Calendar (E.C. / 🇪🇹){% endif %}</strong> · All events, exams & deadlines
+        </p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      {% if can_manage %}
+      <button onclick="openModal('addEventModal')" class="bg-gradient-to-r from-brand-500 to-purple-600 hover:from-brand-600 hover:to-purple-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-brand-500/30 transition flex items-center gap-2 transform active:scale-95">
+        <i class="fa-solid fa-calendar-plus text-xs"></i>
+        <span>+ Add Event</span>
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Category Filter Bar & Legend -->
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-2 overflow-x-auto text-xs font-semibold">
+      <span class="text-slate-400 uppercase tracking-wider text-[10px] font-bold me-1">Filter:</span>
+      <button onclick="filterEvents('ALL')" class="cat-btn active bg-brand-600 text-white px-3 py-1.5 rounded-xl transition">All Events</button>
+      <button onclick="filterEvents('EXAM')" class="cat-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition">📝 Exams</button>
+      <button onclick="filterEvents('SEMESTER')" class="cat-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition">🎓 Semesters</button>
+      <button onclick="filterEvents('HOLIDAY')" class="cat-btn bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition">🌴 Holidays</button>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-600">
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>School Event</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Exams</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Semester Start</span>
+      <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>Semester End</span>
+    </div>
+  </div>
+
+  <!-- Main Grid: Calendar (Left 8 cols) + Upcoming Sidebar (Right 4 cols) -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- Interactive Calendar Card -->
+    <div class="lg:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <div id="schoolCalendar"></div>
+    </div>
+
+    <!-- Right Sidebar Widgets -->
+    <div class="lg:col-span-4 space-y-6">
+
+      <!-- Upcoming Events Card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 class="font-heading font-bold text-slate-800 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-brand-500"></i> Upcoming Events
+          </h3>
+          <span class="badge badge-purple">{{ upcoming_events|length }} Upcoming</span>
+        </div>
+
+        <div class="space-y-3">
+          {% for ev in upcoming_events %}
+          <div class="p-3 bg-slate-50 hover:bg-brand-50/50 rounded-xl border border-slate-100 transition group cursor-pointer" onclick="showQuickEvent('{{ ev.title|escapejs }}', '{{ ev.start_date|school_date:request.school }}', '{{ ev.description|default:""|escapejs }}')">
+            <div class="flex items-start justify-between">
+              <span class="badge badge-blue text-[10px]">{{ ev.get_event_type_display }}</span>
+              <span class="text-[10px] font-bold text-brand-600 font-mono"><i class="fa-regular fa-calendar me-1"></i>{{ ev.start_date|school_date:request.school }}</span>
+            </div>
+            <p class="font-bold text-slate-800 text-xs mt-1.5 group-hover:text-brand-600 transition">{{ ev.title }}</p>
+            {% if ev.description %}
+            <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{{ ev.description }}</p>
+            {% endif %}
+          </div>
+          {% empty %}
+          <div class="text-center py-6 text-slate-400">
+            <i class="fa-regular fa-calendar-xmark text-3xl opacity-20 mb-2 block"></i>
+            <p class="text-xs">No upcoming school events scheduled.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Upcoming Exam Schedules Card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 class="font-heading font-bold text-slate-800 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-file-pen text-red-500"></i> Upcoming Exams
+          </h3>
+          <span class="badge badge-red">{{ upcoming_exams|length }} Scheduled</span>
+        </div>
+
+        <div class="space-y-2.5">
+          {% for ex in upcoming_exams %}
+          <div class="p-3 bg-red-50/30 rounded-xl border border-red-100/60 flex items-center justify-between">
+            <div>
+              <p class="font-bold text-slate-800 text-xs">{{ ex.subject.name }} Exam</p>
+              <p class="text-[10px] text-slate-500 mt-0.5"><i class="fa-regular fa-clock me-1"></i>{{ ex.start_time }} - {{ ex.end_time }}</p>
+            </div>
+            <span class="text-xs font-bold text-red-600 bg-red-100 px-2.5 py-1 rounded-lg">
+              {{ ex.exam_date|school_date:request.school }}
+            </span>
+          </div>
+          {% empty %}
+          <div class="text-center py-6 text-slate-400">
+            <i class="fa-regular fa-file text-3xl opacity-20 mb-2 block"></i>
+            <p class="text-xs">No exam schedules configured yet.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Event Modal (For Admins) -->
+{% if can_manage %}
+<div id="addEventModal" class="hidden modal-overlay" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-calendar-plus text-brand-400 text-base"></i>
+        <h3 class="font-heading font-bold text-sm">Add School Event</h3>
+      </div>
+      <button onclick="closeModal('addEventModal')" class="text-slate-400 hover:text-white text-sm">✕</button>
+    </div>
+
+    <form method="post" class="p-6 space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Event Title <span class="text-red-500">*</span></label>
+        <input type="text" name="title" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500" required placeholder="e.g. Parents Teacher Association Meeting">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Event Category</label>
+          <select name="event_type" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <option value="SCHOOL_EVENT">📌 General School Event</option>
+            <option value="HOLIDAY">🌴 Holiday / Break</option>
+            <option value="EXAM">📝 Exam / Assessment</option>
+            <option value="MEETING">🤝 Staff Meeting</option>
+            <option value="SPORTS">🏆 Sports / Cultural</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Start Date <span class="text-red-500">*</span></label>
+          <input type="date" name="start_date" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500" required value="{{ today }}">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">End Date (optional)</label>
+        <input type="date" name="end_date" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Description (optional)</label>
+        <textarea name="description" rows="3" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" placeholder="Brief event details..."></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-3 border-t border-slate-100">
+        <button type="submit" class="w-full bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-700 hover:to-purple-700 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition">
+          Post Event
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- View Event Detail Modal -->
+<div id="eventModal" class="hidden modal-overlay" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="bg-white max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 text-white" id="eventModalHeader" style="background:linear-gradient(135deg,#4F46E5,#7C3AED)">
+      <h3 class="font-heading font-bold text-base" id="eventModalTitle"></h3>
+      <p class="text-indigo-200 text-xs mt-1 font-mono" id="eventModalDate"></p>
+    </div>
+    <div class="p-5">
+      <p class="text-xs text-slate-600 leading-relaxed" id="eventModalDesc"></p>
+      <button onclick="closeModal('eventModal')"
+        class="mt-4 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 rounded-xl transition">
+        Dismiss
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let fullCalendarInstance = null;
+
+const ETHIOPIAN_MONTHS = [
+  "", "Meskerem", "Tikimt", "Hidar", "Tahsas", "Tir", "Yekatit",
+  "Megabit", "Miazia", "Ginbot", "Sene", "Hamle", "Nehase", "Pagume"
+];
+
+function gregorianToEthiopian(dateObj) {
+  const gy = dateObj.getFullYear();
+  const gm = dateObj.getMonth() + 1;
+  const gd = dateObj.getDate();
+
+  const a = Math.floor((14 - gm) / 12);
+  const y = gy + 4800 - a;
+  const m = gm + 12 * a - 3;
+  const jdn = gd + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+
+  const r = (jdn - 1724221) % 1461;
+  const n = (r % 365) + 365 * Math.floor(r / 1460);
+  const ethYear = 4 * Math.floor((jdn - 1724221) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460) + 1;
+  const ethMonth = Math.floor(n / 30) + 1;
+  const ethDay = (n % 30) + 1;
+
+  return { year: ethYear, month: ethMonth, day: ethDay, monthName: ETHIOPIAN_MONTHS[ethMonth] || '' };
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const calendarEl = document.getElementById('schoolCalendar');
+  const calendarPref = "{{ calendar_preference|default:'ETHIOPIAN' }}";
+  const isEthiopian = (calendarPref === 'ETHIOPIAN');
+
+  fullCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,listMonth'
+    },
+    height: 640,
+    events: '{% url "calendar_events_json" %}',
+    dayCellContent: function(arg) {
+      if (isEthiopian) {
+        const eth = gregorianToEthiopian(arg.date);
+        return {
+          html: `<div class="fc-eth-cell">
+                   <span class="fc-eth-num">${eth.day}</span>
+                   <span class="fc-eth-sub">${eth.monthName ? eth.monthName.slice(0,3) : ''}</span>
+                 </div>`
+        };
+      }
+      return arg.dayNumberText;
+    },
+    datesSet: function(info) {
+      if (isEthiopian) {
+        const midDate = new Date((info.start.getTime() + info.end.getTime()) / 2);
+        const ethMid = gregorianToEthiopian(midDate);
+        const titleEl = document.querySelector('.fc-toolbar-title');
+        if (titleEl && ethMid.monthName) {
+          titleEl.innerHTML = `<span class="text-brand-700 font-extrabold">${ethMid.monthName} ${ethMid.year} E.C.</span> <span class="text-xs font-normal text-slate-400 font-sans block sm:inline">(${info.view.title})</span>`;
+        }
+      }
+    },
+    eventClick: function(info) {
+      const color = info.event.backgroundColor || '#4F46E5';
+      let dateDisplay = info.event.startStr;
+      if (isEthiopian && info.event.start) {
+        const eth = gregorianToEthiopian(info.event.start);
+        if (eth.monthName) {
+          dateDisplay = `${eth.monthName} ${eth.day}, ${eth.year} E.C. (${info.event.startStr})`;
+        }
+      }
+      document.getElementById('eventModalTitle').textContent = info.event.title;
+      document.getElementById('eventModalDate').textContent = dateDisplay;
+      document.getElementById('eventModalDesc').textContent = info.event.extendedProps.description || 'No additional details.';
+      document.getElementById('eventModalHeader').style.background = `linear-gradient(135deg, ${color}, ${color}dd)`;
+      openModal('eventModal');
+    },
+    loading: function(isLoading) {
+      calendarEl.style.opacity = isLoading ? '0.5' : '1';
+    }
+  });
+  fullCalendarInstance.render();
+});
+
+function showQuickEvent(title, dateStr, desc) {
+  document.getElementById('eventModalTitle').textContent = title;
+  document.getElementById('eventModalDate').textContent = dateStr;
+  document.getElementById('eventModalDesc').textContent = desc || 'Scheduled school event.';
+  document.getElementById('eventModalHeader').style.background = 'linear-gradient(135deg, #6366f1, #4f46e5)';
+  openModal('eventModal');
+}
+
+function filterEvents(category) {
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.classList.remove('bg-brand-600', 'text-white');
+    btn.classList.add('bg-slate-100', 'text-slate-600');
+  });
+  event.target.classList.remove('bg-slate-100', 'text-slate-600');
+  event.target.classList.add('bg-brand-600', 'text-white');
+
+  // Filter event visibility
+  const allEvents = fullCalendarInstance.getEvents();
+  allEvents.forEach(ev => {
+    if (category === 'ALL' || ev.extendedProps.category === category) {
+      ev.setProp('display', 'auto');
+    } else {
+      ev.setProp('display', 'none');
+    }
+  });
+}
+</script>
+{% endblock %}

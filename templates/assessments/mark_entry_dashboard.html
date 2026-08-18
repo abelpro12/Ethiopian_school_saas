@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}Mark Entry{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8">
+    <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Gradebook Portal</h1>
+            <p class="text-gray-600 text-sm mt-1">Select a class and subject to enter or view academic marks.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <form method="GET" action="" class="flex items-center gap-2">
+                <label for="subject_filter" class="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Subject:</label>
+                <select id="subject_filter" name="subject_id" onchange="this.form.submit()" class="px-3 py-2 border rounded-xl bg-white text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                    <option value="">-- All Subjects --</option>
+                    {% for sub in subjects %}
+                    <option value="{{ sub.id }}" {% if selected_subject_id == sub.id|stringformat:'s' %}selected{% endif %}>
+                        {{ sub.name }} ({{ sub.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if selected_subject_id %}
+                <a href="{% url 'assessments:mark_entry' %}" class="px-3 py-2 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition">Clear</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for assignment in assignments %}
+        <a href="{% url 'assessments:mark_entry_grid' assignment.section.id assignment.subject.id %}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-indigo-300 transition-all block group">
+            <div class="flex items-start justify-between mb-4">
+                <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <i class="fa-solid fa-book-open text-xl"></i>
+                </div>
+                {% if user.role != 'TEACHER' %}
+                <span class="text-xs font-medium bg-gray-100 text-gray-600 py-1 px-2 rounded-full">
+                    {{ assignment.teacher.user.get_full_name|default:assignment.teacher.user.username }}
+                </span>
+                {% endif %}
+            </div>
+            <h3 class="text-lg font-bold text-gray-900 mb-1">{{ assignment.subject.name }}</h3>
+            <p class="text-gray-500 text-sm font-medium mb-3">{{ assignment.section.grade.name }} - {{ assignment.section.name }}</p>
+            <div class="flex items-center text-sm text-indigo-600 font-medium mt-4 group-hover:text-indigo-700">
+                Enter Marks <i class="fa-solid fa-arrow-right ml-2 transform group-hover:translate-x-1 transition-transform"></i>
+            </div>
+        </a>
+        {% empty %}
+        <div class="col-span-full bg-white p-12 rounded-lg border border-gray-200 text-center">
+            <i class="fa-solid fa-folder-open text-gray-300 text-4xl mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900">No Assignments Found</h3>
+            <p class="text-gray-500">You have no active subject assignments for the current academic year.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

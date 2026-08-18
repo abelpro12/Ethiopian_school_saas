@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>You are Offline — EthioSchool SaaS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .eth-bg { background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%); }
+    </style>
+</head>
+<body class="min-h-screen eth-bg text-white flex flex-col items-center justify-center p-6 text-center">
+    <div class="max-w-md w-full bg-slate-900/80 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl space-y-6">
+        <div class="w-20 h-20 bg-indigo-900/50 border border-indigo-500/30 rounded-3xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-500/20">
+            <i class="fa-solid fa-wifi text-indigo-400 text-3xl animate-pulse"></i>
+        </div>
+
+        <div class="space-y-2">
+            <h1 class="text-2xl font-extrabold tracking-tight">You're Currently Offline</h1>
+            <p class="text-slate-400 text-sm">EthioSchool SaaS requires an active internet connection to sync live student records, attendance, and marks.</p>
+        </div>
+
+        <div class="p-4 bg-slate-800/60 border border-slate-700/50 rounded-2xl text-left text-xs space-y-2 text-slate-300">
+            <p class="font-bold text-indigo-300 flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved"></i> Offline Status
+            </p>
+            <ul class="list-disc list-inside space-y-1 text-slate-400">
+                <li>Static app shell is cached on your device</li>
+                <li>Your session credentials remain safely saved</li>
+                <li>Automatic reconnection will occur when network restores</li>
+            </ul>
+        </div>
+
+        <button onclick="window.location.reload()"
+                class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg transition transform active:scale-[0.98] flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-right"></i> Check Connection & Retry
+        </button>
+    </div>
+</body>
+</html>

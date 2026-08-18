@@ -1,0 +1,761 @@
+{% extends 'base.html' %}
+
+{% block title %}Assessment Components & Marking Schemes | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 space-y-6">
+
+    <!-- Header Section -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-slate-800">
+        <div class="space-y-1.5">
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <span class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400">
+                    <i class="fa-solid fa-calculator text-sm"></i>
+                </span>
+                <h1 class="text-xl sm:text-2xl font-black tracking-tight font-heading">Assessment Scheme & Components</h1>
+                <span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[11px] font-extrabold px-3 py-0.5 rounded-full uppercase tracking-wider">
+                    {{ sem.name|default:"Semester 1" }}
+                </span>
+                <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full">
+                    {{ ay.name|default:"Active Academic Year" }}
+                </span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300">Configure independent 100% evaluation schemes (Continuous Assessment, Quizzes, Midterm & Final Exams) per Grade.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="openStandardSchemeModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>1-Click Standard Scheme (100%)</span>
+            </button>
+            <button onclick="openReplicateModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-copy"></i>
+                <span>Replicate Across Grades</span>
+            </button>
+            <button onclick="openImportPastModal()" class="bg-amber-600 hover:bg-amber-500 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Replicate from Past Year</span>
+            </button>
+            <button onclick="openAddModal()" class="bg-white text-slate-900 hover:bg-slate-100 px-4 py-2.5 rounded-xl font-extrabold text-xs shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-plus text-indigo-600"></i>
+                <span>Add Component</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Quick Grade Health Navigator (Pill Filter Tabs) -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-indigo-600 text-xs"></i>
+                <span class="text-xs font-extrabold text-slate-700 uppercase tracking-wider">Grade Schemes Navigator:</span>
+            </div>
+            <span class="text-[11px] text-slate-500 font-medium">Click any grade to view or edit its specific evaluation structure</span>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+            <!-- All Grades Tab -->
+            <a href="{% url 'assessments:components' %}"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 border
+               {% if not selected_grade_id %}bg-slate-900 text-white border-slate-900 shadow-sm{% else %}bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}">
+                <i class="fa-solid fa-grid-2"></i>
+                <span>All Grades Overview</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] {% if not selected_grade_id %}bg-slate-700 text-white{% else %}bg-slate-200 text-slate-700{% endif %}">
+                    {{ total_configured_grades }}/{{ total_school_grades }}
+                </span>
+            </a>
+
+            <!-- Individual Grade Tabs -->
+            {% for g in all_grade_groups %}
+            <a href="{% url 'assessments:components' %}?grade={{ g.grade.id }}"
+               class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 border
+               {% if selected_grade_id == g.grade.id|stringformat:"s" %}
+                   bg-indigo-600 text-white border-indigo-600 shadow-sm
+               {% else %}
+                   bg-white text-slate-700 border-slate-200 hover:bg-slate-50
+               {% endif %}">
+                <span>{{ g.grade.name }}</span>
+                {% if g.total_weight == 100.0 %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold {% if selected_grade_id == g.grade.id|stringformat:"s" %}bg-indigo-800 text-emerald-300{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                        <i class="fa-solid fa-check text-[9px] mr-1"></i>100%
+                    </span>
+                {% elif g.component_count > 0 %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold {% if selected_grade_id == g.grade.id|stringformat:"s" %}bg-amber-800 text-amber-200{% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">
+                        {{ g.total_weight }}%
+                    </span>
+                {% else %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-slate-400 bg-slate-100">
+                        Not Set
+                    </span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Active Scope Weight Summary Card (Fixed 100% calculation) -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-shield-check text-indigo-600"></i>
+                    <span>Evaluation Weight Summary &bull; {{ scope_title }}</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">
+                    {% if selected_grade_id %}
+                        The combined weight of all evaluation components for this Grade must equal exactly 100.0%.
+                    {% else %}
+                        Each individual grade maintains its own independent 100.0% evaluation breakdown.
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                {% if selected_grade_id %}
+                    <span class="text-2xl font-black {% if is_scope_valid %}text-emerald-600{% else %}text-amber-600{% endif %}">
+                        {{ scope_total_weight }}%
+                    </span>
+                    <span class="text-xs font-bold text-slate-400">/ 100%</span>
+                {% else %}
+                    <div class="text-right">
+                        <span class="text-2xl font-black text-emerald-600">{{ total_valid_grades }} / {{ total_configured_grades }}</span>
+                        <span class="text-xs font-bold text-slate-500 block">Grades at 100%</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if selected_grade_id %}
+            <!-- Single Grade Progress Bar -->
+            <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden shadow-inner flex">
+                <div class="h-full transition-all duration-500 {% if is_scope_valid %}bg-gradient-to-r from-emerald-500 to-teal-500{% elif scope_total_weight > 100 %}bg-rose-500{% else %}bg-gradient-to-r from-amber-400 to-indigo-500{% endif %}"
+                     style="width: {% if scope_total_weight > 100 %}100{% else %}{{ scope_total_weight }}{% endif %}%;"></div>
+            </div>
+
+            {% if is_scope_valid %}
+            <div class="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl">
+                <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+                <span><strong>Compliant:</strong> {{ scope_title }} components total exactly 100.0%. Mark calculation and report card generation are ready.</span>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
+                <span><strong>Adjustment Needed:</strong> Current total is {{ scope_total_weight }}%. Please adjust weights to reach exactly 100.0%.</span>
+            </div>
+            {% endif %}
+        {% else %}
+            <!-- All Grades Overview Banner -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <p class="text-[11px] font-bold text-slate-500 uppercase">Configured Grade Schemes</p>
+                    <p class="text-lg font-black text-slate-800 mt-1">{{ total_configured_grades }} of {{ total_school_grades }} Grades</p>
+                </div>
+                <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
+                    <p class="text-[11px] font-bold text-emerald-700 uppercase">100% Validated Schemes</p>
+                    <p class="text-lg font-black text-emerald-800 mt-1">{{ total_valid_grades }} Grades Validated</p>
+                </div>
+                <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200">
+                    <p class="text-[11px] font-bold text-indigo-700 uppercase">Evaluation Standard</p>
+                    <p class="text-lg font-black text-indigo-800 mt-1">100% per Grade</p>
+                </div>
+            </div>
+
+            {% if is_scope_valid %}
+            <div class="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl">
+                <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+                <span><strong>All Active Schemes Compliant:</strong> Every configured grade in your school has an accurate 100.0% evaluation breakdown!</span>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <!-- Per-Grade Grouped Component Cards -->
+    <div class="space-y-6">
+        {% for group in grade_groups %}
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden">
+            <!-- Grade Card Header -->
+            <div class="p-5 border-b border-slate-100 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white shadow-sm
+                        {% if group.grade.stream_type == 'NAT' %}bg-gradient-to-br from-blue-600 to-blue-700
+                        {% elif group.grade.stream_type == 'SOC' %}bg-gradient-to-br from-emerald-600 to-emerald-700
+                        {% else %}bg-gradient-to-br from-slate-700 to-slate-900{% endif %}">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-heading font-extrabold text-slate-900 text-base">{{ group.grade.name }}</h3>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md
+                                {% if group.grade.stream_type == 'NAT' %}bg-blue-100 text-blue-800
+                                {% elif group.grade.stream_type == 'SOC' %}bg-emerald-100 text-emerald-800
+                                {% else %}bg-slate-200 text-slate-700{% endif %}">
+                                {{ group.grade.get_stream_type_display }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500">{{ group.component_count }} assessment component{{ group.component_count|pluralize }} configured</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2.5 flex-wrap">
+                    <!-- Grade Total Weight Badge -->
+                    {% if group.total_weight == 100.0 %}
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            <i class="fa-solid fa-check"></i> Total Weight: 100.0% (Valid)
+                        </span>
+                    {% elif group.component_count > 0 %}
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Total Weight: {{ group.total_weight }}% / 100%
+                        </span>
+                    {% else %}
+                        <span class="text-xs text-slate-400 font-medium">No components yet</span>
+                    {% endif %}
+
+                    <button onclick="openAddModal('{{ group.grade.id }}')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-xs transition inline-flex items-center gap-1">
+                        <i class="fa-solid fa-plus text-[10px]"></i> Add Component
+                    </button>
+                </div>
+            </div>
+
+            <!-- Components Table for this Grade -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50/50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100">
+                            <th class="p-4 w-12">#</th>
+                            <th class="p-4">Component Name</th>
+                            <th class="p-4 text-center">Evaluation Weight</th>
+                            <th class="p-4 text-center">Max Marks</th>
+                            <th class="p-4">Stream Scope</th>
+                            <th class="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-800">
+                        {% for comp in group.components %}
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="p-4 font-mono text-slate-400 font-bold">{{ forloop.counter }}</td>
+                            <td class="p-4 font-bold text-slate-900 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                                    <span>{{ comp.name }}</span>
+                                </div>
+                            </td>
+                            <td class="p-4 text-center">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-lg font-black text-sm bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                    {{ comp.weight }}%
+                                </span>
+                            </td>
+                            <td class="p-4 text-center font-bold text-slate-600 font-mono">
+                                {{ comp.max_marks }}
+                            </td>
+                            <td class="p-4">
+                                {% if comp.scope_stream and comp.scope_stream.code != 'GEN' %}
+                                <span class="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[11px] font-bold">
+                                    {{ comp.scope_stream.name }}
+                                </span>
+                                {% else %}
+                                <span class="text-slate-500 text-[11px] font-medium">All Streams</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-4 text-right">
+                                <div class="inline-flex items-center gap-1.5">
+                                    <button type="button" onclick="openEditModal('{{ comp.name|escapejs }}', '{{ comp.weight }}', '{{ comp.max_marks }}', '{{ group.grade.id }}', '{{ comp.scope_stream.id|default:'' }}')"
+                                            class="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition" title="Edit Component">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
+                                    <form method="POST" action="{% url 'assessments:components' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete component \'{{ comp.name|escapejs }}\' for {{ group.grade.name }}?');">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="delete_component">
+                                        <input type="hidden" name="component_name" value="{{ comp.name }}">
+                                        <input type="hidden" name="grade_id" value="{{ group.grade.id }}">
+                                        <input type="hidden" name="stream_id" value="{{ comp.scope_stream.id|default:'' }}">
+                                        <button type="submit" class="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition" title="Delete Component">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-slate-400">
+                                <i class="fa-solid fa-layer-group text-2xl mb-2 text-slate-300 block"></i>
+                                No components configured for {{ group.grade.name }} yet.
+                                <button onclick="openAddModal('{{ group.grade.id }}')" class="text-indigo-600 font-bold hover:underline ml-1">
+                                    + Add Component
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200">
+            <i class="fa-solid fa-graduation-cap text-4xl mb-3 text-slate-300 block"></i>
+            <h3 class="text-base font-bold text-slate-700">No Grades Configured Yet</h3>
+            <p class="text-xs text-slate-500 mt-1 mb-4">Set up grades in Academics Config first to configure evaluation components.</p>
+            <a href="{% url 'academics:config' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs">
+                Go to Academics Config
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<!-- Modal 1: Add Component Modal -->
+<div id="addModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-6 border-0 w-full max-w-md shadow-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 font-heading">Add Assessment Component</h3>
+                <p class="text-xs text-slate-500">Define evaluation component for target grade</p>
+            </div>
+            <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_component">
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Component Name</label>
+                <input type="text" name="name" placeholder="e.g. Midterm Exam, Quiz 1, Project, Final Exam" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Weight (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" name="weight" placeholder="e.g. 20" class="w-full px-3 py-2 border rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Max Marks</label>
+                    <input type="number" step="0.01" min="1" name="max_marks" value="100.0" class="w-full px-3 py-2 border rounded-xl font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Target Grade</label>
+                    <select id="add_grade_id" name="grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+                        <option value="">All Grades</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}">{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Target Stream</label>
+                    <select name="stream_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="">All Streams</option>
+                        {% for s in streams %}
+                        <option value="{{ s.id }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2 border-t">
+                <button type="button" onclick="closeAddModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow">Save Component</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: 1-Click Standard Scheme (100%) Modal -->
+<div id="standardSchemeModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-6 border-0 w-full max-w-lg shadow-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 font-heading">1-Click Standard Ethiopian 100% Scheme</h3>
+                    <p class="text-xs text-slate-500">Auto-generate balanced evaluation components that equal 100%</p>
+                </div>
+            </div>
+            <button onclick="closeStandardSchemeModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="seed_standard_scheme">
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Select Scheme Preset</label>
+                <select name="preset" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold text-slate-800">
+                    <option value="STANDARD_5" selected>Standard Ethiopian 5-Component Scheme (CA 30% + Mid 20% + Final 50% = 100%)</option>
+                    <option value="STANDARD_3">3-Component Scheme (CA 30% + Mid 20% + Final 50% = 100%)</option>
+                    <option value="STANDARD_4">4-Component Scheme (Classwork 15% + Project 15% + Mid 20% + Final 50% = 100%)</option>
+                </select>
+            </div>
+
+            <div class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 space-y-1 text-emerald-900">
+                <p class="font-bold text-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-list-check text-emerald-600"></i> Standard 5-Component Breakdown:
+                </p>
+                <ul class="list-disc list-inside text-[11px] space-y-0.5 text-emerald-800">
+                    <li>Class Activity / Assignment: <strong>10%</strong></li>
+                    <li>Quiz & Homework: <strong>10%</strong></li>
+                    <li>Project / Practical Work: <strong>10%</strong></li>
+                    <li>Midterm Examination: <strong>20%</strong></li>
+                    <li>Final Examination: <strong>50%</strong></li>
+                </ul>
+                <p class="text-[11px] font-bold text-emerald-900 pt-1">Total: 100.0%</p>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Apply to Grade</label>
+                <select name="grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold">
+                    <option value="">Apply to ALL Grades in School</option>
+                    {% for g in grades %}
+                    <option value="{{ g.id }}">{{ g.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2 border-t">
+                <button type="button" onclick="closeStandardSchemeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow">Apply 100% Scheme</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 3: Replicate Across Grades & Streams Modal -->
+<div id="replicateModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-6 border-0 w-full max-w-lg shadow-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-copy"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Replicate Scheme Across Grades & Streams</h3>
+                    <p class="text-xs text-slate-500">Copy components from a source Grade & Stream to target Grades & Streams</p>
+                </div>
+            </div>
+            <button onclick="closeReplicateModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="replicate_grade_scheme">
+
+            <!-- SOURCE SELECTION -->
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                <p class="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-indigo-600"></i> 1. Source (To Copy From)
+                </p>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Source Grade *</label>
+                        <select name="source_grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-800" required>
+                            <option value="">-- Select Source Grade --</option>
+                            {% for g in all_grade_groups %}
+                                {% if g.component_count > 0 %}
+                                <option value="{{ g.grade.id }}">{{ g.grade.name }} ({{ g.component_count }} comps, {{ g.total_weight }}%)</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Source Stream</label>
+                        <select name="source_stream_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800">
+                            <option value="">All Streams</option>
+                            {% for s in streams %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARGET SELECTION -->
+            <div class="p-3.5 bg-indigo-50/70 rounded-xl border border-indigo-200 space-y-2.5">
+                <p class="text-[11px] font-extrabold text-indigo-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-crosshairs text-indigo-600"></i> 2. Target (Where to Apply)
+                </p>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Target Grade</label>
+                        <select name="target_grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-800">
+                            <option value="">Apply to ALL Other Grades</option>
+                            {% for g in grades %}
+                            <option value="{{ g.id }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Target Stream</label>
+                        <select name="target_stream_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800">
+                            <option value="">All Streams</option>
+                            {% for s in streams %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Target Section Scope</label>
+                    <select name="target_section_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800">
+                        <option value="">All Sections of Target Grade & Stream</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec.id }}">{{ sec.grade.name }} - Section {{ sec.name }} ({{ sec.stream.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="overwrite_grade_existing" name="overwrite_existing" value="true" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                <label for="overwrite_grade_existing" class="text-xs text-slate-700 font-medium cursor-pointer">
+                    Overwrite / Update existing component weights on target subjects
+                </label>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2 border-t">
+                <button type="button" onclick="closeReplicateModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow">Replicate Scheme</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 4: Edit Component Modal -->
+<div id="editModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-6 border-0 w-full max-w-md shadow-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 font-heading">Edit Assessment Component</h3>
+                <p class="text-xs text-slate-500">Update component name, weight, or max marks</p>
+            </div>
+            <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_component">
+            <input type="hidden" name="old_name" id="edit_old_name">
+            <input type="hidden" name="grade_id" id="edit_grade_id">
+            <input type="hidden" name="stream_id" id="edit_stream_id">
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Component Name</label>
+                <input type="text" name="name" id="edit_name" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Weight (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" name="weight" id="edit_weight" class="w-full px-3 py-2 border rounded-xl font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Max Marks</label>
+                    <input type="number" step="0.01" min="1" name="max_marks" id="edit_max_marks" class="w-full px-3 py-2 border rounded-xl font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                </div>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2 border-t">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow">Update Component</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 5: Replicate from Past Year Grade, Section & Stream Modal -->
+<div id="importPastModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-6 border-0 w-full max-w-lg shadow-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Replicate Scheme from Past Year</h3>
+                    <p class="text-xs text-slate-500">Clone evaluation schemes from Past Year into {{ ay.name }}</p>
+                </div>
+            </div>
+            <button onclick="closeImportPastModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+
+        {% if past_years %}
+        <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="replicate_past_year_scheme">
+
+            <!-- 1. SOURCE PAST YEAR SELECTION -->
+            <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                <p class="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-calendar-clock text-amber-600"></i> 1. Source Past Year & Scope
+                </p>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Source Past Academic Year *</label>
+                    <select name="source_year_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800" required>
+                        <option value="">-- Select Source Past Academic Year --</option>
+                        {% for py in past_years %}
+                        <option value="{{ py.id }}">{{ py.name }} ({{ py.ethiopian_year }} E.C.)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Source Grade</label>
+                        <select name="source_grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-800">
+                            <option value="">All Grades in Past Year</option>
+                            {% for g in grades %}
+                            <option value="{{ g.id }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Source Stream</label>
+                        <select name="source_stream_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-800">
+                            <option value="">All Streams</option>
+                            {% for s in streams %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. TARGET CURRENT YEAR SELECTION -->
+            <div class="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 space-y-2.5">
+                <p class="text-[11px] font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-bullseye text-amber-600"></i> 2. Target in Current Year ({{ ay.name }})
+                </p>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Target Grade</label>
+                        <select name="target_grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800">
+                            <option value="">All Matching Grades</option>
+                            {% for g in grades %}
+                            <option value="{{ g.id }}">{{ g.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Target Stream</label>
+                        <select name="target_stream_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-800">
+                            <option value="">All Matching Streams</option>
+                            {% for s in streams %}
+                            <option value="{{ s.id }}">{{ s.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Target Section Scope</label>
+                        <select name="target_section_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-800">
+                            <option value="">All Sections</option>
+                            {% for sec in sections %}
+                            <option value="{{ sec.id }}">{{ sec.grade.name }} - Section {{ sec.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Target Evaluation Period</label>
+                        <select name="target_period_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800">
+                            {% for p in periods %}
+                            <option value="{{ p.id }}" {% if p.id == sem.id %}selected{% endif %}>{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="overwrite_existing" name="overwrite_existing" value="true" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
+                <label for="overwrite_existing" class="text-xs text-slate-700 font-medium cursor-pointer">
+                    Overwrite / Update existing component weights on target subjects
+                </label>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2 border-t">
+                <button type="button" onclick="closeImportPastModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-clone"></i>
+                    <span>Replicate Past Year Scheme</span>
+                </button>
+            </div>
+        </form>
+        {% else %}
+        <div class="py-6 text-center space-y-3">
+            <div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-calendar-plus"></i>
+            </div>
+            <div>
+                <h4 class="font-bold text-slate-800 text-sm">No Past Academic Years Found</h4>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                    Your school currently has only <strong>{{ ay.name }}</strong> registered. Once you add previous academic years in Academics Configuration, you can replicate their full evaluation schemes here.
+                </p>
+            </div>
+            <div class="pt-2 flex justify-center gap-2">
+                <a href="{% url 'academics:config' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow">
+                    Configure Academic Years
+                </a>
+                <button type="button" onclick="closeImportPastModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">
+                    Close
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function openAddModal(gradeId) {
+        if (gradeId) {
+            document.getElementById('add_grade_id').value = gradeId;
+        }
+        document.getElementById('addModal').classList.remove('hidden');
+    }
+    function closeAddModal() {
+        document.getElementById('addModal').classList.add('hidden');
+    }
+
+    function openStandardSchemeModal() {
+        document.getElementById('standardSchemeModal').classList.remove('hidden');
+    }
+    function closeStandardSchemeModal() {
+        document.getElementById('standardSchemeModal').classList.add('hidden');
+    }
+
+    function openReplicateModal() {
+        document.getElementById('replicateModal').classList.remove('hidden');
+    }
+    function closeReplicateModal() {
+        document.getElementById('replicateModal').classList.add('hidden');
+    }
+
+    function openImportPastModal() {
+        document.getElementById('importPastModal').classList.remove('hidden');
+    }
+    function closeImportPastModal() {
+        document.getElementById('importPastModal').classList.add('hidden');
+    }
+
+    function openEditModal(oldName, weight, maxMarks, gradeId, streamId) {
+        document.getElementById('edit_old_name').value = oldName;
+        document.getElementById('edit_name').value = oldName;
+        document.getElementById('edit_weight').value = weight;
+        document.getElementById('edit_max_marks').value = maxMarks;
+        document.getElementById('edit_grade_id').value = gradeId || '';
+        document.getElementById('edit_stream_id').value = streamId || '';
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+    function closeEditModal() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}

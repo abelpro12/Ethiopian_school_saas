@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}ID Card & QR Code Studio — EthioSchool SaaS{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8 space-y-8" x-data="idCardStudio()">
+
+    <!-- ═══════════════ HERO HEADER ═══════════════ -->
+    <div class="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 text-white shadow-2xl border border-slate-800">
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-400 p-0.5 shadow-xl shadow-indigo-500/30 flex-shrink-0">
+                    <div class="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+                        <i class="fa-solid fa-id-card text-indigo-400 text-2xl animate-pulse"></i>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            Smart Identity System
+                        </span>
+                    </div>
+                    <h1 class="text-3xl font-black text-white font-heading tracking-tight mt-1">ID Card & QR Generator Studio</h1>
+                    <p class="text-slate-300 text-sm mt-1 max-w-xl font-medium">
+                        Upload photos, select specific cards, and batch-print CR80 standard ID cards with scannable QR verification codes.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- PRINT ALL BUTTON -->
+                <a href="?{% if role_filter %}role={{ role_filter }}&{% endif %}{% if grade_id %}grade_id={{ grade_id }}&{% endif %}{% if search_q %}q={{ search_q }}&{% endif %}print=true"
+                   target="_blank"
+                   class="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-extrabold text-xs backdrop-blur-md transition flex items-center gap-2 border border-white/15 shadow-sm">
+                    <i class="fa-solid fa-print text-indigo-300"></i> Print All Cards ({{ total_cards }})
+                </a>
+
+                <!-- PRINT SELECTED BUTTON -->
+                <button @click="printSelected()"
+                        :disabled="selectedUsernames.length === 0"
+                        :class="selectedUsernames.length > 0 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-xl shadow-emerald-600/30 hover:scale-105' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'"
+                        class="px-6 py-3.5 rounded-2xl font-extrabold text-sm transition transform flex items-center gap-2.5">
+                    <i class="fa-solid fa-square-check text-lg"></i>
+                    <span>Print Selected (<span x-text="selectedUsernames.length">0</span>)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ CONTROLS & FILTER BAR ═══════════════ -->
+    <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xl shadow-slate-200/40 space-y-4">
+        
+        <!-- Selection Toolbar Row -->
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-4 gap-4">
+            <div class="flex items-center gap-3">
+                <label class="inline-flex items-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200/80 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 transition">
+                    <input type="checkbox" @change="toggleSelectAll($event)" :checked="isAllSelected" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                    <span>Select All Visible Cards (<span x-text="allUsernames.length"></span>)</span>
+                </label>
+
+                <span x-show="selectedUsernames.length > 0" class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                    ✓ <span x-text="selectedUsernames.length"></span> Card(s) Selected for Printing
+                </span>
+            </div>
+
+            <p class="text-xs text-slate-400 font-medium">
+                Tip: Click camera icon <i class="fa-solid fa-camera text-indigo-500 mx-0.5"></i> on any card avatar to upload a photo!
+            </p>
+        </div>
+
+        <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-end">
+            
+            <!-- Category Filter Tabs -->
+            <div class="lg:col-span-4">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Role Category</label>
+                <div class="flex bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                    <a href="?role=all{% if grade_id %}&grade_id={{ grade_id }}{% endif %}" 
+                       class="flex-1 text-center py-2 text-xs font-bold rounded-xl transition {% if role_filter == 'all' %}bg-white text-indigo-900 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                        All
+                    </a>
+                    <a href="?role=student{% if grade_id %}&grade_id={{ grade_id }}{% endif %}" 
+                       class="flex-1 text-center py-2 text-xs font-bold rounded-xl transition {% if role_filter == 'student' %}bg-white text-blue-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                        Students
+                    </a>
+                    <a href="?role=staff{% if grade_id %}&grade_id={{ grade_id }}{% endif %}" 
+                       class="flex-1 text-center py-2 text-xs font-bold rounded-xl transition {% if role_filter == 'staff' %}bg-white text-purple-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                        Staff
+                    </a>
+                    <a href="?role=parent{% if grade_id %}&grade_id={{ grade_id }}{% endif %}" 
+                       class="flex-1 text-center py-2 text-xs font-bold rounded-xl transition {% if role_filter == 'parent' %}bg-white text-amber-700 shadow-sm{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+                        Parents
+                    </a>
+                </div>
+            </div>
+
+            <!-- Grade Filter -->
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Filter by Grade (Students)</label>
+                <input type="hidden" name="role" value="{{ role_filter }}">
+                <select name="grade_id" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    <option value="">— All Grades —</option>
+                    {% for g in grades %}
+                    <option value="{{ g.id }}" {% if grade_id == g.id|stringformat:"s" %}selected{% endif %}>
+                        Grade {{ g.level }} {% if g.stream_type != 'GEN' %}({{ g.get_stream_type_display }}){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Search Query -->
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Search Name or ID</label>
+                <div class="relative">
+                    <input type="text" name="q" value="{{ search_q }}" placeholder="Type name or ID..."
+                           class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="lg:col-span-2">
+                <button type="submit" class="w-full bg-indigo-900 hover:bg-indigo-800 text-white font-bold py-2.5 rounded-2xl text-xs shadow-md transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-filter"></i> Apply Filters
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- ═══════════════ CARDS GALLERY WITH CHECKBOXES ═══════════════ -->
+    {% if cards %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for card in cards %}
+        <!-- CR80 ID CARD COMPONENT -->
+        <div class="bg-white rounded-3xl overflow-hidden border border-slate-200/90 shadow-2xl hover:shadow-indigo-500/10 transition duration-300 transform hover:-translate-y-1 relative group"
+             :class="selectedUsernames.includes('{{ card.username }}') ? 'ring-4 ring-emerald-500/80' : ''">
+            
+            <!-- SELECTION CHECKBOX OVERLAY -->
+            <div class="absolute top-3 right-3 z-20">
+                <label class="cursor-pointer bg-white/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-200 shadow-md flex items-center gap-1.5">
+                    <input type="checkbox"
+                           value="{{ card.username }}"
+                           x-model="selectedUsernames"
+                           class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                    <span class="text-[10px] font-bold text-slate-700 select-none">Print</span>
+                </label>
+            </div>
+
+            <!-- CARD HEADER BRANDING -->
+            <div class="bg-gradient-to-r {{ card.badge_bg }} text-white p-4 relative overflow-hidden flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    {% if school.logo %}
+                    <img src="{{ school.logo.url }}" alt="Logo" class="w-9 h-9 object-contain rounded-lg bg-white/10 p-1 border border-white/20">
+                    {% else %}
+                    <div class="w-9 h-9 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center font-black text-xs">
+                        {{ school.code|default:"SCH" }}
+                    </div>
+                    {% endif %}
+                    <div>
+                        <p class="text-[11px] font-black uppercase tracking-wider leading-none text-white/90">
+                            {{ school.name|default:"Seattle Academy" }}
+                        </p>
+                        <p class="text-[9px] font-bold tracking-widest text-indigo-200 mt-0.5 uppercase">
+                            {{ card.badge_title }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD BODY -->
+            <div class="p-5 flex gap-4 items-center">
+                <!-- User Avatar / Photo with Quick Uploader Overlay -->
+                <div class="flex-shrink-0 text-center space-y-1 relative group/photo">
+                    <div class="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-200 shadow-md cursor-pointer"
+                         @click="openPhotoModal('{{ card.username }}', '{{ card.full_name|escapejs }}')">
+                        
+                        {% if card.photo_url %}
+                        <img src="{{ card.photo_url }}" alt="{{ card.full_name }}" class="w-full h-full object-cover">
+                        {% else %}
+                        <div class="w-full h-full bg-gradient-to-tr from-slate-200 to-slate-100 flex items-center justify-center text-slate-400">
+                            <i class="fa-solid fa-user text-3xl"></i>
+                        </div>
+                        {% endif %}
+
+                        <!-- CAMERA OVERLAY HOVER -->
+                        <div class="absolute inset-0 bg-indigo-900/80 text-white flex flex-col items-center justify-center opacity-0 group-hover/photo:opacity-100 transition duration-200 backdrop-blur-xs">
+                            <i class="fa-solid fa-camera text-base"></i>
+                            <span class="text-[9px] font-black mt-0.5">Upload</span>
+                        </div>
+                    </div>
+
+                    <span class="inline-block text-[9px] font-mono font-black px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md border border-slate-200">
+                        ID: {{ card.id_number }}
+                    </span>
+                </div>
+
+                <!-- Identity Details -->
+                <div class="flex-1 min-w-0 space-y-1.5">
+                    <h3 class="text-base font-extrabold text-slate-900 truncate font-heading leading-tight">
+                        {{ card.full_name }}
+                    </h3>
+                    <p class="text-xs font-bold text-indigo-700 truncate">
+                        {{ card.sub_title }}
+                    </p>
+                    
+                    <div class="text-[11px] text-slate-500 space-y-0.5 border-t border-slate-100 pt-1.5">
+                        <p class="truncate"><i class="fa-solid fa-building-columns text-[10px] text-slate-400 mr-1"></i>{{ card.meta_line_1 }}</p>
+                        <p class="truncate"><i class="fa-solid fa-phone text-[10px] text-slate-400 mr-1"></i>{{ card.meta_line_2 }}</p>
+                    </div>
+                </div>
+
+                <!-- Embedded QR Code -->
+                <div class="flex-shrink-0 text-center">
+                    {% if card.qr_code %}
+                    <img src="{{ card.qr_code }}" alt="QR Code" class="w-16 h-16 rounded-xl border border-slate-200 p-1 bg-white shadow-xs">
+                    <a href="{{ card.verify_url }}" target="_blank" class="text-[9px] font-bold text-indigo-600 hover:underline block mt-0.5">
+                        Scan QR
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- CARD FOOTER SECURITY BAR -->
+            <div class="bg-slate-50 px-5 py-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                <span>EthioSchool SaaS Security Identity</span>
+                <span class="font-mono text-slate-500 font-bold">AUTH • OFFICIAL</span>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xl space-y-3">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-2xl font-bold">
+            <i class="fa-solid fa-id-card-clip"></i>
+        </div>
+        <h3 class="text-lg font-extrabold text-slate-900 font-heading">No ID Cards Found</h3>
+        <p class="text-slate-500 text-xs max-w-md mx-auto">
+            No matching profiles were found. Adjust your filters or search query.
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- ═══════════════ PHOTO UPLOAD MODAL ═══════════════ -->
+    <div x-show="showPhotoModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4"
+         style="display: none;">
+        
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-200 relative space-y-6 animate-scale-up"
+             @click.away="showPhotoModal = false">
+            
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-lg">
+                        <i class="fa-solid fa-camera"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-900 font-heading">Upload ID Photo</h3>
+                        <p class="text-xs text-slate-500" x-text="'Assign picture to ' + modalTargetName"></p>
+                    </div>
+                </div>
+                <button @click="showPhotoModal = false" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <form method="POST" action="{% url 'upload_id_card_photo' %}" enctype="multipart/form-data" class="space-y-6">
+                {% csrf_token %}
+                <input type="hidden" name="username" :value="modalTargetUsername">
+
+                <div class="border-2 border-dashed border-slate-300 hover:border-indigo-500 bg-slate-50 rounded-2xl p-6 text-center cursor-pointer transition"
+                     onclick="document.getElementById('photoInputModal').click()">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-indigo-500 mb-2"></i>
+                    <p class="text-xs font-bold text-slate-800">Click to select photo image</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">JPEG or PNG format recommended (max 5MB)</p>
+                    
+                    <div id="photoPreviewName" class="mt-3 text-xs font-mono font-bold text-emerald-700 hidden"></div>
+                </div>
+                <input type="file" id="photoInputModal" name="photo_file" accept="image/*" class="hidden" onchange="previewSelectedPhoto(this)">
+
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="button" @click="showPhotoModal = false" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 py-3 bg-indigo-900 hover:bg-indigo-800 text-white font-extrabold text-xs rounded-2xl shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i> Save Photo
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+function idCardStudio() {
+    return {
+        allUsernames: [{% for card in cards %}'{{ card.username }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        selectedUsernames: [],
+        showPhotoModal: false,
+        modalTargetUsername: '',
+        modalTargetName: '',
+
+        get isAllSelected() {
+            return this.allUsernames.length > 0 && this.selectedUsernames.length === this.allUsernames.length;
+        },
+
+        toggleSelectAll(e) {
+            if (e.target.checked) {
+                this.selectedUsernames = [...this.allUsernames];
+            } else {
+                this.selectedUsernames = [];
+            }
+        },
+
+        printSelected() {
+            if (this.selectedUsernames.length === 0) return;
+            const param = this.selectedUsernames.join(',');
+            const url = `?{% if role_filter %}role={{ role_filter }}&{% endif %}{% if grade_id %}grade_id={{ grade_id }}&{% endif %}{% if search_q %}q={{ search_q }}&{% endif %}print=true&selected=${encodeURIComponent(param)}`;
+            window.open(url, '_blank');
+        },
+
+        openPhotoModal(username, fullName) {
+            this.modalTargetUsername = username;
+            this.modalTargetName = fullName;
+            this.showPhotoModal = true;
+        }
+    }
+}
+
+function previewSelectedPhoto(input) {
+    if (input.files[0]) {
+        const el = document.getElementById('photoPreviewName');
+        el.textContent = '✓ Selected: ' + input.files[0].name;
+        el.classList.remove('hidden');
+    }
+}
+</script>
+{% endblock %}

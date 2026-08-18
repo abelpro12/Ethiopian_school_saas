@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}New Message{% endblock %}
+{% block content %}
+
+<div class="max-w-2xl mx-auto space-y-4 pb-8">
+  <!-- Header -->
+  <div class="flex items-center gap-3">
+    <a href="{% url 'messaging:inbox' %}"
+       class="w-10 h-10 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 flex items-center justify-center shadow-sm transition">
+      <i class="fa-solid fa-arrow-left text-sm"></i>
+    </a>
+    <div>
+      <h1 class="font-heading text-xl font-bold text-slate-800">Compose Message</h1>
+      <p class="text-xs text-slate-500">Send a message to any staff, teacher, or parent</p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-6">
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+          To <span class="text-red-500">*</span>
+        </label>
+        <select name="recipient_id"
+                class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition" required>
+          <option value="">— Select recipient —</option>
+          {% for user in recipients %}
+            <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }} — {{ user.role }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+          Subject <span class="text-red-500">*</span>
+        </label>
+        <input type="text" name="subject"
+               class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition"
+               required placeholder="e.g. Regarding homework submission">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+          Message <span class="text-red-500">*</span>
+        </label>
+        <textarea name="body" rows="6"
+                  class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition resize-none"
+                  required placeholder="Write your message here..."></textarea>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3 pt-2 border-t border-slate-100">
+        <button type="submit"
+                class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-700 hover:to-purple-700 text-white text-sm font-bold px-6 py-3 rounded-xl shadow-lg shadow-brand-500/25 transition">
+          <i class="fa-solid fa-paper-plane text-xs"></i> Send Message
+        </button>
+        <a href="{% url 'messaging:inbox' %}"
+           class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold px-4 py-3 rounded-xl transition">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

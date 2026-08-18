@@ -1,0 +1,1308 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seattle Academy — Excellence from Kindergarten to High School</title>
+    <meta name="description" content="Official website of Seattle Academy. Premier educational institution in Addis Ababa serving 3,000+ students from Kindergarten to High School (Grade 12) with academic distinction, STEM labs, and holistic character building.">
+    
+    <!-- Performance Resource Hints -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    <link rel="dns-prefetch" href="//cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        saBlue: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',  /* Vibrant Seattle Blue */
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#0b1329',
+                        },
+                        saOrange: {
+                            400: '#fb923c',
+                            500: '#f97316',  /* Vibrant Sunburst Orange */
+                            600: '#ea580c',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        html { scroll-behavior: smooth; }
+        
+        .header-shadow {
+            box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.12);
+        }
+        
+        /* Active Nav Link matching screenshot style */
+        .nav-link {
+            position: relative;
+            padding-bottom: 6px;
+            font-weight: 700;
+            color: #1e293b;
+            transition: all 0.25s ease;
+        }
+        .nav-link.active, .nav-link:hover {
+            color: #2563eb !important;
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3.5px;
+            background: linear-gradient(90deg, #2563eb, #f97316);
+            border-radius: 9999px;
+            animation: lineGrow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes lineGrow {
+            from { transform: scaleX(0); }
+            to { transform: scaleX(1); }
+        }
+
+        /* WOW Premium Card Styling */
+        .wow-card {
+            background: #ffffff;
+            border-radius: 1.75rem;
+            box-shadow: 0 10px 35px -10px rgba(37, 99, 235, 0.08);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        .wow-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 30px 60px -15px rgba(37, 99, 235, 0.2);
+            border-color: rgba(37, 99, 235, 0.35);
+        }
+
+        /* Glassmorphic Hero Card */
+        .hero-glass-card {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 20px 50px -15px rgba(37, 99, 235, 0.15);
+            transition: all 0.35s ease;
+        }
+        .hero-glass-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(37, 99, 235, 0.4);
+            box-shadow: 0 25px 60px -12px rgba(37, 99, 235, 0.25);
+        }
+        
+        /* Vibrant Square Icon Badge */
+        .icon-badge {
+            width: 4.5rem;
+            height: 4.5rem;
+            border-radius: 1.35rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 12px 25px -6px rgba(37, 99, 235, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 2rem;
+            transition: transform 0.35s ease;
+        }
+        .wow-card:hover .icon-badge {
+            transform: scale(1.15) rotate(8deg);
+        }
+
+        /* News Card Styling */
+        .news-card {
+            background: #ffffff;
+            border-radius: 1.75rem;
+            overflow: hidden;
+            box-shadow: 0 12px 35px -10px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            transition: all 0.35s ease;
+        }
+        .news-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.18);
+            border-color: rgba(37, 99, 235, 0.35);
+        }
+
+        .eth-stripe {
+            height: 4px;
+            background: linear-gradient(90deg, #009b48 0%, #ffda44 50%, #d21034 100%);
+        }
+
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-on-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Mesh Background */
+        .mesh-bg {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.14) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(249, 115, 22, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.09) 0px, transparent 50%);
+        }
+
+        @keyframes floatGlow {
+            0%, 100% { transform: translateY(0) scale(1); opacity: 0.75; }
+            50% { transform: translateY(-15px) scale(1.05); opacity: 1; }
+        }
+        .animate-float-glow {
+            animation: floatGlow 6s ease-in-out infinite;
+        }
+
+        /* Academics Section Animation Upgrade */
+        @keyframes tabSlideUp {
+            0% { opacity: 0; transform: translateY(22px) scale(0.97); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-tab-slide {
+            animation: tabSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .acad-tab-active {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 12px 30px -6px rgba(37, 99, 235, 0.45) !important;
+            transform: translateY(-3px) scale(1.04) !important;
+            border-color: transparent !important;
+        }
+
+    </style>
+</head>
+<body class="mesh-bg text-slate-800 font-sans antialiased overflow-x-hidden">
+
+    <!-- Top Announcement Bar -->
+    <div class="bg-slate-950 text-white text-xs py-2.5 px-4 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> 2018 E.C. Admissions Open
+                </span>
+                <span class="text-slate-300 text-[11px] font-medium hidden md:inline">
+                    🎓 Seattle Academy — Empowering 3,000+ students from Kindergarten to High School (Grade 12).
+                </span>
+            </div>
+            <div class="flex items-center gap-5 text-[11px] text-slate-300 font-medium">
+                <a href="tel:+251937381801" class="hover:text-saOrange-500 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-phone text-saOrange-500"></i> +251 937 381 801
+                </a>
+                <span class="text-slate-700">|</span>
+                <span class="flex items-center gap-1 text-slate-300">
+                    <i class="fa-solid fa-location-dot text-saOrange-500"></i> Addis Ababa, Ethiopia
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN HEADER & NAVIGATION -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md header-shadow transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo Badge -->
+                <a href="#home" class="flex items-center gap-3.5 group">
+                    <div class="w-12 h-12 rounded-2xl bg-white p-1 shadow-md border border-slate-100 group-hover:scale-105 transition transform flex items-center justify-center overflow-hidden">
+                        <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <span class="font-heading font-extrabold text-2xl tracking-tight text-saBlue-600 group-hover:text-saBlue-700 transition">Seattle Academy</span>
+                        <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Kindergarten to High School • 3,000+ Students</p>
+                    </div>
+                </a>
+
+                <!-- Nav Items -->
+                <nav class="hidden md:flex items-center gap-8 lg:gap-10 text-[15px] font-bold text-slate-800">
+                    <a href="#home" id="nav-home" class="nav-link active">Home</a>
+                    <a href="#about" id="nav-about" class="nav-link">About</a>
+                    <a href="#academics" id="nav-academics" class="nav-link">Academics</a>
+                    <a href="{% url 'seattle_academy_news_gallery' %}" id="nav-news" class="nav-link">News & Events</a>
+                    <a href="{% url 'seattle_academy_news_gallery' %}#gallery" id="nav-gallery" class="nav-link">Gallery</a>
+                    <a href="#contact" id="nav-contact" class="nav-link">Contact</a>
+                </nav>
+
+                <!-- Action Button -->
+                <div class="flex items-center gap-3">
+                    <a href="{% url 'seattle_academy_login' %}" 
+                       class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 hover:from-saBlue-700 hover:to-saBlue-800 text-white font-bold text-xs shadow-lg shadow-saBlue-600/30 transition hover:scale-105 active:scale-95">
+                        <i class="fa-solid fa-lock text-saOrange-400"></i>
+                        Portal Sign In
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="eth-stripe"></div>
+    </header>
+
+    <!-- SECTION 1: HERO SECTION WITH ROBOTICS BACKGROUND & PARTICLES -->
+    <section id="home" class="relative py-24 lg:py-32 overflow-hidden">
+        <!-- Official Seattle Academy Crest Badge Robotics STEM Hero Background -->
+        <div class="absolute inset-0 z-0 bg-cover bg-center opacity-30 filter brightness-105 contrast-110 transform scale-105 transition-transform duration-10000" 
+             style="background-image: url('{% static 'images/seattle_official_logo_badge_robotics_hero_bg.jpg' %}?v=1.1');"></div>
+        <div class="absolute inset-0 z-0 bg-gradient-to-b from-slate-50/85 via-white/70 to-slate-50/90"></div>
+
+
+
+
+        
+        <canvas id="heroParticles" class="absolute inset-0 pointer-events-none opacity-40 z-0"></canvas>
+        
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
+
+            
+            <div class="flex flex-wrap items-center justify-center gap-3 mb-8 animate-float-glow">
+                <span class="px-4 py-2 rounded-full bg-blue-100/90 text-saBlue-700 text-xs font-extrabold shadow-sm flex items-center gap-2 border border-blue-200">
+                    <i class="fa-solid fa-children text-saOrange-500"></i> Kindergarten to High School
+                </span>
+                <span class="px-4 py-2 rounded-full bg-orange-100/90 text-saOrange-600 text-xs font-extrabold shadow-sm flex items-center gap-2 border border-orange-200">
+                    <i class="fa-solid fa-users text-saOrange-500"></i> 3,000+ Enrolled Students
+                </span>
+                <span class="px-4 py-2 rounded-full bg-emerald-100/90 text-emerald-700 text-xs font-extrabold shadow-sm flex items-center gap-2 border border-emerald-200">
+                    <i class="fa-solid fa-award text-emerald-600"></i> Academic & STEM Distinction
+                </span>
+            </div>
+
+            <!-- Hero Main Heading -->
+            <h1 class="font-heading font-black text-4xl sm:text-6xl lg:text-7xl text-slate-900 tracking-tight leading-[1.12] max-w-5xl mx-auto">
+                Shaping 3,000+ Future Leaders From <span class="bg-gradient-to-r from-saBlue-600 via-saBlue-700 to-saOrange-500 bg-clip-text text-transparent">Kindergarten to High School</span>
+            </h1>
+
+            <p class="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto font-normal leading-relaxed">
+                Seattle Academy is a premier educational institution in Addis Ababa offering world-class STEM education, bilingual instruction, and national exam excellence.
+            </p>
+
+            <!-- Action Buttons -->
+            <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-5">
+                <a href="#academics" class="w-full sm:w-auto px-9 py-4 rounded-2xl bg-gradient-to-r from-saOrange-500 to-saOrange-600 hover:from-saOrange-600 hover:to-saOrange-700 text-white font-extrabold text-sm shadow-xl shadow-saOrange-500/35 transition transform hover:-translate-y-1 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i> Explore Academics & Programs
+                </a>
+                <a href="{% url 'seattle_academy_login' %}" class="w-full sm:w-auto px-9 py-4 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-sm shadow-xl shadow-slate-950/25 transition transform hover:-translate-y-1 flex items-center justify-center gap-3 border border-slate-800">
+                    <i class="fa-solid fa-right-to-bracket text-saOrange-400 text-lg"></i> Student & Parent Portal
+                </a>
+            </div>
+
+
+            <!-- LIVE ANIMATED NUMBER COUNTERS -->
+            <div class="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto text-left">
+                
+                <div class="hero-glass-card p-6 rounded-3xl border border-slate-200/80 group">
+                    <div class="w-12 h-12 rounded-2xl bg-saBlue-600/10 text-saBlue-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-users-gear"></i>
+                    </div>
+                    <p class="font-heading font-black text-3xl sm:text-4xl text-slate-900">
+                        <span class="counter" data-target="3000">0</span><span class="text-saOrange-500">+</span>
+                    </p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">Enrolled Students</p>
+                </div>
+
+                <div class="hero-glass-card p-6 rounded-3xl border border-slate-200/80 group">
+                    <div class="w-12 h-12 rounded-2xl bg-saOrange-500/10 text-saOrange-500 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-shapes"></i>
+                    </div>
+                    <p class="font-heading font-black text-3xl sm:text-4xl text-slate-900">
+                        KG — <span class="counter" data-target="12">0</span>
+                    </p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">Grade Levels</p>
+                </div>
+
+                <div class="hero-glass-card p-6 rounded-3xl border border-slate-200/80 group">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                    </div>
+                    <p class="font-heading font-black text-3xl sm:text-4xl text-slate-900">
+                        <span class="counter" data-target="150">0</span><span class="text-saOrange-500">+</span>
+                    </p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">Faculty & Staff</p>
+                </div>
+
+                <div class="hero-glass-card p-6 rounded-3xl border border-slate-200/80 group">
+                    <div class="w-12 h-12 rounded-2xl bg-saBlue-600/10 text-saBlue-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+                    <p class="font-heading font-black text-3xl sm:text-4xl text-slate-900">
+                        <span class="counter-decimal" data-target="99.4">0</span><span class="text-saOrange-500">%</span>
+                    </p>
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-1">National Exam Pass Rate</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: WHY CHOOSE SEATTLE ACADEMY? (Exact Match to Screenshot + Elevated WOW Factor) -->
+    <section id="about" class="py-24 bg-white relative border-t border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            
+            <div class="text-center max-w-3xl mx-auto mb-16 reveal-on-scroll">
+                <h2 class="font-heading font-black text-4xl sm:text-5xl lg:text-6xl text-saBlue-600 tracking-tight">
+                    Why Choose Seattle Academy?
+                </h2>
+                <div class="w-20 h-1.5 bg-saOrange-500 rounded-full mx-auto mt-4"></div>
+                <p class="mt-6 text-base sm:text-lg text-slate-500 leading-relaxed font-normal">
+                    We provide world-class education with modern facilities and experienced faculty to help students achieve their dreams.
+                </p>
+            </div>
+
+            <!-- Cards Grid matching screenshot icons & layout -->
+            <div class="grid md:grid-cols-3 gap-8 reveal-on-scroll">
+                
+                <div class="wow-card p-8 text-left space-y-4">
+                    <div class="icon-badge">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 pt-2">Academic Excellence</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed font-normal">Our rigorous curriculum and dedicated teachers ensure students receive the highest quality education and achieve outstanding results.</p>
+                </div>
+
+                <div class="wow-card p-8 text-left space-y-4">
+                    <div class="icon-badge">
+                        <i class="fa-solid fa-flask"></i>
+                    </div>
+                    <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 pt-2">Modern Laboratories</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed font-normal">State-of-the-art science and computer laboratories equipped with the latest technology for hands-on learning experiences.</p>
+                </div>
+
+                <div class="wow-card p-8 text-left space-y-4">
+                    <div class="icon-badge">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 pt-2">Extensive Library</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed font-normal">Well-stocked library with thousands of books, digital resources, and study spaces to support academic growth.</p>
+                </div>
+
+                <div class="wow-card p-8 text-left space-y-4">
+                    <div class="icon-badge">
+                        <i class="fa-solid fa-child-reaching"></i>
+                    </div>
+                    <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 pt-2">Kindergarten Center</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed font-normal">Safe, nurturing environment for KG 1, KG 2 & KG 3 children with play-based literacy, phonics, and creative motor skill development.</p>
+                </div>
+
+                <div class="wow-card p-8 text-left space-y-4">
+                    <div class="icon-badge">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 pt-2">STEM & Innovation</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed font-normal">Hands-on robotics, science fairs, and computer science clubs preparing students for national and international competitions.</p>
+                </div>
+
+                <div class="wow-card p-8 text-left space-y-4">
+                    <div class="icon-badge">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-slate-900 pt-2">Digital SaaS Portal</h3>
+                    <p class="text-slate-500 text-sm leading-relaxed font-normal">Instant digital access to student grade reports, attendance records, school announcements, and direct teacher communication.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: ACADEMICS -->
+    <section id="academics" class="py-24 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-14 reveal-on-scroll">
+                <span class="text-xs font-bold uppercase tracking-widest text-saBlue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">Complete Educational Spectrum</span>
+                <h2 class="font-heading font-black text-4xl sm:text-5xl text-saBlue-600 mt-3">
+                    Kindergarten to High School
+                </h2>
+                <div class="w-20 h-1.5 bg-saOrange-500 rounded-full mx-auto mt-4"></div>
+                <p class="mt-4 text-slate-600 text-base">Select an academic division to explore specialized subjects, facilities, and features.</p>
+            </div>
+
+            <!-- Dynamic Tabs Switcher -->
+            <div class="flex flex-wrap justify-center gap-3.5 mb-12 reveal-on-scroll">
+                <button onclick="switchAcademicTab('kg')" id="tab-kg" class="acad-tab acad-tab-active px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 flex items-center gap-2.5">
+                    <i class="fa-solid fa-shapes text-sm"></i> Kindergarten (KG 1-3)
+                </button>
+                <button onclick="switchAcademicTab('primary')" id="tab-primary" class="acad-tab px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2.5 border border-slate-200">
+                    <i class="fa-solid fa-pencil text-sm"></i> Primary (Grades 1-6)
+                </button>
+                <button onclick="switchAcademicTab('middle')" id="tab-middle" class="acad-tab px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2.5 border border-slate-200">
+                    <i class="fa-solid fa-flask text-sm"></i> Middle (Grades 7-8)
+                </button>
+                <button onclick="switchAcademicTab('prep')" id="tab-prep" class="acad-tab px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2.5 border border-slate-200">
+                    <i class="fa-solid fa-graduation-cap text-sm"></i> High School (Grades 9-12)
+                </button>
+            </div>
+
+            <!-- Tab Content Display Card -->
+            <div class="bg-white rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200/90 reveal-on-scroll overflow-hidden">
+                
+                <!-- KG Content -->
+                <div id="content-kg" class="acad-content animate-tab-slide grid md:grid-cols-2 gap-10 items-center">
+                    <div class="space-y-5">
+                        <div class="flex items-center gap-3">
+                            <span class="px-3.5 py-1 bg-orange-100 text-saOrange-600 rounded-full font-extrabold text-xs shadow-sm border border-orange-200">Ages 3 – 6</span>
+                            <span class="text-xs font-bold text-slate-400">KG 1 • KG 2 • KG 3</span>
+                        </div>
+                        <h3 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 leading-snug">Kindergarten Center</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed font-normal">
+                            Our Kindergarten program offers a warm, inspiring space where children discover foundational literacy, numbers, phonics, and creative art through interactive play and bilingual English-Amharic storytelling.
+                        </p>
+
+                        <!-- Key Feature Badges -->
+                        <div class="grid grid-cols-2 gap-3.5 pt-2 text-xs font-extrabold text-slate-700">
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saOrange-500 text-base"></i> Phonics & Storytelling
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saOrange-500 text-base"></i> Early Numeracy Skills
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saOrange-500 text-base"></i> Fine Motor Activities
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saOrange-500 text-base"></i> Bilingual Immersion
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Accent Card -->
+                    <div class="bg-gradient-to-br from-saOrange-500 via-saOrange-600 to-amber-600 rounded-3xl p-10 text-white space-y-6 shadow-2xl relative overflow-hidden group">
+                        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl text-white group-hover:scale-110 transition duration-300">
+                            <i class="fa-solid fa-face-smile"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-black text-2xl text-white">Play & Learn Philosophy</h4>
+                            <p class="text-xs text-orange-100 mt-2 leading-relaxed font-medium">Dedicated early childhood educators fostering emotional confidence, socialization, and joy in learning.</p>
+                        </div>
+                        <div class="pt-4 border-t border-white/20 flex items-center justify-between text-xs text-orange-100 font-bold">
+                            <span>Bilingual Classroom</span>
+                            <i class="fa-solid fa-arrow-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Primary Content -->
+                <div id="content-primary" class="acad-content hidden grid md:grid-cols-2 gap-10 items-center">
+                    <div class="space-y-5">
+                        <div class="flex items-center gap-3">
+                            <span class="px-3.5 py-1 bg-blue-100 text-saBlue-600 rounded-full font-extrabold text-xs shadow-sm border border-blue-200">Grades 1 – 6</span>
+                            <span class="text-xs font-bold text-slate-400">Primary Division</span>
+                        </div>
+                        <h3 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 leading-snug">Primary School Program</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed font-normal">
+                            Building rigorous academic foundations across Mathematics, English, Amharic, Environmental Science, Civics, Physical Education, and introductory ICT literacy.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-3.5 pt-2 text-xs font-extrabold text-slate-700">
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saBlue-600 text-base"></i> Mathematics Mastery
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saBlue-600 text-base"></i> Science & Discovery
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saBlue-600 text-base"></i> Digital Computer Lab
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-saBlue-600 text-base"></i> Civics & Character
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-saBlue-600 via-saBlue-700 to-saBlue-900 rounded-3xl p-10 text-white space-y-6 shadow-2xl relative overflow-hidden group">
+                        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl text-saOrange-400 group-hover:scale-110 transition duration-300">
+                            <i class="fa-solid fa-book-open"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-black text-2xl text-white">Foundational Mastery</h4>
+                            <p class="text-xs text-blue-100 mt-2 leading-relaxed font-medium">Comprehensive curriculum structured to build analytical thinking, reading fluency, and problem-solving early.</p>
+                        </div>
+                        <div class="pt-4 border-t border-white/20 flex items-center justify-between text-xs text-blue-100 font-bold">
+                            <span>Core Science & Math</span>
+                            <i class="fa-solid fa-arrow-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Middle Content -->
+                <div id="content-middle" class="acad-content hidden grid md:grid-cols-2 gap-10 items-center">
+                    <div class="space-y-5">
+                        <div class="flex items-center gap-3">
+                            <span class="px-3.5 py-1 bg-indigo-100 text-indigo-600 rounded-full font-extrabold text-xs shadow-sm border border-indigo-200">Grades 7 – 8</span>
+                            <span class="text-xs font-bold text-slate-400">Middle Division</span>
+                        </div>
+                        <h3 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 leading-snug">Middle School Program</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed font-normal">
+                            Deepening scientific inquiry with separate Physics, Chemistry, Biology, Mathematics, and Civics courses, paired with Grade 8 Regional Examination coaching.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-3.5 pt-2 text-xs font-extrabold text-slate-700">
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-indigo-600 text-base"></i> Physics & Chemistry Labs
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-indigo-600 text-base"></i> Grade 8 Exam Coaching
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-indigo-600 text-base"></i> Debate & Speech Club
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-indigo-600 text-base"></i> Advanced Mathematics
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 rounded-3xl p-10 text-white space-y-6 shadow-2xl relative overflow-hidden group">
+                        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl text-saOrange-400 group-hover:scale-110 transition duration-300">
+                            <i class="fa-solid fa-flask-vial"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-black text-2xl text-white">Regional Examination Prep</h4>
+                            <p class="text-xs text-indigo-100 mt-2 leading-relaxed font-medium">Top national exam passing records with dedicated after-school revision modules and mock exams.</p>
+                        </div>
+                        <div class="pt-4 border-t border-white/20 flex items-center justify-between text-xs text-indigo-100 font-bold">
+                            <span>Regional Exam Coaching</span>
+                            <i class="fa-solid fa-arrow-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- High School Content -->
+                <div id="content-prep" class="acad-content hidden grid md:grid-cols-2 gap-10 items-center">
+                    <div class="space-y-5">
+                        <div class="flex items-center gap-3">
+                            <span class="px-3.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-extrabold text-xs shadow-sm border border-emerald-200">Grades 9 – 12</span>
+                            <span class="text-xs font-bold text-slate-400">High School & Prep</span>
+                        </div>
+                        <h3 class="font-heading font-black text-3xl sm:text-4xl text-slate-900 leading-snug">High School & Preparatory Stream</h3>
+                        <p class="text-slate-600 text-sm leading-relaxed font-normal">
+                            Natural Science and Social Science preparatory streams, advanced STEM clubs, university entrance coaching, and national academic competitions.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-3.5 pt-2 text-xs font-extrabold text-slate-700">
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i> Natural & Social Science
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i> STEM & Robotics Club
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i> University Entrance Prep
+                            </div>
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-2.5">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i> Innovation Fairs
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-emerald-600 via-emerald-700 to-slate-900 rounded-3xl p-10 text-white space-y-6 shadow-2xl relative overflow-hidden group">
+                        <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl text-saOrange-400 group-hover:scale-110 transition duration-300">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-black text-2xl text-white">Preparatory Excellence</h4>
+                            <p class="text-xs text-emerald-100 mt-2 leading-relaxed font-medium">Consistently high scores in national university entrance exams and international robotics competitions.</p>
+                        </div>
+                        <div class="pt-4 border-t border-white/20 flex items-center justify-between text-xs text-emerald-100 font-bold">
+                            <span>University Entrance Streams</span>
+                            <i class="fa-solid fa-arrow-right text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+
+
+
+    <!-- SECTION 5: NEWS & ACHIEVEMENTS SHOWCASE -->
+    <section id="news" class="py-24 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 reveal-on-scroll">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-saBlue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">Official Media</span>
+                    <h2 class="font-heading font-black text-4xl sm:text-5xl text-saBlue-600 mt-3">
+                        News & Achievements
+                    </h2>
+                </div>
+                <a href="{% url 'seattle_academy_news_gallery' %}" class="mt-4 md:mt-0 font-extrabold text-xs text-saBlue-600 hover:text-saBlue-700 flex items-center gap-1">
+                    View All News & Full Gallery <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-10 reveal-on-scroll">
+                {% for item in news_list %}
+                <div class="news-card group flex flex-col justify-between">
+                    <div>
+                        <div class="relative h-80 sm:h-96 overflow-hidden bg-slate-900">
+                            {% if item.image %}
+                            <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500">
+                            {% elif item.image_url %}
+                            <img src="{% static item.image_url %}" alt="{{ item.title }}" loading="lazy" decoding="async" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500">
+                            {% else %}
+
+                            <div class="w-full h-full flex items-center justify-center bg-slate-800 text-white">
+                                <i class="fa-solid fa-newspaper text-5xl text-saBlue-400"></i>
+                            </div>
+                            {% endif %}
+                            <div class="absolute top-4 left-4 bg-saBlue-600 text-white text-[11px] font-extrabold px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5">
+                                <i class="fa-solid fa-globe"></i> {{ item.category }}
+                            </div>
+                            {% if item.badge_text %}
+                            <div class="absolute top-4 right-4 bg-saOrange-500 text-white text-[11px] font-extrabold px-3 py-1.5 rounded-xl shadow-lg">
+                                {{ item.badge_text }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="p-8 space-y-4">
+                            <div class="flex items-center gap-2 text-xs font-bold text-saBlue-600">
+                                <i class="fa-solid fa-landmark-flag"></i> {{ item.category }}
+                            </div>
+                            <h3 class="font-heading font-extrabold text-2xl text-slate-900 leading-snug group-hover:text-saBlue-600 transition">
+                                {{ item.title }}
+                            </h3>
+                            <p class="text-slate-600 text-sm leading-relaxed">
+                                {{ item.content }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="px-8 pb-8 pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <span><i class="fa-solid fa-location-dot text-saOrange-500 mr-1.5"></i> {{ item.location|default:"Addis Ababa, Ethiopia" }}</span>
+                        <span class="font-bold text-saBlue-600">{{ item.created_at|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-slate-500 text-sm text-center col-span-2 py-8">No news published yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 6: GALLERY -->
+    <section id="gallery" class="py-24 bg-white border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 reveal-on-scroll">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-saOrange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">Visual Showcase</span>
+                    <h2 class="font-heading font-black text-4xl sm:text-5xl text-saBlue-600 mt-3">
+                        Campus & Event Gallery
+                    </h2>
+                </div>
+                <a href="{% url 'seattle_academy_news_gallery' %}" class="mt-4 md:mt-0 font-extrabold text-xs text-saOrange-600 hover:text-saOrange-700 flex items-center gap-1">
+                    Open Fullscreen Gallery Page <i class="fa-solid fa-arrow-right"></i>
+                </a>
+            </div>
+
+            <!-- Gallery Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 reveal-on-scroll">
+                {% for item in gallery_list %}
+                <div class="wow-card overflow-hidden group cursor-pointer" onclick="openImageModal('{% if item.image %}{{ item.image.url }}{% elif item.image_url %}{% static item.image_url %}{% endif %}', '{{ item.title }} — {{ item.caption }}')">
+                    <div class="relative h-80 overflow-hidden bg-slate-900">
+                        {% if item.image %}
+                        <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy" decoding="async" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-500">
+                        {% elif item.image_url %}
+                        <img src="{% static item.image_url %}" alt="{{ item.title }}" loading="lazy" decoding="async" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-500">
+                        {% else %}
+
+                        <div class="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-saBlue-600 p-6 text-center">
+                            <i class="fa-solid fa-laptop-code text-5xl mb-3"></i>
+                            <p class="font-bold text-sm text-slate-900">{{ item.title }}</p>
+                        </div>
+                        {% endif %}
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end p-6">
+                            <div class="text-white">
+                                <p class="font-bold text-base">{{ item.title }}</p>
+                                <p class="text-xs text-saOrange-400">{{ item.caption }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 bg-white text-center">
+                        <p class="font-bold text-sm text-slate-900">{{ item.title }}</p>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-slate-500 text-sm text-center col-span-3 py-8">No gallery photos available yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 7: FAQ ACCORDION -->
+    <section class="py-24 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 reveal-on-scroll">
+                <span class="text-xs font-bold uppercase tracking-widest text-saBlue-600">Frequently Asked Questions</span>
+                <h2 class="font-heading font-black text-4xl text-slate-900 mt-2">Questions Parents Ask</h2>
+                <div class="w-16 h-1.5 bg-saOrange-500 rounded-full mx-auto mt-4"></div>
+            </div>
+
+            <div class="space-y-4 reveal-on-scroll">
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm cursor-pointer" onclick="toggleFaq(1)">
+                    <div class="flex items-center justify-between font-bold text-slate-900 text-base">
+                        <span>What grade levels does Seattle Academy cover?</span>
+                        <i id="faq-icon-1" class="fa-solid fa-chevron-down text-saBlue-600 transition"></i>
+                    </div>
+                    <p id="faq-ans-1" class="hidden text-xs text-slate-500 mt-3 leading-relaxed">
+                        Seattle Academy provides comprehensive education starting from Kindergarten (KG 1, KG 2, KG 3) up through Primary (Grades 1-6), Middle School (Grades 7-8), and High School / Preparatory (Grades 9-12).
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm cursor-pointer" onclick="toggleFaq(2)">
+                    <div class="flex items-center justify-between font-bold text-slate-900 text-base">
+                        <span>How can parents track their child's grades and attendance?</span>
+                        <i id="faq-icon-2" class="fa-solid fa-chevron-down text-saBlue-600 transition"></i>
+                    </div>
+                    <p id="faq-ans-2" class="hidden text-xs text-slate-500 mt-3 leading-relaxed">
+                        Parents are provided credentials to log into our dedicated Seattle Academy SaaS Portal. From the portal, parents can view real-time attendance, grade mark sheets, conduct reports, fee invoices, and communicate directly with teachers.
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm cursor-pointer" onclick="toggleFaq(3)">
+                    <div class="flex items-center justify-between font-bold text-slate-900 text-base">
+                        <span>Are bus transportation and cafeteria services available?</span>
+                        <i id="faq-icon-3" class="fa-solid fa-chevron-down text-saBlue-600 transition"></i>
+                    </div>
+                    <p id="faq-ans-3" class="hidden text-xs text-slate-500 mt-3 leading-relaxed">
+                        Yes, Seattle Academy provides bus transportation covering key sub-cities across Addis Ababa, alongside campus dining facilities with nutritious meal options.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 7: TESTIMONIALS CAROUSEL -->
+    <section class="py-24 bg-white border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16 reveal-on-scroll">
+                <span class="text-xs font-bold uppercase tracking-widest text-saOrange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200">Community Voices</span>
+                <h2 class="font-heading font-black text-4xl sm:text-5xl text-saBlue-600 mt-3">
+                    What Parents & Alumni Say
+                </h2>
+                <div class="w-20 h-1.5 bg-saOrange-500 rounded-full mx-auto mt-4"></div>
+                <p class="mt-4 text-slate-600 text-base">Hear from the families, students, and educators who make Seattle Academy extraordinary.</p>
+            </div>
+
+            <!-- Testimonial Cards Grid -->
+            <div class="grid md:grid-cols-3 gap-8 reveal-on-scroll">
+                <div class="wow-card p-8 flex flex-col justify-between space-y-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-1 text-saOrange-500 text-sm">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <p class="text-slate-600 text-sm italic leading-relaxed">
+                            "Seattle Academy provided my children with the exact STEM and coding skills needed to excel internationally. Seeing our robotics team compete in Geneva was a dream come true!"
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3.5 pt-4 border-t border-slate-100">
+                        <div class="w-11 h-11 rounded-full bg-saBlue-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md">
+                            GT
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-bold text-slate-900 text-sm">Girma Tadesse</h4>
+                            <p class="text-xs text-slate-500">Parent of Grade 10 & Grade 4 Students</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wow-card p-8 flex flex-col justify-between space-y-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-1 text-saOrange-500 text-sm">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <p class="text-slate-600 text-sm italic leading-relaxed">
+                            "The Grade 12 National Exam coaching at Seattle Academy helped me secure admission into top university programs. The teachers are dedicated and truly care about every student."
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3.5 pt-4 border-t border-slate-100">
+                        <div class="w-11 h-11 rounded-full bg-saOrange-500 text-white font-extrabold flex items-center justify-center text-sm shadow-md">
+                            MB
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-bold text-slate-900 text-sm">Marta Bekele</h4>
+                            <p class="text-xs text-slate-500">Grade 12 Alumni & National Top Scorer</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wow-card p-8 flex flex-col justify-between space-y-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-1 text-saOrange-500 text-sm">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <p class="text-slate-600 text-sm italic leading-relaxed">
+                            "The digital parent portal makes tracking homework, mark sheets, and attendance seamless. I get instant updates on my phone every week!"
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3.5 pt-4 border-t border-slate-100">
+                        <div class="w-11 h-11 rounded-full bg-emerald-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md">
+                            DA
+                        </div>
+                        <div>
+                            <h4 class="font-heading font-bold text-slate-900 text-sm">Dawit Alemayehu</h4>
+                            <p class="text-xs text-slate-500">Parent of KG 3 Student</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 8: CAMPUS MAP & DIRECT CONTACT -->
+    <section id="contact-section" class="py-24 bg-slate-50 border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16 reveal-on-scroll">
+                <span class="text-xs font-bold uppercase tracking-widest text-saBlue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">Get in Touch</span>
+                <h2 class="font-heading font-black text-4xl sm:text-5xl text-saBlue-600 mt-3">
+                    Campus Location & Contact
+                </h2>
+                <div class="w-20 h-1.5 bg-saOrange-500 rounded-full mx-auto mt-4"></div>
+                <p class="mt-4 text-slate-600 text-base">Visit our campus or send a message directly to our administration team.</p>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-12 reveal-on-scroll">
+                <!-- Direct Contact Form -->
+                <div class="bg-white rounded-3xl p-8 sm:p-10 shadow-xl border border-slate-200 space-y-6">
+                    <h3 class="font-heading font-extrabold text-2xl text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-paper-plane text-saBlue-600"></i> Send Us a Message
+                    </h3>
+
+                    <!-- Status Response Banner -->
+                    <div id="contactFormStatus" class="hidden p-4 rounded-2xl text-xs font-bold flex items-center gap-3"></div>
+
+                    <form id="contactForm" onsubmit="handleContactSubmit(event)" class="space-y-4">
+                        {% csrf_token %}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Your Full Name *</label>
+                            <input type="text" name="sender_name" required placeholder="e.g. Abebe Kebede" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 focus:ring-2 focus:ring-saBlue-600 focus:outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Phone Number *</label>
+                                <input type="tel" name="phone_number" required placeholder="+251 9..." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 focus:ring-2 focus:ring-saBlue-600 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address</label>
+                                <input type="email" name="email" placeholder="name@example.com" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 focus:ring-2 focus:ring-saBlue-600 focus:outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Subject *</label>
+                            <input type="text" name="subject" required placeholder="General Inquiry, Student Progress, etc." class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-xs text-slate-900 focus:ring-2 focus:ring-saBlue-600 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Message *</label>
+                            <textarea name="message" rows="4" required placeholder="Write your message here..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs text-slate-900 focus:ring-2 focus:ring-saBlue-600 focus:outline-none"></textarea>
+                        </div>
+                        <button type="submit" id="contactSubmitBtn" class="w-full py-4 bg-gradient-to-r from-saBlue-600 to-saBlue-700 hover:from-saBlue-700 hover:to-saBlue-800 text-white font-extrabold text-xs rounded-xl shadow-lg transition transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i> Submit Contact Message
+                        </button>
+                    </form>
+                </div>
+
+
+                <!-- Campus Info & Map Card -->
+                <div class="space-y-6">
+                    <div class="bg-gradient-to-br from-saBlue-950 via-slate-900 to-saBlue-900 text-white rounded-3xl p-8 shadow-xl space-y-6 border border-slate-800">
+                        <h3 class="font-heading font-extrabold text-2xl text-white flex items-center gap-2">
+                            <i class="fa-solid fa-building-columns text-saOrange-400"></i> Campus Information
+                        </h3>
+                        <div class="space-y-4 text-xs text-slate-300">
+                            <div class="flex items-start gap-3">
+                                <i class="fa-solid fa-location-dot text-saOrange-500 text-lg mt-0.5"></i>
+                                <div>
+                                    <p class="font-bold text-white text-sm">Kality Seattle Academy Campus</p>
+                                    <p class="mt-0.5 text-slate-400">Kality Sub-City, Addis Ababa, Ethiopia</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <i class="fa-solid fa-phone text-saOrange-500 text-lg mt-0.5"></i>
+                                <div>
+                                    <p class="font-bold text-white text-sm">Telephone Lines</p>
+                                    <p class="mt-0.5 text-slate-400">+251 937 381 801 (Main Office)</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-3">
+                                <i class="fa-solid fa-clock text-saOrange-500 text-lg mt-0.5"></i>
+                                <div>
+                                    <p class="font-bold text-white text-sm">Operating Hours</p>
+                                    <p class="mt-0.5 text-slate-400">Monday – Friday: 8:00 AM – 5:00 PM</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Google Maps Embedded Card -->
+                    <div class="bg-white rounded-3xl p-4 shadow-xl border border-slate-200 space-y-4 text-center">
+                        <div class="h-64 rounded-2xl overflow-hidden relative border border-slate-200">
+                            <iframe 
+                                src="https://maps.google.com/maps?q=8.8955928,38.7763393&z=16&output=embed" 
+                                class="w-full h-full border-0" 
+                                allowfullscreen="" 
+                                loading="lazy" 
+                                referrerpolicy="no-referrer-when-downgrade">
+                            </iframe>
+                        </div>
+                        <a href="https://www.google.com/maps/place/Kality+Seattle+Academy+Kindergarten/@8.8955928,38.7737644,17z/data=!3m1!4b1!4m6!3m5!1s0x164b83c75991cbed:0xa90e7917180c10c9!8m2!3d8.8955928!4d38.7763393" 
+                           target="_blank" 
+                           class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-saOrange-500 hover:bg-saOrange-600 text-white font-extrabold text-xs shadow-md transition transform hover:-translate-y-0.5">
+                            <i class="fa-solid fa-map-location-dot text-sm"></i>
+                            Open Kality Seattle Academy on Google Maps
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 9: CONTACT & FOOTER -->
+    <footer id="contact" class="bg-slate-950 text-white pt-16 pb-12 border-t border-slate-900">
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-10 pb-12 border-b border-slate-800">
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                        <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-9 h-9 object-contain bg-white rounded-lg p-0.5">
+                        <span class="font-heading font-extrabold text-xl text-white">Seattle Academy</span>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Leading private educational institution serving 3,000+ students from Kindergarten to High School in Addis Ababa.
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-4">Quick Links</h4>
+                    <ul class="space-y-2 text-xs text-slate-400">
+                        <li><a href="#home" class="hover:text-white transition">Home</a></li>
+                        <li><a href="#about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="#academics" class="hover:text-white transition">Academics</a></li>
+                        <li><a href="{% url 'seattle_academy_news_gallery' %}" class="hover:text-white transition">News & Events</a></li>
+                        <li><a href="{% url 'seattle_academy_news_gallery' %}#gallery" class="hover:text-white transition">Gallery</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-4">Contact Info</h4>
+                    <ul class="space-y-2 text-xs text-slate-400">
+                        <li><i class="fa-solid fa-phone text-saOrange-500 mr-2"></i> +251 937 381 801</li>
+                        <li><i class="fa-solid fa-envelope text-saBlue-400 mr-2"></i> info@seattleacademy.edu.et</li>
+                        <li><i class="fa-solid fa-location-dot text-saOrange-500 mr-2"></i> Addis Ababa, Ethiopia</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-4">SaaS System Status</h4>
+                    <div class="p-3.5 bg-slate-900 rounded-xl text-[11px] text-slate-300 space-y-1.5 border border-slate-800">
+                        <p class="flex justify-between"><span>Status:</span> <span class="text-emerald-400 font-bold">Active</span></p>
+                        <p class="flex justify-between"><span>Capacity:</span> <span class="text-white font-bold">3,000+ Students</span></p>
+                        <p class="flex justify-between"><span>Academic Year:</span> <span class="text-white font-bold">2018 E.C.</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-4">
+                <p>© 2026 Seattle Academy. All Rights Reserved. Powered by Ethiopian School SaaS.</p>
+                <div class="flex items-center gap-4">
+                    <a href="{% url 'seattle_academy_login' %}" class="hover:text-slate-300">Portal Sign In</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+
+
+    <!-- Image Lightbox Modal -->
+    <div id="imageModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md hidden z-50 items-center justify-center p-4" onclick="closeImageModal()">
+        <div class="relative max-w-4xl w-full text-center space-y-4" onclick="event.stopPropagation()">
+            <button onclick="closeImageModal()" class="absolute -top-10 right-0 text-white hover:text-saOrange-400 text-2xl font-bold">
+                <i class="fa-solid fa-xmark"></i> Close
+            </button>
+            <img id="modalImg" src="" alt="Full Preview" class="max-h-[85vh] w-auto mx-auto rounded-2xl shadow-2xl border-2 border-white/20">
+            <p id="modalCaption" class="text-white font-bold text-base mt-2"></p>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT ANIMATION ENGINES -->
+    <script>
+        let counterStarted = false;
+
+        function animateCounters() {
+            if (counterStarted) return;
+            const counters = document.querySelectorAll('.counter');
+            const countersDec = document.querySelectorAll('.counter-decimal');
+            
+            const statsSection = document.querySelector('.hero-glass-card');
+            if (!statsSection) return;
+
+            const rect = statsSection.getBoundingClientRect();
+            if (rect.top <= window.innerHeight && rect.bottom >= 0) {
+                counterStarted = true;
+
+                counters.forEach(counter => {
+                    const target = +counter.getAttribute('data-target');
+                    const duration = 2000;
+                    const step = Math.ceil(target / (duration / 20));
+                    let current = 0;
+
+                    const timer = setInterval(() => {
+                        current += step;
+                        if (current >= target) {
+                            counter.innerText = target.toLocaleString();
+                            clearInterval(timer);
+                        } else {
+                            counter.innerText = current.toLocaleString();
+                        }
+                    }, 20);
+                });
+
+                countersDec.forEach(counter => {
+                    const target = parseFloat(counter.getAttribute('data-target'));
+                    const duration = 2000;
+                    let current = 0;
+                    const step = target / (duration / 30);
+
+                    const timer = setInterval(() => {
+                        current += step;
+                        if (current >= target) {
+                            counter.innerText = target.toFixed(1);
+                            clearInterval(timer);
+                        } else {
+                            counter.innerText = current.toFixed(1);
+                        }
+                    }, 30);
+                });
+            }
+        }
+
+        window.addEventListener('scroll', animateCounters);
+        window.addEventListener('load', animateCounters);
+
+        // HERO PARTICLE BACKGROUND CANVAS ANIMATION
+        const canvas = document.getElementById('heroParticles');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 3 + 1;
+                    this.speedX = Math.random() * 0.8 - 0.4;
+                    this.speedY = Math.random() * 0.8 - 0.4;
+                    this.color = Math.random() > 0.5 ? 'rgba(37, 99, 235, 0.4)' : 'rgba(249, 115, 22, 0.4)';
+                }
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+                }
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function initParticles() {
+                particles = [];
+                for (let i = 0; i < 45; i++) {
+                    particles.push(new Particle());
+                }
+            }
+            initParticles();
+
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+        }
+
+        // ACADEMIC TAB SWITCHER ENGINE
+        function switchAcademicTab(tabKey) {
+            const tabs = ['kg', 'primary', 'middle', 'prep'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const content = document.getElementById(`content-${t}`);
+                if (t === tabKey) {
+                    btn.className = 'acad-tab px-6 py-3 rounded-2xl font-extrabold text-xs transition bg-saBlue-600 text-white shadow-md flex items-center gap-2 transform scale-105';
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = 'acad-tab px-6 py-3 rounded-2xl font-extrabold text-xs transition bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2 border border-slate-200';
+                    content.classList.add('hidden');
+                }
+            });
+        }
+
+        function toggleFaq(id) {
+            const ans = document.getElementById(`faq-ans-${id}`);
+            const ico = document.getElementById(`faq-icon-${id}`);
+            if (ans.classList.contains('hidden')) {
+                ans.classList.remove('hidden');
+                ico.className = 'fa-solid fa-chevron-up text-saOrange-500 transition';
+            } else {
+                ans.classList.add('hidden');
+                ico.className = 'fa-solid fa-chevron-down text-saBlue-600 transition';
+            }
+        }
+
+        // MODALS & SCROLL OBSERVER
+        function openAdmissionsModal() {
+            document.getElementById('admissionsModal').classList.remove('hidden');
+            document.getElementById('admissionsModal').classList.add('flex');
+        }
+        function switchAcademicTab(tabKey) {
+            const tabs = ['kg', 'primary', 'middle', 'prep'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const content = document.getElementById(`content-${t}`);
+                if (!btn || !content) return;
+                
+                if (t === tabKey) {
+                    btn.className = 'acad-tab acad-tab-active px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 flex items-center gap-2.5';
+                    content.classList.remove('hidden');
+                    content.classList.remove('animate-tab-slide');
+                    void content.offsetWidth;
+                    content.classList.add('animate-tab-slide');
+                } else {
+                    btn.className = 'acad-tab px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2.5 border border-slate-200';
+                    content.classList.add('hidden');
+                    content.classList.remove('animate-tab-slide');
+                }
+            });
+        }
+
+        function closeAdmissionsModal() {
+
+            document.getElementById('admissionsModal').classList.add('hidden');
+            document.getElementById('admissionsModal').classList.remove('flex');
+        }
+        function handleInquirySubmit(e) {
+            e.preventDefault();
+            alert('Thank you! Your admission inquiry for Seattle Academy has been submitted successfully.');
+            closeAdmissionsModal();
+        }
+
+        async function handleContactSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const submitBtn = document.getElementById('contactSubmitBtn');
+            const statusDiv = document.getElementById('contactFormStatus');
+            const formData = new FormData(form);
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending Message...';
+
+            try {
+                const response = await fetch("{% url 'seattle_academy_contact_api' %}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    statusDiv.className = "p-4 rounded-2xl text-xs font-bold flex items-center gap-3 bg-emerald-50 text-emerald-800 border border-emerald-200";
+                    statusDiv.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-500 text-lg shrink-0"></i><span>' + result.message + '</span>';
+                    statusDiv.classList.remove('hidden');
+                    form.reset();
+                } else {
+                    statusDiv.className = "p-4 rounded-2xl text-xs font-bold flex items-center gap-3 bg-red-50 text-red-800 border border-red-200";
+                    statusDiv.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-500 text-lg shrink-0"></i><span>' + (result.error || 'Failed to submit message.') + '</span>';
+                    statusDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                statusDiv.className = "p-4 rounded-2xl text-xs font-bold flex items-center gap-3 bg-red-50 text-red-800 border border-red-200";
+                statusDiv.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-500 text-lg shrink-0"></i><span>Network error. Please try again.</span>';
+                statusDiv.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Contact Message';
+            }
+        }
+
+
+        function openImageModal(src, caption) {
+
+            document.getElementById('modalImg').src = src;
+            document.getElementById('modalCaption').innerText = caption;
+            document.getElementById('imageModal').classList.remove('hidden');
+            document.getElementById('imageModal').classList.add('flex');
+        }
+        function closeImageModal() {
+            document.getElementById('imageModal').classList.add('hidden');
+            document.getElementById('imageModal').classList.remove('flex');
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+
+        window.addEventListener('scroll', () => {
+            const sections = ['home', 'about', 'academics', 'admission', 'news', 'gallery', 'contact'];
+            const scrollPos = window.scrollY + 120;
+            
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                const navEl = document.getElementById(`nav-${id}`);
+                if (el && navEl) {
+                    if (el.offsetTop <= scrollPos && (el.offsetTop + el.offsetHeight) > scrollPos) {
+                        document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+                        navEl.classList.add('active');
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

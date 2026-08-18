@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold font-heading text-slate-900">{{ title }}</h1>
+            <p class="text-xs text-slate-500 mt-1">Record and review staff performance evaluations and ratings.</p>
+        </div>
+        <a href="{% url 'hr:dashboard' %}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+            <i class="fa-solid fa-arrow-left mr-1"></i>Back to HR Hub
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Reviews List -->
+        <div class="lg:col-span-2 space-y-4">
+            {% for review in reviews %}
+            <div class="bg-white p-6 shadow-sm border border-slate-200 rounded-2xl space-y-3">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">{{ review.staff_user.get_full_name|default:review.staff_user.username }}</h3>
+                        <p class="text-xs text-slate-500 font-mono">Reviewed on {{ review.review_date }} by {{ review.reviewer.get_full_name|default:"Admin" }}</p>
+                    </div>
+                    <span class="px-3 py-1 bg-amber-100 text-amber-800 font-bold text-xs rounded-full">
+                        {{ review.rating }} ★ Rating
+                    </span>
+                </div>
+                {% if review.strengths %}
+                <div class="text-xs">
+                    <span class="font-bold text-emerald-700 uppercase text-[10px]">Key Strengths:</span>
+                    <p class="text-slate-600 mt-0.5">{{ review.strengths }}</p>
+                </div>
+                {% endif %}
+                {% if review.areas_for_improvement %}
+                <div class="text-xs">
+                    <span class="font-bold text-rose-700 uppercase text-[10px]">Areas for Improvement:</span>
+                    <p class="text-slate-600 mt-0.5">{{ review.areas_for_improvement }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="bg-white p-8 border border-slate-200 rounded-2xl text-center text-slate-400 text-xs">
+                No performance reviews logged yet.
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Add Review Form -->
+        <div class="bg-white p-6 shadow-sm border border-slate-200 rounded-2xl h-fit space-y-4">
+            <h3 class="text-sm font-bold text-slate-900 font-heading">Log Staff Evaluation</h3>
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs shadow transition">
+                    <i class="fa-solid fa-star mr-1.5"></i>Save Evaluation
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

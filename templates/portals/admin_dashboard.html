@@ -1,0 +1,1108 @@
+{% extends 'base.html' %}
+
+{% block title %}School Administration Dashboard - Ethiopian School SaaS{% endblock %}
+
+{% block content %}
+<div class="space-y-8 pb-12">
+    <!-- Top Action Header Banner -->
+    <div class="bg-gradient-to-r from-slate-900 via-brand-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800 relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative z-10">
+            <div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 bg-brand-500/20 text-brand-300 border border-brand-500/30 rounded-full">
+                        Enterprise Admin Portal
+                    </span>
+                    <span class="bg-slate-800 text-emerald-400 font-mono font-bold text-xs px-2.5 py-0.5 rounded-lg border border-slate-700">
+                        {{ active_school.code }}
+                    </span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-heading mt-2">
+                    {{ active_school.name }}
+                </h1>
+                <p class="text-xs text-slate-300 mt-1 flex flex-wrap items-center gap-2">
+                    <span>Subdomain: <strong class="text-brand-300 font-mono">{{ active_school.subdomain }}.ethiopiaschools.et</strong></span>
+                    <span>•</span>
+                    <span>Preference: <strong class="text-emerald-400 font-medium">{{ active_school.get_calendar_preference_display }}</strong></span>
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="openModal('addStudentModal')" class="bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-brand-600/30 transition transform active:scale-95 flex items-center space-x-2">
+                    <i class="fa-solid fa-user-plus text-xs"></i>
+                    <span>+ Add Student</span>
+                </button>
+                <button onclick="openModal('addTeacherModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-xl text-xs transition transform active:scale-95 flex items-center space-x-2">
+                    <i class="fa-solid fa-chalkboard-user text-xs text-purple-400"></i>
+                    <span>+ Add Teacher</span>
+                </button>
+                <button onclick="openModal('addStaffModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-xl text-xs transition transform active:scale-95 flex items-center space-x-2">
+                    <i class="fa-solid fa-user-tie text-xs text-indigo-400"></i>
+                    <span>+ Add Staff</span>
+                </button>
+                <button onclick="openModal('createEventModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-xl text-xs transition transform active:scale-95 flex items-center space-x-2">
+                    <i class="fa-solid fa-calendar-plus text-xs text-teal-400"></i>
+                    <span>+ Event</span>
+                </button>
+                <button onclick="openModal('createInvoiceModal')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold px-3.5 py-2.5 rounded-xl text-xs transition transform active:scale-95 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-invoice-dollar text-xs text-amber-400"></i>
+                    <span>+ Invoice</span>
+                </button>
+                <a href="{% url 'hr:dashboard' %}" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-calculator text-xs"></i>
+                    <span>HR & Payroll</span>
+                </a>
+                <a href="{% url 'attendance:reports' %}" class="bg-teal-600 hover:bg-teal-500 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-clipboard-user text-xs"></i>
+                    <span>Attendance</span>
+                </a>
+                <a href="{% url 'enrollment:promote_students' %}" class="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center space-x-2">
+                    <i class="fa-solid fa-graduation-cap text-xs"></i>
+                    <span>Enrollment & Promotion</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+        <div class="glass p-5 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-4 -top-4 w-16 h-16 bg-brand-500/10 rounded-full blur-xl group-hover:bg-brand-500/20 transition"></div>
+            <div class="flex items-center justify-between relative z-10">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Students</span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 text-brand-600 flex items-center justify-center group-hover:scale-110 transition shadow-sm border border-brand-200/50">
+                    <i class="fa-solid fa-user-graduate"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-extrabold text-slate-900 mt-4 font-heading">{{ total_students }}</h2>
+            <div class="flex items-center gap-1 mt-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <p class="text-[10px] text-slate-600 font-medium">Enrolled</p>
+            </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-4 -top-4 w-16 h-16 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition"></div>
+            <div class="flex items-center justify-between relative z-10">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Teachers</span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 text-purple-600 flex items-center justify-center group-hover:scale-110 transition shadow-sm border border-purple-200/50">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-extrabold text-slate-900 mt-4 font-heading">{{ total_teachers }}</h2>
+            <div class="flex items-center gap-1 mt-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                <p class="text-[10px] text-slate-600 font-medium">Teaching Staff</p>
+            </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-4 -top-4 w-16 h-16 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition"></div>
+            <div class="flex items-center justify-between relative z-10">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Staff</span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition shadow-sm border border-indigo-200/50">
+                    <i class="fa-solid fa-user-tie"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-extrabold text-slate-900 mt-4 font-heading">{{ total_staff }}</h2>
+            <div class="flex items-center gap-1 mt-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                <p class="text-[10px] text-slate-600 font-medium">Non-Teaching</p>
+            </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition"></div>
+            <div class="flex items-center justify-between relative z-10">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Revenue</span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition shadow-sm border border-amber-200/50">
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                </div>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-900 mt-4 font-heading font-mono tracking-tight">{{ total_revenue|floatformat:0 }}</h2>
+            <div class="flex items-center gap-1 mt-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <p class="text-[10px] text-slate-600 font-medium">ETB Collected</p>
+            </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl stat-card relative overflow-hidden group">
+            <div class="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition"></div>
+            <div class="flex items-center justify-between relative z-10">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Attendance</span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition shadow-sm border border-emerald-200/50">
+                    <i class="fa-solid fa-calendar-check"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-extrabold {% if attendance_pct >= 80 %}text-emerald-600{% elif attendance_pct >= 60 %}text-amber-600{% else %}text-red-600{% endif %} mt-4 font-heading">{{ attendance_pct }}%</h2>
+            <div class="flex items-center gap-1 mt-2">
+                <span class="w-1.5 h-1.5 rounded-full {% if attendance_pct >= 80 %}bg-emerald-500{% elif attendance_pct >= 60 %}bg-amber-500{% else %}bg-red-500{% endif %}"></span>
+                <p class="text-[10px] text-slate-600 font-medium">This Week</p>
+            </div>
+        </div>
+
+        <div class="glass p-5 rounded-2xl stat-card relative overflow-hidden group flex flex-col justify-between">
+            <div class="absolute -right-4 -top-4 w-16 h-16 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition"></div>
+            <div class="flex items-center justify-between relative z-10">
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Approvals</span>
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-50 to-rose-100 text-rose-600 flex items-center justify-center group-hover:scale-110 transition shadow-sm border border-rose-200/50">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                </div>
+            </div>
+            <h2 class="text-3xl font-extrabold text-slate-900 mt-4 font-heading">{{ pending_marks }}</h2>
+            {% if pending_marks > 0 %}
+            <form method="POST" action="{% url 'admin_dashboard' %}" class="mt-2 relative z-10">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="approve_marks">
+                <button type="submit" class="w-full btn-primary !py-1.5 !text-[10px] !rounded-lg">Approve All</button>
+            </form>
+            {% else %}
+            <div class="flex items-center gap-1 mt-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                <p class="text-[10px] text-slate-500 font-medium">None pending</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Access Apps Grid -->
+    <div class="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200/80">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+            <div>
+                <h3 class="text-sm font-extrabold text-slate-900 font-heading">Core School Management Apps</h3>
+                <p class="text-xs text-slate-500 hidden sm:block">Quick launch hubs for daily operations & administrative tools</p>
+            </div>
+            <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-50 px-2.5 py-1 rounded-full border border-brand-200/60 flex-shrink-0">New Features Active</span>
+        </div>
+        <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
+            <a href="/messaging/inbox/" class="group p-3.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-comments"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-emerald-700">Messages</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Inbox & Chat</span>
+            </a>
+            <a href="/calendar/" class="group p-3.5 bg-slate-50 hover:bg-sky-50/60 border border-slate-200/80 hover:border-sky-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center text-sm shadow-md shadow-sky-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-sky-700">Calendar</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Full Schedule</span>
+            </a>
+            <a href="/homework/" class="group p-3.5 bg-slate-50 hover:bg-amber-50/60 border border-slate-200/80 hover:border-amber-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm shadow-md shadow-amber-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-amber-700">Homework</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Assignments</span>
+            </a>
+            <a href="/discipline/" class="group p-3.5 bg-slate-50 hover:bg-red-50/60 border border-slate-200/80 hover:border-red-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center text-sm shadow-md shadow-red-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-red-700">Discipline</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Incident Log</span>
+            </a>
+            <a href="/library/" class="group p-3.5 bg-slate-50 hover:bg-indigo-50/60 border border-slate-200/80 hover:border-indigo-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center text-sm shadow-md shadow-indigo-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-book-open-reader"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-indigo-700">Library</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Books & Borrow</span>
+            </a>
+            <a href="{% url 'assessments:period_close' %}" class="group p-3.5 bg-slate-50 hover:bg-violet-50/60 border border-slate-200/80 hover:border-violet-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center text-sm shadow-md shadow-violet-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-violet-700">Period & Semester Close</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Publish Ranks & Lock</span>
+            </a>
+            <a href="{% url 'assessments:annual_dashboard' %}" class="group p-3.5 bg-slate-50 hover:bg-fuchsia-50/60 border border-slate-200/80 hover:border-fuchsia-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-fuchsia-600 text-white flex items-center justify-center text-sm shadow-md shadow-fuchsia-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-award"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-fuchsia-700">Annual Promotion</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Rollover Engine</span>
+            </a>
+            <a href="/reports/moe/" class="group p-3.5 bg-slate-50 hover:bg-purple-50/60 border border-slate-200/80 hover:border-purple-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-sm shadow-md shadow-purple-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-chart-column"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-purple-700">MoE Report</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Excel Export</span>
+            </a>
+            <a href="/admission/apply/" target="_blank" class="group p-3.5 bg-slate-50 hover:bg-teal-50/60 border border-slate-200/80 hover:border-teal-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center text-sm shadow-md shadow-teal-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-teal-700">Public Apply</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Online Form</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Live Data Analytics Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Enrollment & Gender Ratio Chart -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-sm font-bold text-slate-800 font-heading">Enrollment Gender Distribution</h3>
+                <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">Live Ratio</span>
+            </div>
+            <div class="h-48 flex items-center justify-center">
+                <canvas id="genderChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Academic Pass / Fail Performance Chart -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-sm font-bold text-slate-800 font-heading">Academic Performance & Pass Rate</h3>
+                <span class="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-bold">MoE Target 85%+</span>
+            </div>
+            <div class="h-48">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🇪🇹 MoE Regional Administration Report Banner -->
+    {% if moe_report %}
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-lg border border-slate-800 space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2">
+            <div>
+                <h2 class="text-base font-extrabold tracking-tight font-heading flex items-center space-x-2">
+                    <span>🇪🇹 Ethiopian Regional / MoE Education Report</span>
+                </h2>
+                <p class="text-xs text-slate-400">Region: <strong class="text-white">{{ moe_report.school_info.region|default:"Oromia" }}</strong> | Woreda: <strong class="text-white">{{ moe_report.school_info.woreda|default:"Bole" }}</strong> | Year: <strong class="text-white">{{ moe_report.school_info.academic_year }}</strong></p>
+            </div>
+            <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-bold">MoE Compliant</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p class="text-slate-400 font-semibold">Gender Breakdown</p>
+                <p class="text-sm font-extrabold mt-1 text-white">M: {{ moe_report.gender_breakdown.male }} | F: {{ moe_report.gender_breakdown.female }}</p>
+            </div>
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p class="text-slate-400 font-semibold">Attendance Rate</p>
+                <p class="text-sm font-extrabold mt-1 text-emerald-400">{{ moe_report.attendance_rate_percentage }}%</p>
+            </div>
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p class="text-slate-400 font-semibold">Pass Rate</p>
+                <p class="text-sm font-extrabold mt-1 text-amber-400">{{ moe_report.pass_fail_statistics.pass_rate }}%</p>
+            </div>
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p class="text-slate-400 font-semibold">Capacity Utilization</p>
+                <p class="text-sm font-extrabold mt-1 text-brand-400">{{ moe_report.capacity_statistics.utilization_percentage|default:"100" }}%</p>
+            </div>
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50">
+                <p class="text-slate-400 font-semibold">Academic Average</p>
+                <p class="text-sm font-extrabold mt-1 text-purple-400">{{ moe_report.academic_performance_average }} / 100</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Module Tables Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-2 gap-6">
+        <!-- 💼 Non-Teaching Staff Roster -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-sm font-bold text-slate-800 font-heading">💼 Non-Teaching Staff Roster</h3>
+                <button onclick="openModal('addStaffModal')" class="text-xs text-brand-600 hover:text-brand-800 font-bold">+ Add Staff</button>
+            </div>
+            <div class="overflow-x-auto max-h-64">
+                <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-500 uppercase border-b border-slate-100">
+                            <th class="p-3">Emp ID</th>
+                            <th class="p-3">Name</th>
+                            <th class="p-3">Position</th>
+                            <th class="p-3">Department</th>
+                            <th class="p-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for st in staff_members %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3 font-mono font-bold text-brand-600">{{ st.employee_id }}</td>
+                            <td class="p-3 font-bold text-slate-900">{{ st.user.get_full_name|default:st.user.username }}</td>
+                            <td class="p-3"><span class="bg-brand-50 text-brand-700 px-2 py-0.5 rounded-md font-bold text-[10px]">{{ st.get_position_display }}</span></td>
+                            <td class="p-3 text-slate-600">{{ st.department }}</td>
+                            <td class="p-3"><span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">{{ st.get_employment_status_display }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="p-6 text-center text-slate-400">No non-teaching staff recorded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 📂 Secure Staff HR Document Vault -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-sm font-bold text-slate-800 font-heading">📂 Staff HR Document Vault</h3>
+                <button onclick="openModal('uploadStaffDocModal')" class="text-xs text-brand-600 hover:text-brand-800 font-bold">+ Upload HR Doc</button>
+            </div>
+            <div class="overflow-x-auto max-h-64">
+                <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-500 uppercase border-b border-slate-100">
+                            <th class="p-3">Title</th>
+                            <th class="p-3">Staff ID</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for doc in staff_docs %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3 font-bold text-slate-900">{{ doc.title }}</td>
+                            <td class="p-3 font-mono text-slate-600">{{ doc.staff.employee_id }}</td>
+                            <td class="p-3"><span class="bg-purple-50 text-purple-700 px-2 py-0.5 rounded text-[10px] font-bold">{{ doc.get_document_type_display }}</span></td>
+                            <td class="p-3"><a href="{{ doc.file.url }}" target="_blank" class="text-brand-600 hover:underline font-bold">Download</a></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="p-6 text-center text-slate-400">No HR documents uploaded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid: School Events Calendar & Staff Leave Management -->
+    <div class="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-2 gap-6">
+        <!-- 📅 School Events Calendar -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-sm font-bold text-slate-800 font-heading">📅 School Events & Academic Calendar</h3>
+                <button onclick="openModal('createEventModal')" class="text-xs text-teal-600 hover:text-teal-800 font-bold">+ Create Event</button>
+            </div>
+            <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {% for evt in school_events %}
+                <div class="p-3 flex justify-between items-center hover:bg-slate-50 transition">
+                    <div>
+                        <p class="font-bold text-slate-900">{{ evt.title }}</p>
+                        <p class="text-[10px] text-slate-500">Audience: {{ evt.get_target_audience_display }} | Date: <span class="font-semibold text-teal-700">{{ evt.start_date }}</span></p>
+                    </div>
+                    <span class="bg-teal-50 text-teal-700 px-2 py-1 rounded-md text-[10px] font-bold">{{ evt.get_event_type_display }}</span>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-slate-400 text-xs">No school events scheduled yet.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 🌴 Staff Leave Management & Approvals -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-sm font-bold text-slate-800 font-heading">🌴 Staff Leave Requests</h3>
+                <span class="text-xs text-slate-500 font-medium">Requests: {{ leave_requests.count }}</span>
+            </div>
+            <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {% for lreq in leave_requests %}
+                <div class="p-3 flex justify-between items-center hover:bg-slate-50 transition">
+                    <div>
+                        <p class="font-bold text-slate-900">{{ lreq.staff_user.get_full_name|default:lreq.staff_user.username }}</p>
+                        <p class="text-[10px] text-slate-500">{{ lreq.get_leave_type_display }} ({{ lreq.start_date }} to {{ lreq.end_date }})</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        {% if lreq.status == 'PENDING' %}
+                        <form method="POST" action="{% url 'admin_dashboard' %}" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="review_leave">
+                            <input type="hidden" name="request_id" value="{{ lreq.id }}">
+                            <input type="hidden" name="review_status" value="APPROVE">
+                            <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded-lg text-[10px]">Approve</button>
+                        </form>
+                        <form method="POST" action="{% url 'admin_dashboard' %}" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="review_leave">
+                            <input type="hidden" name="request_id" value="{{ lreq.id }}">
+                            <input type="hidden" name="review_status" value="REJECT">
+                            <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-2.5 py-1 rounded-lg text-[10px]">Reject</button>
+                        </form>
+                        {% else %}
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold {% if lreq.status == 'APPROVED' %}bg-emerald-100 text-emerald-800{% else %}bg-rose-100 text-rose-800{% endif %}">{{ lreq.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-6 text-center text-slate-400 text-xs">No pending staff leave requests.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔑 Student & Parent Accounts Credentials Directory -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div class="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/50">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 font-heading flex items-center">
+                    <i class="fa-solid fa-key text-amber-500 mr-2"></i>Student & Parent User Credentials Directory
+                </h3>
+                <p class="text-xs text-slate-500">View linked student & parent login usernames, initial default passwords, and contact info</p>
+            </div>
+            <div class="flex items-center space-x-3 flex-wrap gap-y-2">
+                <form method="GET" class="flex items-center space-x-2 text-xs">
+                    <input type="hidden" name="role" value="student">
+                    <select name="st_grade" onchange="this.form.submit()" class="border-slate-200 rounded-lg text-xs py-1.5 focus:ring-brand-500 focus:border-brand-500 cursor-pointer">
+                        <option value="">All Grades</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}" {% if selected_st_grade == g.id|stringformat:"s" %}selected{% endif %}>{{ g.name }} {% if g.stream_type != 'GEN' %}({{ g.get_stream_type_display }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="st_section" onchange="this.form.submit()" class="border-slate-200 rounded-lg text-xs py-1.5 focus:ring-brand-500 focus:border-brand-500 cursor-pointer">
+                        <option value="">All Sections</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec.id }}" {% if selected_st_section == sec.id|stringformat:"s" %}selected{% endif %}>{{ sec.name }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                <button onclick="openModal('addStudentModal')" class="bg-brand-600 hover:bg-brand-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition whitespace-nowrap">
+                    + Add Student & Parent
+                </button>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse whitespace-nowrap">
+                <thead>
+                    <tr class="bg-slate-100/70 text-slate-600 uppercase tracking-wider border-b border-slate-200 font-bold">
+                        <th class="p-4">Student Info</th>
+                        <th class="p-4">Student Credentials</th>
+                        <th class="p-4">Linked Parent / Guardian</th>
+                        <th class="p-4">Parent Credentials</th>
+                        <th class="p-4">Parent Contact Phone</th>
+                        <th class="p-4 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for st in students %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <!-- Student Info -->
+                        <td class="p-4">
+                            <div class="font-bold text-slate-900 text-sm">{{ st.full_name }}</div>
+                            <div class="text-[11px] font-mono text-brand-600 font-bold">ID: {{ st.student_id }}</div>
+                        </td>
+                        <!-- Student Login Credentials -->
+                        <td class="p-4">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-slate-400 font-medium">User:</span>
+                                <code class="bg-slate-100 text-slate-800 px-2 py-0.5 rounded font-mono font-bold">{{ st.user.username }}</code>
+                            </div>
+                            <div class="flex items-center space-x-1.5 mt-1">
+                                <span class="text-slate-400 font-medium">Pass:</span>
+                                <span class="text-xs text-slate-400 italic">Hidden &mdash; <button type="button" onclick="openResetModal('{{ st.id }}', '{{ st.full_name|escapejs }}', 'STUDENT')" class="text-brand-600 hover:underline font-bold">Reset</button></span>
+                            </div>
+                        </td>
+                        <!-- Linked Parent / Guardian -->
+                        <td class="p-4">
+                            {% if st.primary_guardian %}
+                            <div class="font-bold text-slate-800">
+                                {{ st.primary_guardian.user.get_full_name|default:st.primary_guardian.user.username }}
+                                <span class="text-[10px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded font-semibold border border-brand-100 ml-1">{{ st.primary_guardian.relationship }}</span>
+                            </div>
+                            {% else %}
+                            <span class="text-slate-400 italic">p_{{ st.student_id|lower }} (Auto-linked)</span>
+                            {% endif %}
+                        </td>
+                        <!-- Parent Login Credentials -->
+                        <td class="p-4">
+                            {% if st.primary_guardian %}
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-slate-400 font-medium">User:</span>
+                                <code class="bg-indigo-50 text-indigo-900 border border-indigo-200/80 px-2 py-0.5 rounded font-mono font-bold">{{ st.primary_guardian.user.username }}</code>
+                            </div>
+                            <div class="flex items-center space-x-1.5 mt-1">
+                                <span class="text-slate-400 font-medium">Pass:</span>
+                                <span class="text-xs text-slate-400 italic">Hidden &mdash; <button type="button" onclick="openResetModal('{{ st.id }}', '{{ st.full_name|escapejs }}', 'PARENT')" class="text-brand-600 hover:underline font-bold">Reset</button></span>
+                            </div>
+                            {% else %}
+                            <div class="flex items-center space-x-1.5">
+                                <span class="text-slate-400 font-medium">User:</span>
+                                <code class="bg-indigo-50 text-indigo-900 border border-indigo-200/80 px-2 py-0.5 rounded font-mono font-bold">p_{{ st.student_id|lower }}</code>
+                            </div>
+                            <div class="flex items-center space-x-1.5 mt-1">
+                                <span class="text-slate-400 font-medium">Pass:</span>
+                                <span class="text-xs text-slate-400 italic">Hidden &mdash; <button type="button" onclick="openResetModal('{{ st.id }}', '{{ st.full_name|escapejs }}', 'PARENT')" class="text-brand-600 hover:underline font-bold">Reset</button></span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <!-- Parent Contact Phone -->
+                        <td class="p-4 font-mono font-medium text-slate-700">
+                            {% if st.primary_guardian %}
+                            <div><i class="fa-solid fa-phone text-slate-400 mr-1"></i>{{ st.primary_guardian.phone|default:"—" }}</div>
+                            {% else %}
+                            <span class="text-slate-400">—</span>
+                            {% endif %}
+                        </td>
+                        <!-- Action -->
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center space-x-2">
+                                <a href="{% url 'students:admin_profile' st.id %}" class="px-3 py-1.5 bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-700 border border-slate-200 hover:border-brand-200 rounded-xl text-xs font-bold transition inline-flex items-center space-x-1">
+                                    <i class="fa-solid fa-user-gear"></i>
+                                    <span>Profile</span>
+                                </a>
+                                <button type="button" onclick="openResetModal('{{ st.id }}', '{{ st.full_name|escapejs }}')" class="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1">
+                                    <i class="fa-solid fa-key"></i>
+                                    <span>Reset Pass</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="p-8 text-center text-slate-400">No student accounts registered yet. Click "+ Add Student & Parent" above.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Non-Teaching Staff -->
+<div id="addStaffModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Add Non-Teaching Staff</h3>
+            <button onclick="closeModal('addStaffModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_staff">
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold text-slate-700">Staff Employee ID</label>
+                    <span class="text-[10px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-md font-mono font-medium border border-brand-200">⚡ Auto-Generated (Editable)</span>
+                </div>
+                <input type="text" name="employee_id" required value="{{ suggested_staff_id }}" placeholder="STF-101" class="w-full px-3 py-2 border rounded-xl font-mono text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">First Name</label>
+                    <input type="text" name="first_name" required placeholder="Solomon" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Last Name</label>
+                    <input type="text" name="last_name" required placeholder="Kassa" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Position</label>
+                    <select name="position" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <option value="PRINCIPAL">Principal</option>
+                        <option value="VICE_PRINCIPAL">Vice Principal</option>
+                        <option value="REGISTRAR">Registrar</option>
+                        <option value="ACCOUNTANT">Accountant</option>
+                        <option value="SECRETARY">Secretary</option>
+                        <option value="LIBRARIAN">Librarian</option>
+                        <option value="COUNSELOR">Counselor</option>
+                        <option value="IT_ADMINISTRATOR">IT Administrator</option>
+                        <option value="SECURITY_STAFF">Security Staff</option>
+                        <option value="OTHER">Other Staff</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Department</label>
+                    <input type="text" name="department" required placeholder="Administration" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('addStaffModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow">Save Staff</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Upload Staff Document -->
+<div id="uploadStaffDocModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Upload Staff HR Document</h3>
+            <button onclick="closeModal('uploadStaffDocModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" enctype="multipart/form-data" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="upload_staff_doc">
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Select Staff Member</label>
+                <select name="staff_id" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    {% for st in staff_members %}
+                    <option value="{{ st.id }}">{{ st.user.get_full_name|default:st.user.username }} ({{ st.employee_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Document Type</label>
+                <select name="document_type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                    <option value="EMPLOYMENT">Employment Document</option>
+                    <option value="CERTIFICATE">Professional Certificate</option>
+                    <option value="CONTRACT">Employment Contract</option>
+                    <option value="IDENTIFICATION">Identification Document</option>
+                    <option value="HR_OTHER">Other HR Document</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Document Title</label>
+                <input type="text" name="title" required placeholder="Signed Employment Contract 2016" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Upload File</label>
+                <input type="file" name="file" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('uploadStaffDocModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow">Upload Document</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Create School Event -->
+<div id="createEventModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Create School Event</h3>
+            <button onclick="closeModal('createEventModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_event">
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Event Title</label>
+                <input type="text" name="title" required placeholder="Semester 1 Parent Teacher Conference" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Event Category</label>
+                    <select name="event_type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <option value="SCHOOL_EVENT">School Event</option>
+                        <option value="PARENT_MEETING">Parent Meeting</option>
+                        <option value="TEACHER_MEETING">Teacher Meeting</option>
+                        <option value="HOLIDAY">Holiday</option>
+                        <option value="CEREMONY">Ceremony</option>
+                        <option value="EXAM_PERIOD">Exam Period</option>
+                        <option value="REGISTRATION_PERIOD">Registration Period</option>
+                        <option value="RESULT_PUBLICATION">Result Publication</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Target Audience</label>
+                    <select name="target_audience" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <option value="ALL">All Users</option>
+                        <option value="PARENTS">Parents</option>
+                        <option value="TEACHERS">Teachers</option>
+                        <option value="STUDENTS">Students</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Start Date</label>
+                    <input type="date" name="start_date" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">End Date</label>
+                    <input type="date" name="end_date" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('createEventModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow">Create Event</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Add Student -->
+<div id="addStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Add New Student</h3>
+            <button onclick="closeModal('addStudentModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" enctype="multipart/form-data" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_student">
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold text-slate-700">Student ID</label>
+                    <span class="text-[10px] bg-brand-50 text-brand-700 px-2 py-0.5 rounded-md font-mono font-medium border border-brand-200">⚡ Auto-Generated (Editable)</span>
+                </div>
+                <input type="text" name="student_id" required value="{{ suggested_student_id }}" placeholder="AIA-STU-101" class="w-full px-3 py-2 border rounded-xl font-mono text-xs focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">First Name</label>
+                    <input type="text" name="first_name" required placeholder="Abel" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Middle Name</label>
+                    <input type="text" name="middle_name" required placeholder="Tesfaye" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Last Name</label>
+                    <input type="text" name="last_name" required placeholder="Haile" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" x-data="{ selectedGrade: '' }">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Gender</label>
+                    <select name="gender" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <option value="M">Male</option>
+                        <option value="F">Female</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Grade (Academics Config)</label>
+                    <select x-model="selectedGrade" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <option value="">-- Select Grade --</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}">{{ g.name }} {% if g.stream_type != 'GEN' %}({{ g.get_stream_type_display }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block font-semibold text-slate-700 mb-1">Section</label>
+                    <select name="section_id" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <option value="">-- Select Section --</option>
+                        {% for sec in sections %}
+                        <option value="{{ sec.id }}" x-show="!selectedGrade || selectedGrade == '{{ sec.grade.id }}'">
+                            {{ sec.grade.name }} - Section {{ sec.name }} ({{ sec.stream.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Student Photo (Optional)</label>
+                <input type="file" name="photo" accept="image/*" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+            </div>
+
+            <div class="border-t pt-3 space-y-3" x-data="{
+                parentOption: 'existing',
+                searchQuery: '',
+                sectionFilter: '',
+                selectedParentId: '',
+                selectedParentName: '',
+                openCombobox: false
+            }">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-slate-800 text-xs font-heading">👨‍👩‍👧‍👦 Parent & Family Account</span>
+                    <span class="text-[10px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full font-semibold">Single Login for Siblings</span>
+                </div>
+
+                <!-- Option Tabs -->
+                <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                    <label class="flex items-center justify-center space-x-1.5 py-1.5 rounded-lg cursor-pointer transition"
+                           :class="parentOption === 'existing' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                        <input type="radio" name="parent_option" value="existing" x-model="parentOption" class="sr-only">
+                        <i class="fa-solid fa-users text-xs"></i>
+                        <span>Link Existing Parent / Sibling</span>
+                    </label>
+                    <label class="flex items-center justify-center space-x-1.5 py-1.5 rounded-lg cursor-pointer transition"
+                           :class="parentOption === 'new' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                        <input type="radio" name="parent_option" value="new" x-model="parentOption" class="sr-only">
+                        <i class="fa-solid fa-user-plus text-xs"></i>
+                        <span>Register New Parent</span>
+                    </label>
+                </div>
+
+                <!-- Integrated Searchable Combobox for Existing Parent / Sibling -->
+                <div x-show="parentOption === 'existing'" class="space-y-2 relative" @click.away="openCombobox = false">
+                    <input type="hidden" name="existing_parent_id" :value="selectedParentId">
+
+                    <div class="flex items-center justify-between">
+                        <label class="block font-semibold text-slate-700 text-xs">Choose or Search Existing Family / Sibling</label>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-[10px] text-slate-500 font-semibold">Filter Grade:</span>
+                            <select x-model="sectionFilter" class="px-2 py-0.5 border border-slate-200 rounded-md text-[11px] bg-white font-medium focus:ring-1 focus:ring-brand-500">
+                                <option value="">All Sections</option>
+                                {% for sec in sections %}
+                                <option value="{{ sec.id }}">{{ sec.grade.name }} - Sec {{ sec.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Integrated Search Box + Selection Display -->
+                    <div class="relative">
+                        <div class="relative flex items-center">
+                            <input type="text"
+                                   x-model="searchQuery"
+                                   @focus="openCombobox = true"
+                                   @input="openCombobox = true"
+                                   :placeholder="selectedParentName ? selectedParentName : '🔍 Type sibling name, parent name, or phone to search...'"
+                                   class="w-full pl-9 pr-8 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none text-xs font-medium bg-white"
+                                   :class="selectedParentId ? 'border-emerald-500 text-emerald-900 bg-emerald-50/30' : 'border-slate-300'">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 text-slate-400 text-xs"></i>
+                            <button type="button" x-show="selectedParentId || searchQuery" @click="selectedParentId = ''; selectedParentName = ''; searchQuery = ''; openCombobox = true" class="absolute right-2.5 text-slate-400 hover:text-slate-600 font-bold text-xs">
+                                ✕
+                            </button>
+                        </div>
+
+                        <!-- Floating Searchable Options Dropdown List -->
+                        <div x-show="openCombobox" class="absolute left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-20 divide-y divide-slate-100 text-xs" style="display: none;">
+                            {% for parent in existing_parents %}
+                            <div class="p-2.5 hover:bg-brand-50/70 cursor-pointer transition flex items-center justify-between"
+                                 data-search="{{ parent.user.get_full_name|default:parent.user.username }} {{ parent.phone }} {% for child in parent.unique_children_info %}{{ child.full_name }} {{ child.code }} {% endfor %}"
+                                 data-sections="{% for child in parent.unique_children_info %}{{ child.section_id }} {% endfor %}"
+                                 x-show="(!sectionFilter || $el.dataset.sections.includes(sectionFilter)) && (!searchQuery || $el.dataset.search.toLowerCase().includes(searchQuery.toLowerCase()))"
+                                 @click="selectedParentId = '{{ parent.id }}'; selectedParentName = '👤 {{ parent.user.get_full_name|default:parent.user.username|escapejs }} (Phone: {{ parent.phone|default:"N/A" }})'; openCombobox = false">
+                                <div>
+                                    <div class="font-bold text-slate-900 flex items-center space-x-1.5">
+                                        <i class="fa-solid fa-user text-brand-600 text-[11px]"></i>
+                                        <span>{{ parent.user.get_full_name|default:parent.user.username }}</span>
+                                        <span class="text-[10px] text-slate-500 font-normal">({{ parent.relationship|default:"Parent" }} • {{ parent.phone|default:"No Phone" }})</span>
+                                    </div>
+                                    {% if parent.unique_children_info %}
+                                    <div class="text-[11px] text-slate-600 mt-1 flex flex-wrap items-center gap-1.5">
+                                        <span class="font-semibold text-brand-700">🎓 Sibling(s):</span>
+                                        {% for child in parent.unique_children_info %}
+                                        <span class="bg-slate-100 text-slate-800 px-2 py-0.5 rounded-md font-medium text-[11px] border border-slate-200/80">
+                                            {{ child.full_name }} <strong class="text-brand-600 font-semibold">({{ child.section_display }})</strong>
+                                        </span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <i class="fa-solid fa-check text-brand-600 font-bold" x-show="selectedParentId == '{{ parent.id }}'"></i>
+                            </div>
+                            {% empty %}
+                            <div class="p-3 text-slate-400 text-center">No existing parents found.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-lightbulb text-amber-600 text-xs"></i>
+                        <span>Type sibling's name or parent's phone directly into the search box to find and link the existing family instantly!</span>
+                    </p>
+                </div>
+
+                <!-- New Parent Registration Fields -->
+                <div x-show="parentOption === 'new'" class="space-y-2" style="display: none;">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Parent Full Name</label>
+                            <input type="text" name="parent_name" placeholder="Ato Demeke Tessema" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Parent Phone (Unique)</label>
+                            <input type="text" name="parent_phone" placeholder="+251911000000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Relationship</label>
+                        <select name="parent_relationship" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                            <option value="Father">Father</option>
+                            <option value="Mother">Mother</option>
+                            <option value="Guardian">Guardian</option>
+                        </select>
+                    </div>
+                </div>
+
+                <p class="text-[10px] text-slate-500 italic bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    💡 <strong>Login Credentials:</strong><br>
+                    • Student: Username: <code class="text-brand-600 font-mono">&lt;student_id&gt;</code> | Pass: <code class="text-brand-600 font-mono">student123</code><br>
+                    • Parent: Single login credential for all children under the family account.
+                </p>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('addStudentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow transition">Save Student</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Add Teacher -->
+<div id="addTeacherModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Add New Teacher</h3>
+            <button onclick="closeModal('addTeacherModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_teacher">
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block font-semibold text-slate-700">Teacher Employee ID</label>
+                    <span class="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded-md font-mono font-medium border border-purple-200">⚡ Auto-Generated (Editable)</span>
+                </div>
+                <input type="text" name="employee_id" required value="{{ suggested_teacher_id }}" placeholder="TCH-101" class="w-full px-3 py-2 border rounded-xl font-mono text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">First Name</label>
+                    <input type="text" name="first_name" required placeholder="Kibre" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Last Name</label>
+                    <input type="text" name="last_name" required placeholder="Worku" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Specialization</label>
+                <input type="text" name="specialization" required placeholder="Physics & Mathematics" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('addTeacherModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow">Save Teacher</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Create Invoice -->
+<div id="createInvoiceModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading">Create Student Fee Invoice</h3>
+            <button onclick="closeModal('createInvoiceModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_invoice">
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Student</label>
+                <select name="student_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    {% for st in students %}
+                    <option value="{{ st.id }}">{{ st.full_name }} ({{ st.student_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Invoice Title</label>
+                <input type="text" name="title" value="Semester Tuition Fee" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Amount (ETB)</label>
+                <input type="number" step="0.01" name="amount" value="5000.00" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('createInvoiceModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow">Generate Invoice</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Chart.js Live Initialization Scripts -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const maleCount = Number("{{ moe_report.gender_breakdown.male|default:10 }}");
+    const femaleCount = Number("{{ moe_report.gender_breakdown.female|default:8 }}");
+    const passCount = Number("{{ moe_report.pass_fail_statistics.passed|default:25 }}");
+    const failCount = Number("{{ moe_report.pass_fail_statistics.failed|default:2 }}");
+
+    // 1. Gender Ratio Donut Chart
+    const ctxGender = document.getElementById('genderChart').getContext('2d');
+    new Chart(ctxGender, {
+        type: 'doughnut',
+        data: {
+            labels: ['Male Students', 'Female Students'],
+            datasets: [{
+                data: [maleCount, femaleCount],
+                backgroundColor: ['#4F46E5', '#EC4899'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 11 } } }
+            }
+        }
+    });
+
+    // 2. Academic Performance Bar Chart
+    const ctxPerf = document.getElementById('performanceChart').getContext('2d');
+    new Chart(ctxPerf, {
+        type: 'bar',
+        data: {
+            labels: ['Passed Marks', 'Failed Marks'],
+            datasets: [{
+                label: 'Marks Evaluation Count',
+                data: [passCount, failCount],
+                backgroundColor: ['#10B981', '#F43F5E'],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#F1F5F9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Auto-open modal from query param (e.g. ?modal=addTeacherModal)
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetModal = urlParams.get('modal') || urlParams.get('open');
+    if (targetModal) {
+        setTimeout(() => openModal(targetModal), 150);
+    }
+});
+
+function openResetModal(studentId, studentName, targetType) {
+    document.getElementById('resetStudentId').value = studentId;
+    if (targetType) {
+        document.getElementById('resetTargetType').value = targetType;
+    }
+    const nameEl = document.getElementById('resetStudentNameText');
+    if (nameEl && studentName) {
+        nameEl.innerText = studentName;
+    }
+    openModal('resetPasswordModal');
+}
+</script>
+
+<!-- Modal: Reset Account Password -->
+<div id="resetPasswordModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center">
+                    <i class="fa-solid fa-key text-amber-500 mr-2"></i>Reset Account Password
+                </h3>
+                <p id="resetStudentNameText" class="text-xs text-slate-500 font-medium"></p>
+            </div>
+            <button onclick="closeModal('resetPasswordModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'admin_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reset_account_password">
+            <input type="hidden" id="resetStudentId" name="student_id">
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Target Account</label>
+                <select id="resetTargetType" name="target_type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold">
+                    <option value="STUDENT">Student Account</option>
+                    <option value="PARENT">Linked Parent Account</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">New Temporary / Permanent Password</label>
+                <input type="text" name="new_password" required placeholder="e.g. Pass@2026 or welcome123" class="w-full px-3 py-2 border rounded-xl font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <p class="text-[11px] text-slate-400 mt-1">The user will be prompted to change their password upon their next login.</p>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('resetPasswordModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow">Update & Save Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

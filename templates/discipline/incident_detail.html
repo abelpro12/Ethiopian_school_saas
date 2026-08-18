@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Incident: {{ incident.title }}{% endblock %}
+{% block content %}
+
+<div class="max-w-5xl mx-auto space-y-6">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="{% url 'discipline:list' %}" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+        <i class="fa-solid fa-arrow-left text-sm"></i>
+      </a>
+      <div>
+        <h1 class="font-heading text-xl font-bold text-slate-800">{{ incident.title }}</h1>
+        <p class="text-xs text-slate-500">{{ incident.incident_date|date:"F d, Y" }} · {{ incident.get_category_display }}</p>
+      </div>
+    </div>
+    {% if incident.severity == 'CRITICAL' %}<span class="badge badge-red font-bold text-xs px-3 py-1">CRITICAL</span>
+    {% elif incident.severity == 'SERIOUS' %}<span class="badge badge-yellow font-bold text-xs px-3 py-1">SERIOUS</span>
+    {% else %}<span class="badge badge-gray font-bold text-xs px-3 py-1">{{ incident.get_severity_display }}</span>{% endif %}
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Description & Students -->
+    <div class="md:col-span-2 space-y-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-3">
+        <h3 class="font-heading font-bold text-slate-800 text-sm border-b pb-2">Incident Description</h3>
+        <p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{{ incident.description }}</p>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+        <h3 class="font-heading font-bold text-slate-800 text-sm border-b pb-2">Students Involved ({{ incident.students_involved.count }})</h3>
+        <div class="space-y-3">
+          {% for student in incident.students_involved.all %}
+          <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div class="w-9 h-9 rounded-xl bg-red-500 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+              {{ student.first_name|first }}{{ student.last_name|first }}
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800">{{ student.full_name }}</p>
+              <p class="text-[10px] text-slate-400 font-mono">{{ student.student_id }}</p>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-xs text-slate-400 py-2">No students linked to this incident.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions & Status Updates Sidebar -->
+    <div class="space-y-6">
+      <!-- Status Update -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-3">
+        <h3 class="font-heading font-bold text-slate-800 text-xs uppercase tracking-wider">Update Status</h3>
+        <form method="post" class="space-y-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_status">
+          <select name="status" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
+            {% for val, label in status_choices %}<option value="{{ val }}" {% if incident.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2 rounded-xl transition">
+            Save Status
+          </button>
+        </form>
+      </div>
+
+      <!-- Parent Notification -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-3">
+        <h3 class="font-heading font-bold text-slate-800 text-xs uppercase tracking-wider">Parent Notification</h3>
+        {% if incident.parent_notified %}
+          <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 font-medium flex items-center gap-2">
+            <i class="fa-solid fa-check-circle text-emerald-600 text-sm"></i>
+            Notified on {{ incident.parent_notification_date|date:"M d, Y" }}
+          </div>
+        {% else %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="notify_parent">
+            <button type="submit" class="w-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-bold text-xs py-2 rounded-xl transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-phone text-xs"></i> Mark Parents Notified
+            </button>
+          </form>
+        {% endif %}
+      </div>
+
+      <!-- Actions Taken List -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 space-y-3">
+        <h3 class="font-heading font-bold text-slate-800 text-xs uppercase tracking-wider">Actions Taken</h3>
+        {% for action in actions %}
+        <div class="border-b border-slate-100 pb-2.5 last:border-0 space-y-0.5">
+          <p class="text-xs font-bold text-slate-800">{{ action.get_action_type_display }}</p>
+          <p class="text-[11px] text-slate-500 font-medium">{{ action.student.full_name }}</p>
+          {% if action.description %}<p class="text-[10px] text-slate-400">{{ action.description }}</p>{% endif %}
+        </div>
+        {% empty %}
+        <p class="text-xs text-slate-400 py-2">No actions recorded.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

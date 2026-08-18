@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: gunicorn --config deployment/gunicorn/gunicorn_conf.py config.wsgi:application
+    volumes:
+      - static_volume:/var/www/ethiopian_school_saas/staticfiles
+      - media_volume:/var/www/ethiopian_school_saas/media
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+
+volumes:
+  static_volume:
+  media_volume:

@@ -1,0 +1,69 @@
+name: Ethiopian School SaaS CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_ethiopian_school_saas
+          POSTGRES_PASSWORD: password123
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/development.txt
+
+      - name: Code Quality & Security Audit
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          bandit -r apps/ config/ utils/ -s B101
+
+      - name: Run Full Test Suite (Unit, Integration, Security)
+        env:
+          DATABASE_URL: postgres://postgres:password123@localhost:5432/test_ethiopian_school_saas
+          SECRET_KEY: test_secret_key_ci_cd
+        run: |
+          python manage.py migrate
+          pytest -v tests/
+
+  deploy-staging:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Staging Environment
+        run: |
+          echo "Deploying build artifact to staging environment..."
+          curl -f https://staging.ethiopiaschools.et/ready/
+
+  deploy-production:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production Cluster
+        run: |
+          echo "Deploying release candidate to production cluster..."
+          curl -f https://app.ethiopiaschools.et/ready/

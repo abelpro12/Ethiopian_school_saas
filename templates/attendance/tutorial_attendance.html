@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+{% load calendar_tags %}
+
+{% block title %}Tutorial Attendance | {{ active_school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <!-- Top Hero Header -->
+    <div class="bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-purple-800/50 relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-400 flex items-center justify-center shadow-lg shadow-purple-500/30 flex-shrink-0">
+                    <i class="fa-solid fa-graduation-cap text-white text-3xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Tutorial Attendance Portal</h1>
+                        <span class="bg-purple-500/20 text-purple-300 font-bold text-xs px-3.5 py-1 rounded-full border border-purple-500/30 shadow-sm flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-gear"></i> Tutorial Controller Hub
+                        </span>
+                    </div>
+                    <p class="text-slate-300 text-xs sm:text-sm mt-1.5 flex items-center gap-2">
+                        <span><i class="fa-solid fa-calendar-day text-purple-400"></i> Active Date: <strong class="text-white">{{ date|school_date:active_school }}</strong></span>
+                    </p>
+                </div>
+            </div>
+
+            {% if selected_section %}
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <a href="?section_id={{ selected_section.id }}&date={{ date_str }}&export=excel" class="bg-emerald-600/40 hover:bg-emerald-600/60 text-emerald-100 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-emerald-500/40 transition flex items-center gap-2 shadow-sm" title="Download Excel (.csv) file">
+                    <i class="fa-solid fa-file-excel text-emerald-300"></i> Export Excel
+                </a>
+                <a href="?section_id={{ selected_section.id }}&date={{ date_str }}&export=pdf" class="bg-purple-600/40 hover:bg-purple-600/60 text-purple-100 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-purple-500/40 transition flex items-center gap-2 shadow-sm" title="Download PDF document">
+                    <i class="fa-solid fa-file-pdf text-purple-300"></i> Download PDF
+                </a>
+                <button type="button" onclick="window.print()" class="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2" title="Print Sheet">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Section Selection Bar -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+        <form method="get" action="" class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Section</label>
+                <select name="section_id" onchange="this.form.submit()" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-purple-500 transition">
+                    {% for sec in sections %}
+                    <option value="{{ sec.id }}" {% if selected_section and selected_section.id == sec.id %}selected{% endif %}>
+                        {{ sec.grade.name }} - Section {{ sec.name }} ({{ sec.stream.name }})
+                        {% if sec.tutorial_teacher %} — Tutorial Controller: {{ sec.tutorial_teacher.get_full_name }}{% endif %}
+                    </option>
+                    {% empty %}
+                    <option value="">No tutorial sections assigned</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="date" value="{{ date_str }}">
+            </div>
+        </form>
+    </div>
+
+    <!-- Attendance Calendar Navigator Component -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg">
+                    <i class="fa-regular fa-calendar-check"></i>
+                </div>
+                <div>
+                    <h2 class="font-heading font-extrabold text-slate-800 text-base flex items-center gap-2">
+                        Attendance Calendar Navigator
+                        <div class="inline-flex items-center gap-1.5 bg-purple-50 px-3 py-0.5 rounded-full border border-purple-100 text-xs font-bold text-purple-700">
+                            {% if prev_month_date %}
+                            <a href="?section_id={{ selected_section.id }}&date={{ prev_month_date }}" class="hover:text-purple-900 transition px-1" title="Previous Month">
+                                <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                            </a>
+                            {% endif %}
+
+                            <span>{{ eth_month_label }}</span>
+
+                            {% if next_month_date %}
+                            <a href="?section_id={{ selected_section.id }}&date={{ next_month_date }}" class="hover:text-purple-900 transition px-1" title="Next Month">
+                                <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </h2>
+                    <p class="text-xs text-slate-500">Click any day to view or record attendance. Green badges (<i class="fa-solid fa-check text-emerald-500 text-[10px]"></i>) indicate saved attendance.</p>
+                </div>
+            </div>
+
+            <!-- Direct Date Picker (Eth Popover for EC / Native Input for GC) -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Direct Date:</span>
+                
+                {% if calendar_preference == 'ETHIOPIAN' %}
+                <div class="relative inline-block text-left" 
+                     id="ethDatePickerWrapper"
+                     data-selected-year="{{ selected_eth_year|default:2016 }}"
+                     data-selected-month="{{ selected_eth_month|default:1 }}"
+                     data-selected-day="{{ selected_eth_day|default:0 }}"
+                     data-ay-start="{{ ay_start_str }}"
+                     data-ay-end="{{ ay_end_str }}">
+                    <button type="button" 
+                            onclick="toggleEthCalendarPopover()"
+                            class="bg-slate-900 border border-slate-700 hover:border-purple-400 text-white rounded-xl text-xs font-extrabold px-3.5 py-2 flex items-center gap-2 shadow-sm transition cursor-pointer">
+                        <i class="fa-solid fa-calendar-days text-purple-400"></i>
+                        <span>{{ eth_month_name }} {{ selected_eth_day }}, {{ selected_eth_year }} E.C.</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                    </button>
+
+                    <!-- Dark Ethiopian Calendar Popover -->
+                    <div id="ethCalendarPopover" 
+                         class="hidden absolute right-0 mt-2 w-72 bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-700/90 z-50 animate-in fade-in duration-150">
+                        
+                        <!-- Month & Year Control Header -->
+                        <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                            <button type="button" onclick="navigateEthMonth(-1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+
+                            <div class="flex items-center gap-1.5">
+                                <select id="ethPopoverMonthSelect" onchange="renderEthPopoverCalendar()" class="bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-purple-400 cursor-pointer">
+                                    {% for m_val, m_name in eth_month_choices %}
+                                    <option value="{{ m_val }}" {% if m_val == selected_eth_month %}selected{% endif %}>{{ m_name }}</option>
+                                    {% endfor %}
+                                </select>
+
+                                <input type="number" id="ethPopoverYearInput" value="{{ selected_eth_year }}" min="1990" max="2100" onchange="renderEthPopoverCalendar()" class="w-16 bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg px-2 py-1 focus:ring-1 focus:ring-purple-400 text-center">
+                            </div>
+
+                            <button type="button" onclick="navigateEthMonth(1)" class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+
+                        <!-- Weekday Headers -->
+                        <div class="grid grid-cols-7 text-center text-[10px] font-bold text-rose-400 mb-2">
+                            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                        </div>
+
+                        <!-- Days Grid -->
+                        <div id="ethPopoverDaysGrid" class="grid grid-cols-7 text-center gap-1 text-xs">
+                            <!-- JS Populates Days -->
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="mt-3 pt-2 border-t border-slate-800 flex justify-between items-center text-xs">
+                            <button type="button" onclick="toggleEthCalendarPopover()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition">
+                                Close
+                            </button>
+                            <span class="text-[10px] text-purple-400 font-bold uppercase">Ethiopian Calendar</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Gregorian Native Date Input -->
+                <form method="get" class="flex items-center gap-2">
+                    <input type="hidden" name="section_id" value="{{ selected_section.id }}">
+                    <input type="date" name="date" value="{{ date_str }}" 
+                           {% if ay_start_str %}min="{{ ay_start_str }}"{% endif %}
+                           {% if ay_end_str %}max="{{ ay_end_str }}"{% endif %}
+                           class="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 cursor-pointer shadow-sm"
+                           onchange="this.form.submit()">
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Horizontal Scrollable Calendar Day Tiles -->
+        <div class="overflow-x-auto pb-2 scrollbar-thin">
+            <div class="flex gap-2.5 min-w-max">
+                {% for day in month_days %}
+                <a href="?section_id={{ selected_section.id }}&date={{ day.date_str }}" 
+                   class="group relative flex flex-col items-center justify-between p-3 rounded-2xl w-16 h-20 transition-all duration-200 border text-center cursor-pointer select-none
+                   {% if day.is_selected %}
+                       bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/30 scale-105 z-10
+                   {% elif day.is_today %}
+                       bg-purple-50 text-purple-900 border-purple-300 font-bold hover:bg-purple-100
+                   {% else %}
+                       bg-slate-50/80 text-slate-700 border-slate-200/80 hover:bg-slate-100 hover:border-slate-300
+                   {% endif %}">
+                    
+                    <!-- Weekday Header -->
+                    <span class="text-[10px] uppercase font-bold tracking-wider opacity-75">
+                        {{ day.weekday }}
+                    </span>
+
+                    <!-- Day Number -->
+                    <span class="text-lg font-black tracking-tight my-0.5">
+                        {{ day.day_num }}
+                    </span>
+
+                    <!-- Status Indicator -->
+                    <div class="flex items-center justify-center h-4">
+                        {% if day.has_attendance %}
+                            <span class="w-4 h-4 rounded-full {% if day.is_selected %}bg-emerald-400 text-slate-950 ring-2 ring-emerald-300/80{% else %}bg-emerald-500 text-white{% endif %} flex items-center justify-center text-[9px] font-black shadow-sm" title="Tutorial Attendance Saved">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                        {% else %}
+                            <span class="w-2 h-2 rounded-full {% if day.is_selected %}bg-white/50{% else %}bg-slate-300{% endif %}" title="Pending Attendance"></span>
+                        {% endif %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Attendance Form Sheet -->
+    {% if selected_section %}
+    <form method="post" action="" class="space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="section_id" value="{{ selected_section.id }}">
+        <input type="hidden" name="date" value="{{ date_str }}">
+
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h3 class="font-heading font-bold text-slate-800 text-lg">
+                        {{ selected_section.grade.name }} — Section {{ selected_section.name }} Tutorial Class Sheet
+                    </h3>
+                    <p class="text-xs text-slate-500">Total Enrolled Students: {{ students|length }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="setAllStatus('PRESENT')" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-xs font-bold transition border border-emerald-200">
+                        <i class="fa-solid fa-check-double mr-1"></i> Mark All Present
+                    </button>
+                    <button type="button" onclick="setAllStatus('ABSENT')" class="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold transition border border-rose-200">
+                        <i class="fa-solid fa-xmark mr-1"></i> Mark All Absent
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-100/70 text-slate-600 font-bold text-xs uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                            <th class="py-3.5 px-6">Student Info</th>
+                            <th class="py-3.5 px-6 text-center">Tutorial Status</th>
+                            <th class="py-3.5 px-6">Reason / Note (Optional)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for row in students %}
+                        <tr class="hover:bg-purple-50/30 transition">
+                            <td class="py-3.5 px-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0 shadow-sm">
+                                        {{ row.student.first_name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-slate-800">{{ row.student.full_name }}</p>
+                                        <p class="text-xs text-slate-400 font-mono">ID: {{ row.student.student_id }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-3.5 px-6">
+                                <div class="flex items-center justify-center gap-3">
+                                    <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100">
+                                        <input type="radio" name="status_{{ row.student.id }}" value="PRESENT" {% if row.status == 'PRESENT' %}checked{% endif %} class="status-radio text-emerald-600 focus:ring-emerald-500"> Present
+                                    </label>
+                                    <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100">
+                                        <input type="radio" name="status_{{ row.student.id }}" value="ABSENT" {% if row.status == 'ABSENT' %}checked{% endif %} class="status-radio text-rose-600 focus:ring-rose-500"> Absent
+                                    </label>
+                                    <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100">
+                                        <input type="radio" name="status_{{ row.student.id }}" value="LATE" {% if row.status == 'LATE' %}checked{% endif %} class="status-radio text-amber-600 focus:ring-amber-500"> Late
+                                    </label>
+                                    <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100">
+                                        <input type="radio" name="status_{{ row.student.id }}" value="EXCUSED" {% if row.status == 'EXCUSED' %}checked{% endif %} class="status-radio text-blue-600 focus:ring-blue-500"> Excused
+                                    </label>
+                                </div>
+                            </td>
+                            <td class="py-3.5 px-6">
+                                <input type="text" name="reason_{{ row.student.id }}" value="{{ row.reason }}" placeholder="Add remark..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 focus:ring-2 focus:ring-purple-500 transition">
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="py-12 text-center text-slate-400">
+                                <i class="fa-solid fa-users-slash text-3xl mb-2 block opacity-30"></i>
+                                No active students found in this section.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if students %}
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-lg shadow-purple-500/20 transition flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Tutorial Attendance
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </form>
+    {% endif %}
+
+</div>
+
+<script>
+    function setAllStatus(val) {
+        const radios = document.querySelectorAll('.status-radio');
+        radios.forEach(radio => {
+            if (radio.value === val) {
+                radio.checked = true;
+            }
+        });
+    }
+
+    // Ethiopian Calendar Popover Functions
+    function ethiopianToGregorianJS(ethYear, ethMonth, ethDay) {
+        let n = 30 * (ethMonth - 1) + ethDay - 1;
+        let r = (ethMonth === 13 && ethDay === 6) ? 1460 : ((ethYear % 4) * 365 + n);
+        let c = Math.floor((ethYear - Math.floor(r / 365) + Math.floor(r / 1460)) / 4);
+        let ord_val = 2796 + 1461 * c + r;
+        let d = new Date(Date.UTC(1970, 0, 1));
+        d.setUTCDate(d.getUTCDate() + (ord_val - 719163));
+        let y = d.getUTCFullYear();
+        let m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        let day = String(d.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    const ethWrapElement = document.getElementById('ethDatePickerWrapper');
+    let currentEthYear = ethWrapElement ? parseInt(ethWrapElement.dataset.selectedYear || '2016', 10) : 2016;
+    let currentEthMonth = ethWrapElement ? parseInt(ethWrapElement.dataset.selectedMonth || '1', 10) : 1;
+    let targetEthYear = currentEthYear;
+    let targetEthMonth = currentEthMonth;
+    let targetEthDay = ethWrapElement ? parseInt(ethWrapElement.dataset.selectedDay || '0', 10) : 0;
+    let ayStartStr = ethWrapElement ? (ethWrapElement.dataset.ayStart || '') : '';
+    let ayEndStr = ethWrapElement ? (ethWrapElement.dataset.ayEnd || '') : '';
+    let selectedSecId = '{{ selected_section.id }}';
+
+    function toggleEthCalendarPopover() {
+        const pop = document.getElementById('ethCalendarPopover');
+        if (pop) {
+            pop.classList.toggle('hidden');
+            if (!pop.classList.contains('hidden')) {
+                renderEthPopoverCalendar();
+            }
+        }
+    }
+
+    function navigateEthMonth(delta) {
+        currentEthMonth += delta;
+        if (currentEthMonth > 13) {
+            currentEthMonth = 1;
+            currentEthYear++;
+        } else if (currentEthMonth < 1) {
+            currentEthMonth = 13;
+            currentEthYear--;
+        }
+        const mSel = document.getElementById('ethPopoverMonthSelect');
+        const yInp = document.getElementById('ethPopoverYearInput');
+        if (mSel) mSel.value = currentEthMonth;
+        if (yInp) yInp.value = currentEthYear;
+        renderEthPopoverCalendar();
+    }
+
+    function renderEthPopoverCalendar() {
+        const mSel = document.getElementById('ethPopoverMonthSelect');
+        const yInp = document.getElementById('ethPopoverYearInput');
+        if (mSel) currentEthMonth = parseInt(mSel.value, 10);
+        if (yInp) currentEthYear = parseInt(yInp.value, 10);
+
+        const grid = document.getElementById('ethPopoverDaysGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        let firstGregStr = ethiopianToGregorianJS(currentEthYear, currentEthMonth, 1);
+        let parts = firstGregStr.split('-');
+        let firstGregDate = new Date(Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+        let startDayOfWeek = firstGregDate.getUTCDay();
+
+        let numDays = (currentEthMonth === 13) ? ((currentEthYear % 4 === 3) ? 6 : 5) : 30;
+
+        for (let i = 0; i < startDayOfWeek; i++) {
+            let blank = document.createElement('div');
+            blank.className = 'py-1 text-slate-700 font-mono text-center';
+            blank.innerText = '';
+            grid.appendChild(blank);
+        }
+
+        for (let d = 1; d <= numDays; d++) {
+            let gregIso = ethiopianToGregorianJS(currentEthYear, currentEthMonth, d);
+            let btn = document.createElement('button');
+            btn.type = 'button';
+
+            let isSelected = (currentEthYear === targetEthYear && currentEthMonth === targetEthMonth && d === targetEthDay);
+            
+            let isWithinAy = true;
+            if (ayStartStr && gregIso < ayStartStr) isWithinAy = false;
+            if (ayEndStr && gregIso > ayEndStr) isWithinAy = false;
+
+            let baseClasses = 'py-1.5 rounded-lg font-bold text-xs transition cursor-pointer ';
+            if (isSelected) {
+                baseClasses += 'bg-purple-500 text-white font-black ring-2 ring-purple-300 shadow-md ';
+            } else if (!isWithinAy) {
+                baseClasses += 'text-slate-600 opacity-40 cursor-not-allowed ';
+            } else {
+                baseClasses += 'text-slate-200 hover:bg-slate-800 hover:text-white ';
+            }
+
+            btn.className = baseClasses;
+            btn.innerText = d;
+
+            if (isWithinAy) {
+                btn.onclick = function() {
+                    window.location.href = '?section_id=' + selectedSecId + '&date=' + gregIso;
+                };
+            }
+
+            grid.appendChild(btn);
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const wrap = document.getElementById('ethDatePickerWrapper');
+        const pop = document.getElementById('ethCalendarPopover');
+        if (wrap && pop && !wrap.contains(e.target) && !pop.classList.contains('hidden')) {
+            pop.classList.add('hidden');
+        }
+    });
+</script>
+{% endblock %}

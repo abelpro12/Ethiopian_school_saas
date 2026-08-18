@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Semester Close Wizard{% endblock %}
+{% block content %}
+
+<div class="max-w-5xl mx-auto">
+  <!-- Header -->
+  <div class="flex items-center gap-4 mb-8">
+    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 flex-shrink-0">
+      <i class="fa-solid fa-flag-checkered text-white text-lg"></i>
+    </div>
+    <div>
+      <h1 class="font-heading text-2xl font-bold text-slate-800">Semester Close Wizard</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Compute final results, assign ranks, and publish student report cards</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Step 1: Select Semester -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+        <h2 class="font-semibold text-slate-700 text-sm">Select Semester</h2>
+      </div>
+      <form method="get">
+        <label class="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Academic Semester</label>
+        <select name="semester_id" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition cursor-pointer" onchange="this.form.submit()">
+          <option value="">— Choose semester —</option>
+          {% for sem in semesters %}
+            <option value="{{ sem.id }}" {% if selected_semester.id == sem.id %}selected{% endif %}>
+              {{ sem.name }} {% if sem.is_current %}(Current){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+
+      {% if selected_semester %}
+      <div class="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3">
+        <div class="flex gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-amber-500 text-sm mt-0.5 flex-shrink-0"></i>
+          <p class="text-xs text-amber-800"><strong>Warning:</strong> Closing a semester is irreversible. All marks will be locked and results published to parents and students.</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Step 2: Preview + Confirm -->
+    {% if preview %}
+    <div class="md:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <span class="w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+        <h2 class="font-semibold text-slate-700 text-sm">Preview — {{ selected_semester.name }}</h2>
+      </div>
+
+      <!-- Stats row -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="bg-emerald-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-emerald-700">{{ preview.total_students }}</p>
+          <p class="text-xs text-emerald-600 font-medium mt-0.5">Total Students</p>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-blue-700">{{ preview.students_with_marks }}</p>
+          <p class="text-xs text-blue-600 font-medium mt-0.5">Have Marks</p>
+        </div>
+        <div class="bg-amber-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-amber-700">{{ preview.missing_marks }}</p>
+          <p class="text-xs text-amber-600 font-medium mt-0.5">Missing Marks</p>
+        </div>
+        <div class="bg-red-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-red-700">{{ preview.draft_marks }}</p>
+          <p class="text-xs text-red-600 font-medium mt-0.5">Still Draft</p>
+        </div>
+      </div>
+
+      <!-- Marks status table -->
+      <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Marks Status Breakdown</h3>
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm mb-5 rounded-xl overflow-hidden">
+        <tbody class="divide-y divide-slate-100">
+          <tr class="bg-slate-50">
+            <td class="px-3 py-2.5 text-slate-600 font-medium">Draft</td>
+            <td class="px-3 py-2.5 text-right"><span class="badge badge-gray">{{ preview.draft_marks }}</span></td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2.5 text-slate-600 font-medium">Submitted</td>
+            <td class="px-3 py-2.5 text-right"><span class="badge badge-yellow">{{ preview.submitted_marks }}</span></td>
+          </tr>
+          <tr class="bg-slate-50">
+            <td class="px-3 py-2.5 text-slate-600 font-medium">Approved / Published</td>
+            <td class="px-3 py-2.5 text-right"><span class="badge badge-green">{{ preview.approved_marks }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+
+      {% if preview.draft_marks > 0 %}
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5">
+        <div class="flex gap-2 text-xs text-amber-800">
+          <i class="fa-solid fa-circle-exclamation text-amber-500 mt-0.5 flex-shrink-0"></i>
+          <span><strong>{{ preview.draft_marks }} marks are still in DRAFT.</strong> They will be included in computation as-is. Consider asking teachers to submit all marks before closing.</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="semester_id" value="{{ selected_semester.id }}">
+        <input type="hidden" name="action" value="confirm_close">
+        <button type="submit" class="w-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-500/25 transition flex items-center justify-center gap-2"
+          onclick="return confirm('Are you absolutely sure? Closing {{ selected_semester.name }} will compute all {{ preview.total_students }} student results and publish them. This cannot be undone.')">
+          <i class="fa-solid fa-lock"></i>
+          Close {{ selected_semester.name }} & Publish Results
+        </button>
+      </form>
+    </div>
+
+    {% else %}
+    <div class="md:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center min-h-[280px]">
+      <div class="text-center text-slate-400 p-8">
+        <i class="fa-solid fa-arrow-left-long text-4xl opacity-20 mb-4 block"></i>
+        <p class="text-sm">Select a semester on the left to preview its closing details.</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

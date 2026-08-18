@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Record Payment | {{ invoice.invoice_number }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'finance:dashboard' %}" class="text-brand-600 hover:text-brand-800 text-sm font-medium transition mb-2 inline-block">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back to Finance Dashboard
+        </a>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Record Payment</h1>
+        <p class="text-sm text-slate-500">Record cash or bank transfer payment against an outstanding student invoice.</p>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6 p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100 mb-4">
+            <div>
+                <span class="text-xs text-slate-500 uppercase tracking-wider block">Student</span>
+                <h3 class="text-lg font-bold text-slate-800">{{ invoice.student.full_name }}</h3>
+                <p class="text-xs text-slate-500 font-mono">{{ invoice.student.student_id }}</p>
+            </div>
+            <div class="sm:text-right">
+                <span class="text-xs text-slate-500 uppercase tracking-wider block">Remaining Balance</span>
+                <p class="text-2xl font-extrabold text-red-600">ETB {{ invoice.remaining_balance|floatformat:2 }}</p>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'finance:record_payment' invoice.id %}" class="space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Payment Method</label>
+                <select name="method" required class="w-full rounded-xl border-slate-300 focus:ring-brand-500 focus:border-brand-500 text-sm py-2.5">
+                    {% for val, label in payment_methods %}
+                    <option value="{{ val }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Payment Amount (ETB)</label>
+                <input type="number" step="0.01" min="0.01" max="{{ invoice.remaining_balance }}" name="amount" value="{{ invoice.remaining_balance }}" required class="w-full rounded-xl border-slate-300 focus:ring-brand-500 focus:border-brand-500 text-lg font-bold py-2.5">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Payment Notes / Bank Reference</label>
+                <textarea name="notes" rows="2" class="w-full rounded-xl border-slate-300 focus:ring-brand-500 focus:border-brand-500 text-sm" placeholder="e.g. Bank Reference CBE-1928374 or Cash Receipt"></textarea>
+            </div>
+
+            <div class="pt-4 flex flex-col sm:flex-row sm:justify-end gap-3">
+                <a href="{% url 'finance:dashboard' %}" class="flex items-center justify-center px-5 py-2.5 border border-slate-300 rounded-xl text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">Cancel</a>
+                <button type="submit" class="flex items-center justify-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold shadow-sm transition">
+                    <i class="fa-solid fa-check-circle"></i>Record &amp; Clear Payment
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

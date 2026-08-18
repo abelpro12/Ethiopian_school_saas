@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Promote Students | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="sm:flex sm:items-center sm:justify-between mb-8">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Year-End Promotion</h1>
+            <p class="mt-2 text-sm text-gray-700">Bulk promote students from one academic year to the next.</p>
+        </div>
+    </div>
+
+    <!-- Filters / Selection Form -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <form method="get" class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 gap-8">
+                <!-- Source Selection -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Source (Current Year)</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="source_ay_id" class="block text-sm font-medium text-gray-700">Academic Year</label>
+                            <select name="source_ay_id" id="source_ay_id" onchange="this.form.submit()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select Year...</option>
+                                {% for ay in academic_years %}
+                                    <option value="{{ ay.id }}" {% if source_ay_id == ay.id %}selected{% endif %}>{{ ay.display_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% if source_sections %}
+                        <div>
+                            <label for="source_section_id" class="block text-sm font-medium text-gray-700">Section/Grade</label>
+                            <select name="source_section_id" id="source_section_id" onchange="this.form.submit()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select Section...</option>
+                                {% for section in source_sections %}
+                                    <option value="{{ section.id }}" {% if source_section_id == section.id|stringformat:"s" or source_section_id == section.id %}selected{% endif %}>
+                                        {{ section.grade.name }} - {{ section.name }}{% if section.stream and section.stream.code != 'GEN' %} ({{ section.stream.name }}){% elif section.grade.stream_type != 'GEN' %} ({{ section.grade.get_stream_type_display }}){% endif %}{% if section.enrolled_students_count is not None %} ({{ section.enrolled_students_count }} student{{ section.enrolled_students_count|pluralize }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Target Selection -->
+                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                    <h3 class="text-lg font-medium text-indigo-900 mb-4 flex items-center justify-between">
+                        <span>Target (Next Academic Year)</span>
+                        {% if selected_source_sec and selected_source_sec.grade.level >= 12 %}
+                        <span class="bg-amber-100 text-amber-800 text-xs font-bold px-2.5 py-1 rounded-full border border-amber-200">
+                            🎓 Graduation Level (Grade 12)
+                        </span>
+                        {% endif %}
+                    </h3>
+                    
+                    {% if selected_source_sec and selected_source_sec.grade.level >= 12 %}
+                    <div class="p-3 bg-amber-50 border border-amber-200 rounded-md text-xs text-amber-900 mb-3">
+                        <i class="fa-solid fa-graduation-cap text-amber-600 mr-1"></i>
+                        Students in <strong>Grade 12</strong> will be marked as <strong>GRADUATED</strong> upon promotion. No target section is required.
+                    </div>
+                    {% endif %}
+
+                    <div class="space-y-4">
+                        <div>
+                            <label for="target_ay_id" class="block text-sm font-medium text-gray-700">Target Academic Year</label>
+                            <select name="target_ay_id" id="target_ay_id" onchange="this.form.submit()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select Target Year...</option>
+                                {% for ay in academic_years %}
+                                    <option value="{{ ay.id }}" {% if target_ay_id == ay.id %}selected{% endif %}>{{ ay.display_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% if selected_source_sec and selected_source_sec.grade.level < 12 %}
+                        <div>
+                            <label for="target_section_id" class="block text-sm font-medium text-gray-700">Target Section (Grade {{ selected_source_sec.grade.level|add:"1" }})</label>
+                            <select name="target_section_id" id="target_section_id" onchange="this.form.submit()" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select Grade {{ selected_source_sec.grade.level|add:"1" }} Section...</option>
+                                {% for section in target_sections %}
+                                    <option value="{{ section.id }}" {% if target_section_id == section.id %}selected{% endif %}>
+                                        Grade {{ section.grade.level }}{% if section.stream and section.stream.code != 'GEN' %} ({{ section.stream.name }}){% endif %} - Section {{ section.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Student List for Promotion -->
+    {% if students %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="target_ay_id" value="{{ target_ay_id }}">
+        <input type="hidden" name="target_section_id" value="{{ target_section_id }}">
+        
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 border-b border-gray-200 sm:px-6 flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">
+                    Students to Promote
+                </h3>
+                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Promote Selected Students
+                </button>
+            </div>
+            
+            {% if target_ay_id and target_section_id %}
+            <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" id="select_all" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Grade</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for enrollment in students %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="checkbox" name="students" value="{{ enrollment.id }}" class="student-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ enrollment.student.student_id }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ enrollment.student.full_name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ enrollment.grade.name }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <div class="px-4 py-12 text-center">
+                <p class="text-sm text-gray-500">Please select a Target Academic Year and Section above before you can promote students.</p>
+            </div>
+            {% endif %}
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<script>
+    document.getElementById('select_all')?.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.student-checkbox');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = this.checked;
+        }
+    });
+</script>
+{% endblock %}

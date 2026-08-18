@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Board - {{ section.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-end">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-800">Review Board: {{ section.grade.name }} - {{ section.name }}</h1>
+        <p class="text-sm text-slate-500 mt-1">Review and override promotion statuses manually.</p>
+    </div>
+    <a href="{% url 'assessments:annual_dashboard' %}" class="px-4 py-2 bg-white text-slate-700 border border-slate-300 rounded hover:bg-slate-50 transition-colors font-semibold text-sm shadow-sm">
+        Back to Dashboard
+    </a>
+</div>
+
+<form method="POST" action="{% url 'assessments:annual_review' section.id %}">
+    {% csrf_token %}
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                    <tr>
+                        <th class="px-4 py-3">Student Name</th>
+                        <th class="px-4 py-3 text-center">Total Score</th>
+                        <th class="px-4 py-3 text-center">Overall Average</th>
+                        <th class="px-4 py-3">System Recommendation</th>
+                        <th class="px-4 py-3">Manual Override</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for result in results %}
+                    <tr class="hover:bg-slate-50 transition-colors {% if result.promotion_status == 'PENDING_REVIEW' %}bg-amber-50/50{% endif %}">
+                        <td class="px-4 py-3 font-medium text-slate-800">
+                            {{ result.enrollment.student.full_name }}
+                            <div class="flex flex-wrap gap-1.5 mt-2 max-w-2xl">
+                                {% for sub in result.results_json %}
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border {% if sub.annual_average < 50 %}bg-red-50 text-red-700 border-red-200 font-bold{% else %}bg-slate-50 text-slate-600 border-slate-200{% endif %}">
+                                        <span>{{ sub.name }}:</span>
+                                        <span class="{% if sub.annual_average < 50 %}text-red-700{% else %}text-slate-900 font-semibold{% endif %}">{{ sub.annual_average }}</span>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            <div class="text-xs text-slate-500 font-normal mt-1">
+                                <span class="inline-block mr-3"><i class="fa-solid fa-check text-emerald-500 mr-1"></i>Present: {{ result.attendance_present }}</span>
+                                <span class="inline-block mr-3"><i class="fa-solid fa-xmark text-red-500 mr-1"></i>Absent: {{ result.attendance_absent }}</span>
+                                <span class="inline-block mr-3"><i class="fa-solid fa-clock text-amber-500 mr-1"></i>Late: {{ result.attendance_late }}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">{{ result.total_score }}</td>
+                        <td class="px-4 py-3 text-center font-bold {% if result.average_score < 50 %}text-red-600{% endif %}">{{ result.average_score }}%</td>
+                        <td class="px-4 py-3">
+                            {% if result.promotion_status == 'PROMOTED' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded bg-emerald-100 text-emerald-700">Promoted</span>
+                            {% elif result.promotion_status == 'REPEATED' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-700">Repeated</span>
+                            {% elif result.promotion_status == 'PENDING_REVIEW' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded bg-amber-100 text-amber-700 border border-amber-200">Needs Review (Caution)</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <select name="status_{{ result.id }}" class="w-full text-sm rounded border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                {% for code, name in PromotionStatus.choices %}
+                                    <option value="{{ code }}" {% if result.promotion_status == code %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-6 text-center text-slate-500">No results calculated yet. Run the calculation first.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% if results %}
+    <div class="flex justify-end">
+        <button type="submit" class="px-6 py-2 bg-indigo-600 text-white rounded font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm">
+            Save Overrides
+        </button>
+    </div>
+    {% endif %}
+</form>
+{% endblock %}

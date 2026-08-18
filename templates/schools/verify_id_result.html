@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Verification Portal — EthioSchool SaaS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4 font-sans relative overflow-hidden">
+
+    <!-- Background Ambient Glow -->
+    <div class="absolute -top-32 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -left-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-md w-full relative z-10 space-y-6">
+
+        {% if is_valid %}
+        <!-- VALID ID CARD BADGE RESULT -->
+        <div class="bg-slate-800/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center space-y-6">
+            
+            <!-- Verified Header Icon -->
+            <div class="relative mx-auto w-24 h-24 flex items-center justify-center">
+                <div class="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping"></div>
+                <div class="w-20 h-20 bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 rounded-full flex items-center justify-center text-3xl shadow-xl shadow-emerald-500/30 font-black">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+
+            <!-- Status Banner -->
+            <div>
+                <span class="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                    Official Active ID Card
+                </span>
+                <h1 class="text-2xl font-black text-white mt-3 font-heading">VERIFIED IDENTITY</h1>
+                <p class="text-xs text-slate-400 mt-1">Authentic ID credential issued by {{ school.name|default:"EthioSchool SaaS" }}</p>
+            </div>
+
+            <!-- User Info Card -->
+            <div class="bg-slate-900/80 border border-slate-700/60 rounded-2xl p-5 text-left space-y-3">
+                <div class="flex items-center gap-4 border-b border-slate-800 pb-4">
+                    {% if user_obj.profile_picture %}
+                    <img src="{{ user_obj.profile_picture.url }}" alt="{{ user_obj.get_full_name }}" class="w-14 h-14 rounded-xl object-cover border border-emerald-500/30">
+                    {% else %}
+                    <div class="w-14 h-14 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 text-2xl font-bold">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h2 class="text-base font-extrabold text-white">{{ user_obj.get_full_name|default:user_obj.username }}</h2>
+                        <p class="text-xs font-bold text-emerald-400 font-mono">ID: {{ user_obj.username }}</p>
+                        <span class="inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                            {{ role_display }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Role Details -->
+                <div class="space-y-2 text-xs text-slate-300 font-medium pt-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">School Tenant:</span>
+                        <span class="font-bold text-white">{{ school.name }}</span>
+                    </div>
+                    {% if detail_info.grade %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Enrolled Grade:</span>
+                        <span class="font-bold text-white">{{ detail_info.grade }}</span>
+                    </div>
+                    {% endif %}
+                    {% if detail_info.section %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Class Section:</span>
+                        <span class="font-bold text-white">Section {{ detail_info.section }}</span>
+                    </div>
+                    {% endif %}
+                    {% if detail_info.employee_id %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Employee No:</span>
+                        <span class="font-mono text-emerald-300 font-bold">{{ detail_info.employee_id }}</span>
+                    </div>
+                    {% endif %}
+                    {% if detail_info.specialization %}
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Specialization:</span>
+                        <span class="font-bold text-white">{{ detail_info.specialization }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="flex justify-between border-t border-slate-800 pt-2 text-[10px]">
+                        <span class="text-slate-500">Scan Timestamp:</span>
+                        <span class="font-mono text-slate-400">{{ verify_timestamp|date:"Y-m-d H:i:s" }}</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Footer Badge -->
+            <div class="text-[10px] text-slate-500 flex items-center justify-between font-mono">
+                <span>ETHIOSCHOOL QR TRUSTED SCAN</span>
+                <span class="text-emerald-400 font-bold">STATUS: OK</span>
+            </div>
+
+        </div>
+        {% else %}
+        <!-- INVALID / UNRECOGNIZED ID CARD RESULT -->
+        <div class="bg-slate-800/90 border border-rose-500/40 rounded-3xl p-8 shadow-2xl backdrop-blur-xl text-center space-y-6">
+            
+            <div class="w-20 h-20 bg-rose-500/20 border border-rose-500/40 text-rose-400 rounded-full flex items-center justify-center text-3xl mx-auto shadow-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+
+            <div>
+                <span class="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    Unrecognized Credential
+                </span>
+                <h1 class="text-2xl font-black text-white mt-3 font-heading">INVALID ID CARD</h1>
+                <p class="text-xs text-slate-400 mt-1">No active record was found matching ID: <span class="font-mono text-rose-300 font-bold">{{ username }}</span></p>
+            </div>
+
+            <a href="/" class="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-5 py-3 rounded-2xl transition">
+                <i class="fa-solid fa-house"></i> Return to EthioSchool SaaS
+            </a>
+
+        </div>
+        {% endif %}
+
+    </div>
+
+</body>
+</html>

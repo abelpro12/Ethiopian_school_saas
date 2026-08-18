@@ -1,0 +1,682 @@
+{% extends 'base.html' %}
+{% load calendar_tags %}
+
+{% block title %}Academics Configuration | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Academics Configuration</h1>
+        <p class="text-sm text-slate-500">Manage academic years, semesters, grades, sections, and subjects.</p>
+    </div>
+    <form method="post" action="{% url 'academics:config' %}" class="flex items-center gap-3 bg-white p-2.5 px-4 rounded-2xl border border-slate-200 shadow-sm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_calendar_preference">
+        <div class="flex items-center gap-2">
+            <i class="fa-regular fa-calendar-check text-brand-500 text-base"></i>
+            <span class="text-xs font-bold text-slate-700">Calendar Mode:</span>
+        </div>
+        <select name="calendar_preference" onchange="this.form.submit()" class="text-xs font-bold bg-slate-100 border border-slate-200 text-slate-800 rounded-xl px-3 py-1.5 focus:ring-brand-500 cursor-pointer">
+            <option value="ETHIOPIAN" {% if active_school.calendar_preference == 'ETHIOPIAN' %}selected{% endif %}>🇪🇹 Ethiopian Calendar (E.C.)</option>
+            <option value="GREGORIAN" {% if active_school.calendar_preference == 'GREGORIAN' %}selected{% endif %}>🌐 Gregorian Calendar (G.C.)</option>
+        </select>
+    </form>
+</div>
+
+<div x-data="{ tab: 'years' }">
+    <!-- Tabs -->
+    <div class="flex space-x-1 bg-slate-200/50 p-1 rounded-xl w-max mb-6 flex-wrap gap-1">
+        <button @click="tab = 'years'" :class="tab === 'years' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Academic Years</button>
+        <button @click="tab = 'semesters'" :class="tab === 'semesters' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Semesters</button>
+        <button @click="tab = 'grades'" :class="tab === 'grades' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Grades &amp; Sections</button>
+        <button @click="tab = 'subjects'" :class="tab === 'subjects' ? 'bg-white shadow-sm text-brand-600' : 'text-slate-500 hover:text-slate-700'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Subjects</button>
+    </div>
+
+    <!-- ===== Academic Years Tab ===== -->
+    <div x-show="tab === 'years'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="font-heading font-semibold text-slate-800 mb-4">Academic Years</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-500 font-medium">
+                        <tr>
+                            <th class="py-3 px-4 rounded-l-lg">Name</th>
+                            <th class="py-3 px-4">Eth. Year</th>
+                            <th class="py-3 px-4">Start Date</th>
+                            <th class="py-3 px-4">End Date</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4 text-right rounded-r-lg">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for ay in academic_years %}
+                        <tr>
+                            <td class="py-3 px-4 font-semibold text-slate-800">{{ ay.display_name }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ ay.ethiopian_year }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ ay.gregorian_start_date|school_date:active_school }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ ay.gregorian_end_date|school_date:active_school }}</td>
+                            <td class="py-3 px-4">
+                                {% if ay.is_active %}
+                                <span class="badge badge-green">Active</span>
+                                {% else %}
+                                <span class="badge badge-gray">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-right flex items-center justify-end gap-2">
+                                {% if not ay.is_active %}
+                                <form method="post" action="{% url 'academics:config' %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="set_active_academic_year">
+                                    <input type="hidden" name="year_id" value="{{ ay.id }}">
+                                    <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition">
+                                        Set Active
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{% url 'academics:config' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete {{ ay.display_name }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_academic_year">
+                                    <input type="hidden" name="year_id" value="{{ ay.id }}">
+                                    <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Academic Year">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="py-8 text-center text-slate-400">No academic years found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="font-heading font-semibold text-slate-800 mb-4">Add Academic Year</h2>
+                <form method="post" action="{% url 'academics:config' %}" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_academic_year">
+                    {% if calendar_preference == 'ETHIOPIAN' %}
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Name (e.g., "2018 E.C.")</label>
+                        <input type="text" name="name" required placeholder="e.g. 2018 E.C." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Ethiopian Year (e.g., 2018)</label>
+                        <input type="number" name="ethiopian_year" required placeholder="2018" value="2018" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div class="space-y-3 pt-1">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Start Date (Ethiopian Calendar)</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <select name="eth_start_month" class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold text-slate-700">
+                                    <option value="1" selected>Meskerem (1)</option>
+                                    <option value="2">Tikimt (2)</option>
+                                    <option value="3">Hidar (3)</option>
+                                    <option value="4">Tahsas (4)</option>
+                                    <option value="5">Tir (5)</option>
+                                    <option value="6">Yekatit (6)</option>
+                                    <option value="7">Megabit (7)</option>
+                                    <option value="8">Miazia (8)</option>
+                                    <option value="9">Ginbot (9)</option>
+                                    <option value="10">Sene (10)</option>
+                                    <option value="11">Hamle (11)</option>
+                                    <option value="12">Nehase (12)</option>
+                                    <option value="13">Pagume (13)</option>
+                                </select>
+                                <input type="number" name="eth_start_day" value="1" min="1" max="30" placeholder="Day" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                                <input type="number" name="eth_start_year" placeholder="Year (Auto)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">End Date (Ethiopian Calendar)</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <select name="eth_end_month" class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold text-slate-700">
+                                    <option value="1">Meskerem (1)</option>
+                                    <option value="2">Tikimt (2)</option>
+                                    <option value="3">Hidar (3)</option>
+                                    <option value="4">Tahsas (4)</option>
+                                    <option value="5">Tir (5)</option>
+                                    <option value="6">Yekatit (6)</option>
+                                    <option value="7">Megabit (7)</option>
+                                    <option value="8">Miazia (8)</option>
+                                    <option value="9">Ginbot (9)</option>
+                                    <option value="10" selected>Sene (10)</option>
+                                    <option value="11">Hamle (11)</option>
+                                    <option value="12">Nehase (12)</option>
+                                    <option value="13">Pagume (13)</option>
+                                </select>
+                                <input type="number" name="eth_end_day" value="30" min="1" max="30" placeholder="Day" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                                <input type="number" name="eth_end_year" placeholder="Year (Auto)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Name (e.g., "2024/2025 G.C.")</label>
+                        <input type="text" name="name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Gregorian Start</label>
+                            <input type="date" name="start_date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Gregorian End</label>
+                            <input type="date" name="end_date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl py-2.5 text-sm transition">
+                        <i class="fa-solid fa-plus mr-2"></i>Create Year
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Semesters Tab ===== -->
+    <div x-show="tab === 'semesters'" class="grid grid-cols-1 lg:grid-cols-3 gap-6" style="display: none;">
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="font-heading font-semibold text-slate-800 mb-4">Semesters</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-500 font-medium">
+                        <tr>
+                            <th class="py-3 px-4 rounded-l-lg">Name</th>
+                            <th class="py-3 px-4">Academic Year</th>
+                            <th class="py-3 px-4">Start Date</th>
+                            <th class="py-3 px-4">End Date</th>
+                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4 text-right rounded-r-lg">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for sem in semesters %}
+                        <tr>
+                            <td class="py-3 px-4 font-semibold text-slate-800">{{ sem.name }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ sem.academic_year.display_name }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ sem.start_date|school_date:active_school }}</td>
+                            <td class="py-3 px-4 text-slate-600">{{ sem.end_date|school_date:active_school }}</td>
+                            <td class="py-3 px-4">
+                                {% if sem.is_current %}<span class="badge badge-green">Current</span>
+                                {% else %}<span class="badge badge-gray">Past</span>{% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-right flex items-center justify-end gap-2">
+                                {% if not sem.is_current %}
+                                <form method="post" action="{% url 'academics:config' %}" class="inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="set_current_semester">
+                                    <input type="hidden" name="semester_id" value="{{ sem.id }}">
+                                    <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition">
+                                        Set Active
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{% url 'academics:config' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete {{ sem.name }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_semester">
+                                    <input type="hidden" name="semester_id" value="{{ sem.id }}">
+                                    <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Semester">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="py-8 text-center text-slate-400">No semesters found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="font-heading font-semibold text-slate-800 mb-4">Add Semester</h2>
+                <form method="post" action="{% url 'academics:config' %}" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_semester">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Academic Year</label>
+                        <select name="academic_year_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                            {% for ay in academic_years %}<option value="{{ ay.id }}">{{ ay.display_name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Name (e.g., "Semester 1")</label>
+                        <input type="text" name="name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    {% if calendar_preference == 'ETHIOPIAN' %}
+                    <div class="space-y-3 pt-1">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Start Date (Ethiopian Calendar)</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <select name="eth_start_month" class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold text-slate-700">
+                                    <option value="1" selected>Meskerem (1)</option>
+                                    <option value="2">Tikimt (2)</option>
+                                    <option value="3">Hidar (3)</option>
+                                    <option value="4">Tahsas (4)</option>
+                                    <option value="5">Tir (5)</option>
+                                    <option value="6">Yekatit (6)</option>
+                                    <option value="7">Megabit (7)</option>
+                                    <option value="8">Miazia (8)</option>
+                                    <option value="9">Ginbot (9)</option>
+                                    <option value="10">Sene (10)</option>
+                                    <option value="11">Hamle (11)</option>
+                                    <option value="12">Nehase (12)</option>
+                                    <option value="13">Pagume (13)</option>
+                                </select>
+                                <input type="number" name="eth_start_day" value="1" min="1" max="30" placeholder="Day" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                                <input type="number" name="eth_start_year" value="2018" placeholder="Year" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">End Date (Ethiopian Calendar)</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <select name="eth_end_month" class="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold text-slate-700">
+                                    <option value="1">Meskerem (1)</option>
+                                    <option value="2">Tikimt (2)</option>
+                                    <option value="3">Hidar (3)</option>
+                                    <option value="4">Tahsas (4)</option>
+                                    <option value="5">Tir (5)</option>
+                                    <option value="6">Yekatit (6)</option>
+                                    <option value="7">Megabit (7)</option>
+                                    <option value="8">Miazia (8)</option>
+                                    <option value="9">Ginbot (9)</option>
+                                    <option value="10">Sene (10)</option>
+                                    <option value="11">Hamle (11)</option>
+                                    <option value="12">Nehase (12)</option>
+                                    <option value="13">Pagume (13)</option>
+                                </select>
+                                <input type="number" name="eth_end_day" value="30" min="1" max="30" placeholder="Day" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                                <input type="number" name="eth_end_year" value="2018" placeholder="Year" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Start Date</label>
+                            <input type="date" name="start_date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">End Date</label>
+                            <input type="date" name="end_date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        </div>
+                    </div>
+                    {% endif %}
+                    <label class="flex items-center gap-2 cursor-pointer mt-2">
+                        <input type="checkbox" name="is_current" value="1" class="rounded text-brand-600 focus:ring-brand-500">
+                        <span class="text-sm text-slate-700 font-medium">Set as current semester</span>
+                    </label>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl py-2.5 text-sm transition">
+                        <i class="fa-solid fa-plus mr-2"></i>Create Semester
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== Grades & Sections Tab ===== -->
+    <div x-show="tab === 'grades'" x-data="{ showAddGrade: false, showCopyPrevModal: false }" class="space-y-6" style="display: none;">
+
+        <!-- Header Action Bar -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div>
+                <h3 class="font-heading font-bold text-slate-800 text-base">Grades & Sections Overview</h3>
+                <p class="text-xs text-slate-500">{{ grades|length }} grade(s) configured in your school.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+                <button @click="showAddGrade = !showAddGrade" class="bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-xl px-4 py-2 transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Add Grade
+                </button>
+                <button @click="showCopyPrevModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl px-4 py-2 transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-clone"></i> Use Previous Year Grade & Section
+                </button>
+                <form method="post" action="{% url 'academics:config' %}" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="seed_ethiopian_grades">
+                    <button type="submit" class="text-xs text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl px-3 py-2 font-semibold transition flex items-center gap-1">
+                        <i class="fa-solid fa-seedling text-emerald-600"></i> Setup Standard Grades
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Use Previous Year / Auto-Generate Grades & Sections -->
+        <div x-show="showCopyPrevModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50" style="display: none;">
+            <div @click.away="showCopyPrevModal = false" class="bg-white max-w-lg w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                            <i class="fa-solid fa-clone"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 font-heading">Use Previous Year Grade & Section Structure</h3>
+                            <p class="text-xs text-slate-500">Automatically replicate standard grades and generate class sections</p>
+                        </div>
+                    </div>
+                    <button @click="showCopyPrevModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+                </div>
+
+                <form method="POST" action="{% url 'academics:config' %}" class="space-y-4 text-xs">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="copy_previous_grades_sections">
+
+                    <div class="bg-indigo-50/60 border border-indigo-200 rounded-xl p-3.5 space-y-1.5">
+                        <p class="font-bold text-indigo-900 text-xs flex items-center">
+                            <i class="fa-solid fa-layer-group text-indigo-600 mr-1.5"></i>
+                            Grades Included:
+                        </p>
+                        <p class="text-indigo-800 text-[11px]">
+                            Grade 9, Grade 10, Grade 11 (Natural Science), Grade 11 (Social Science), Grade 12 (Natural Science), Grade 12 (Social Science)
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Sections to Generate per Grade</label>
+                        <select name="section_letters" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-800">
+                            <option value="A,B">2 Sections per grade (Section A, Section B)</option>
+                            <option value="A,B,C" selected>3 Sections per grade (Section A, Section B, Section C) — Standard</option>
+                            <option value="A,B,C,D">4 Sections per grade (Section A, Section B, Section C, Section D)</option>
+                            <option value="A,B,C,D,E">5 Sections per grade (Section A, B, C, D, E)</option>
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1">Existing sections will be preserved; missing sections will be created automatically.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Default Student Capacity</label>
+                            <input type="number" name="capacity" value="45" min="10" max="100" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-700 mb-1">Default Shift</label>
+                            <select name="shift" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+                                <option value="FULL_DAY" selected>Full Day</option>
+                                <option value="MORNING">Morning Shift</option>
+                                <option value="AFTERNOON">Afternoon Shift</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 flex justify-end space-x-2 border-t">
+                        <button type="button" @click="showCopyPrevModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow flex items-center gap-1.5">
+                            <i class="fa-solid fa-check"></i> Apply Structure
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Inline Add Grade Form -->
+        <div x-show="showAddGrade" x-transition class="bg-white rounded-2xl border border-brand-200 p-6 shadow-md" style="display: none;">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+                <h3 class="font-heading font-bold text-slate-800 text-lg">Add Custom Grade</h3>
+                <button @click="showAddGrade = false" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form method="post" action="{% url 'academics:config' %}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_grade">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Grade Level (Number)</label>
+                    <input type="number" name="level" placeholder="e.g. 1, 7, 9, 11" required min="1" max="12" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Grade Name</label>
+                    <input type="text" name="name" placeholder="e.g. Grade 1 or Grade 11 (NS)" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Stream Type</label>
+                    <select name="stream_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                        <option value="GEN">General</option>
+                        <option value="NAT">Natural Science</option>
+                        <option value="SOC">Social Science</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl py-2 text-sm transition">
+                        <i class="fa-solid fa-plus mr-1"></i> Save Grade
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Grade Cards with sections -->
+        {% if grades %}
+        <div class="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% for item in grades_with_sections %}
+            {% with grade=item.grade grade_sections=item.sections %}
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" x-data="{ addOpen: false }">
+                <!-- Grade Header -->
+                <div class="px-5 py-4 flex items-center justify-between
+                    {% if grade.stream_type == 'NAT' %}bg-gradient-to-r from-blue-600 to-blue-700
+                    {% elif grade.stream_type == 'SOC' %}bg-gradient-to-r from-emerald-600 to-emerald-700
+                    {% else %}bg-gradient-to-r from-slate-700 to-slate-800{% endif %}">
+                    <div>
+                        <h3 class="font-heading font-bold text-white text-lg">{{ grade.name }}</h3>
+                        <p class="text-xs text-white/70 mt-0.5">
+                            {% if grade.stream_type == 'NAT' %}Natural Science
+                            {% elif grade.stream_type == 'SOC' %}Social Science
+                            {% else %}General{% endif %}
+                            &bull; {{ grade_sections|length }} section{{ grade_sections|length|pluralize }}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="addOpen = !addOpen"
+                            class="bg-white/20 hover:bg-white/30 text-white rounded-xl px-3 py-1.5 text-xs font-semibold transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Add Section
+                        </button>
+                        <form method="post" action="{% url 'academics:config' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete Grade {{ grade.name }} and its associated data?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_grade">
+                            <input type="hidden" name="grade_id" value="{{ grade.id }}">
+                            <button type="submit" class="bg-white/20 hover:bg-rose-600/80 text-white rounded-xl p-1.5 text-xs transition" title="Delete Grade">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Sections List -->
+                <div class="divide-y divide-slate-100">
+                    {% for sec in grade_sections %}
+                    <div class="px-5 py-3 flex items-center justify-between hover:bg-slate-50 transition">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm
+                                {% if grade.stream_type == 'NAT' %}bg-blue-100 text-blue-700
+                                {% elif grade.stream_type == 'SOC' %}bg-emerald-100 text-emerald-700
+                                {% else %}bg-slate-100 text-slate-700{% endif %}">
+                                {{ sec.name }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-800">Section {{ sec.name }}</p>
+                                <p class="text-xs text-slate-400">Cap: {{ sec.capacity }} &bull; {{ sec.get_shift_display }}</p>
+                                <div class="flex flex-wrap gap-2 mt-1 text-[11px]">
+                                    <span class="inline-flex items-center gap-1 text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200" title="Homeroom Teacher">
+                                        <i class="fa-solid fa-chalkboard-user text-indigo-500"></i> Homeroom: <b>{{ sec.class_teacher.get_full_name|default:"Unassigned" }}</b>
+                                    </span>
+                                    <span class="inline-flex items-center gap-1 text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200" title="Tutorial Controller">
+                                        <i class="fa-solid fa-graduation-cap text-purple-600"></i> Tutorial: <b>{{ sec.tutorial_teacher.get_full_name|default:"Unassigned" }}</b>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs px-2 py-0.5 rounded-full {% if sec.is_active %}bg-green-100 text-green-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+                                {% if sec.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                            <form method="post" action="{% url 'academics:config' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete Section {{ sec.name }}?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_section">
+                                <input type="hidden" name="section_id" value="{{ sec.id }}">
+                                <button type="submit" class="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Section">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="px-5 py-6 text-center text-slate-400 text-sm">
+                        <i class="fa-regular fa-folder-open text-2xl mb-2 block"></i>
+                        No sections yet. Click "Add Section" above.
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Inline Add Section Form -->
+                <div x-show="addOpen" x-transition class="border-t border-slate-200 bg-slate-50 p-4" style="display:none;">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Add Section to {{ grade.name }}</h4>
+                    <form method="post" action="{% url 'academics:config' %}" class="space-y-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_section">
+                        <input type="hidden" name="grade_id" value="{{ grade.id }}">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-500 mb-1">Section Name (e.g. A, B, C)</label>
+                            <input type="text" name="name" placeholder="A" required maxlength="10"
+                                class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Capacity</label>
+                                <input type="number" name="capacity" value="45" min="1" max="100"
+                                    class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Shift</label>
+                                <select name="shift" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">
+                                    <option value="FULL_DAY">Full Day</option>
+                                    <option value="MORNING">Morning</option>
+                                    <option value="AFTERNOON">Afternoon</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-500 mb-1">Homeroom Teacher</label>
+                                <select name="class_teacher_id" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-brand-500">
+                                    <option value="">Unassigned</option>
+                                    {% for t in teachers %}
+                                    <option value="{{ t.id }}">{{ t.get_full_name }} ({{ t.username }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-purple-700 font-semibold mb-1">Tutorial Controller (Teacher)</label>
+                                <select name="tutorial_teacher_id" class="w-full bg-white border border-purple-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-purple-500">
+                                    <option value="">Unassigned</option>
+                                    {% for t in teachers %}
+                                    <option value="{{ t.id }}">{{ t.get_full_name }} ({{ t.username }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 pt-1">
+                            <button type="submit"
+                                class="flex-1 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg py-1.5 transition">
+                                <i class="fa-solid fa-check mr-1"></i> Save Section
+                            </button>
+                            <button type="button" @click="addOpen = false"
+                                class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold rounded-lg py-1.5 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ===== Subjects Tab ===== -->
+    <div x-show="tab === 'subjects'" class="grid grid-cols-1 lg:grid-cols-3 gap-6" style="display: none;">
+        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="font-heading font-semibold text-slate-800 mb-4">Subjects</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-500 font-medium">
+                        <tr>
+                            <th class="py-3 px-4 rounded-l-lg">Code</th>
+                            <th class="py-3 px-4">Name</th>
+                            <th class="py-3 px-4">Grade</th>
+                            <th class="py-3 px-4">Stream</th>
+                            <th class="py-3 px-4 text-right rounded-r-lg">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for sub in subjects %}
+                        <tr>
+                            <td class="py-3 px-4 text-slate-600 font-mono text-xs bg-slate-50">{{ sub.code }}</td>
+                            <td class="py-3 px-4 font-semibold text-slate-800">{{ sub.name }}
+                                {% if sub.amharic_name %}<span class="text-slate-400 font-normal ml-1 text-xs">{{ sub.amharic_name }}</span>{% endif %}
+                            </td>
+                            <td class="py-3 px-4 text-slate-600">{{ sub.grade.name }}</td>
+                            <td class="py-3 px-4 text-slate-600">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                                    {% if sub.stream.code == 'NAT' %}bg-blue-100 text-blue-700
+                                    {% elif sub.stream.code == 'SOC' %}bg-emerald-100 text-emerald-700
+                                    {% else %}bg-slate-100 text-slate-600{% endif %}">
+                                    {{ sub.stream.code }}
+                                </span>
+                            </td>
+                            <td class="py-3 px-4 text-right">
+                                <form method="post" action="{% url 'academics:config' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete subject {{ sub.name }}?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_subject">
+                                    <input type="hidden" name="subject_id" value="{{ sub.id }}">
+                                    <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="Delete Subject">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="py-8 text-center text-slate-400">No subjects found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="font-heading font-semibold text-slate-800 mb-4">Add Subject</h2>
+                <form method="post" action="{% url 'academics:config' %}" class="space-y-4">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_subject">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Grade</label>
+                        <select name="grade_id" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                            {% for grade in grades %}<option value="{{ grade.id }}">{{ grade.name }} {% if grade.stream_type != 'GEN' %}({{ grade.get_stream_type_display }}){% endif %}</option>{% endfor %}
+                        </select>
+                        </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Code (e.g. PHY11)</label>
+                        <input type="text" name="code" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Name (English)</label>
+                        <input type="text" name="name" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Name (Amharic) — Optional</label>
+                        <input type="text" name="amharic_name" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl py-2.5 text-sm transition">
+                        <i class="fa-solid fa-plus mr-2"></i>Create Subject
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+{% endblock %}

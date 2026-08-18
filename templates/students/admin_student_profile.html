@@ -1,0 +1,503 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Profile | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Student Profile: {{ student.full_name }}</h1>
+        <p class="text-sm text-slate-500">ID: {{ student.student_id }} | Status: {{ student.get_status_display }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        <button type="button" onclick="openModal('editStudentModal')" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition flex items-center gap-2">
+            <i class="fa-solid fa-user-pen"></i> Edit Profile
+        </button>
+        <a href="{% url 'students:lifecycle' %}" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors shadow-2xs">
+            Back to Directory
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Profile Info -->
+    <div class="col-span-1 md:col-span-1 space-y-6">
+        <!-- Personal Details & Credentials -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center justify-between">
+                <span>Personal Details</span>
+                <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono font-bold">Role: Student</span>
+            </h2>
+            <dl class="space-y-3 text-sm">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <dt class="font-medium text-slate-500">Gender</dt>
+                    <dd class="col-span-2 text-slate-800 font-semibold">{{ student.get_gender_display }}</dd>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <dt class="font-medium text-slate-500">DOB</dt>
+                    <dd class="col-span-2 text-slate-800">{{ student.date_of_birth|default:"-" }}</dd>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <dt class="font-medium text-slate-500">Amharic Name</dt>
+                    <dd class="col-span-2 text-slate-800">{{ student.amharic_name|default:"-" }}</dd>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <dt class="font-medium text-slate-500">Phone</dt>
+                    <dd class="col-span-2 text-slate-800 font-mono">{{ student.phone|default:"-" }}</dd>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    <dt class="font-medium text-slate-500">Address</dt>
+                    <dd class="col-span-2 text-slate-800">{{ student.address|default:"-" }}</dd>
+                </div>
+            </dl>
+
+            <!-- Student Login Credentials Box -->
+            <div class="mt-5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <p class="text-xs font-bold text-slate-700 flex items-center">
+                    <i class="fa-solid fa-user-lock text-brand-600 mr-1.5"></i>Student Login Credentials
+                </p>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-500 font-medium">Username:</span>
+                    <code class="bg-white border px-2 py-0.5 rounded font-mono font-bold text-slate-800">{{ student.user.username }}</code>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-500 font-medium">Password:</span>
+                    <span class="text-xs text-slate-500 italic">Hidden &mdash;
+                        <button type="button" onclick="openResetPasswordModal('STUDENT')" class="text-brand-600 hover:underline font-bold">Reset Password</button>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Linked Guardians & Parent Credentials -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center justify-between">
+                <span>Linked Guardians</span>
+                <i class="fa-solid fa-users text-brand-600"></i>
+            </h2>
+            <ul class="space-y-4 text-sm">
+                {% for guardian_rel in student.guardianships.all %}
+                <li class="border border-slate-200/80 rounded-xl p-4 bg-slate-50/70 space-y-2">
+                    <div class="flex justify-between items-start">
+                        <p class="font-bold text-slate-900">{{ guardian_rel.parent.user.get_full_name|default:guardian_rel.parent.user.username }}</p>
+                        <span class="text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200/80 px-2 py-0.5 rounded-full">{{ guardian_rel.parent.relationship }}</span>
+                    </div>
+                    <p class="text-xs text-slate-600"><i class="fa-solid fa-phone text-slate-400 mr-1"></i> {{ guardian_rel.parent.phone }}</p>
+                    
+                    <!-- Parent Credentials Box -->
+                    <div class="mt-2 p-2.5 bg-white border border-slate-200 rounded-lg space-y-1.5 text-xs">
+                        <p class="text-[11px] font-bold text-slate-600 flex items-center">
+                            <i class="fa-solid fa-key text-amber-500 mr-1"></i>Parent Login Credentials
+                        </p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500">Username:</span>
+                            <code class="bg-indigo-50 text-indigo-900 border border-indigo-200/80 px-1.5 py-0.5 rounded font-mono font-bold">{{ guardian_rel.parent.user.username }}</code>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500">Password:</span>
+                            <span class="text-xs text-slate-500 italic">Hidden &mdash;
+                                <button type="button" onclick="openResetPasswordModal('PARENT')" class="text-brand-600 hover:underline font-bold">Reset Password</button>
+                            </span>
+                        </div>
+                    </div>
+                </li>
+                {% empty %}
+                <div class="border border-amber-200 bg-amber-50/60 rounded-xl p-4 text-xs text-amber-900 space-y-2">
+                    <p class="font-bold">Auto-Linked Parent Account:</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-amber-800">Username:</span>
+                        <code class="bg-white border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">p_{{ student.student_id|lower }}</code>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-amber-800">Initial Password:</span>
+                        <code class="bg-white border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">parent123</code>
+                    </div>
+                </div>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Academic Info -->
+    <div class="col-span-1 md:col-span-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-slate-500 font-medium text-sm mb-1">Current Enrollment</h3>
+                {% if active_enrollment %}
+                <p class="text-2xl font-bold text-slate-800">{{ active_enrollment.grade.name }} - {{ active_enrollment.section.name }}</p>
+                <p class="text-sm text-slate-500 mt-1">{{ active_enrollment.academic_year.display_name }}</p>
+                {% else %}
+                <p class="text-2xl font-bold text-slate-400 mb-3">Not Enrolled</p>
+                
+                <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="manual_enroll">
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Academic Year</label>
+                        <select name="academic_year_id" required class="w-full text-xs rounded border-slate-300 focus:ring-brand-500 focus:border-brand-500 py-1.5 px-2">
+                            <option value="">-- Select Year --</option>
+                            {% for year in all_academic_years %}
+                            <option value="{{ year.id }}">{{ year.display_name }} {% if year.is_active %}(Active){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Grade & Section</label>
+                        <select name="section_id" required class="w-full text-xs rounded border-slate-300 focus:ring-brand-500 focus:border-brand-500 py-1.5 px-2">
+                            <option value="">-- Select Section --</option>
+                            {% for sec in all_sections %}
+                            <option value="{{ sec.id }}">Grade {{ sec.grade.level }} - {{ sec.name }} {% if sec.stream %}({{ sec.stream.name }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs py-2 rounded transition-colors">
+                        Enroll Student
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 class="text-slate-500 font-medium text-sm mb-1">Attendance Rate</h3>
+                <p class="text-2xl font-bold {% if attendance_percentage < 85 %}text-red-600{% else %}text-green-600{% endif %}">{{ attendance_percentage }}%</p>
+                <p class="text-sm text-slate-500 mt-1">{{ absent_count }} absences / {{ total_days }} total days</p>
+            </div>
+        </div>
+
+        <!-- Academic Performance Table (Marks) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Academic Marks</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-500 font-medium">
+                        <tr>
+                            <th class="py-2 px-3 rounded-l-lg">Subject</th>
+                            <th class="py-2 px-3">Component</th>
+                            <th class="py-2 px-3">Mark</th>
+                            <th class="py-2 px-3">Status</th>
+                            <th class="py-2 px-3 rounded-r-lg">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% if active_enrollment %}
+                            {% for mark in active_enrollment.marks.all|slice:":10" %}
+                            <tr>
+                                <td class="py-2 px-3 font-medium">{{ mark.assessment_component.subject.name }}</td>
+                                <td class="py-2 px-3">{{ mark.assessment_component.name }}</td>
+                                <td class="py-2 px-3 font-bold">{{ mark.mark_value }} / {{ mark.assessment_component.max_marks }}</td>
+                                <td class="py-2 px-3">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider 
+                                        {% if mark.status == 'PUBLISHED' %}bg-green-100 text-green-800
+                                        {% elif mark.status == 'APPROVED' %}bg-blue-100 text-blue-800
+                                        {% else %}bg-slate-100 text-slate-800{% endif %}">
+                                        {{ mark.status }}
+                                    </span>
+                                </td>
+                                <td class="py-2 px-3 text-slate-500">{{ mark.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="py-4 text-center text-slate-400">No marks recorded.</td></tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="5" class="py-4 text-center text-slate-400">No active enrollment.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-3" x-data="{ openSem: false }">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Official Documents</span>
+                <div class="flex items-center gap-2">
+                    <!-- Semester Report Card Dropdown -->
+                    <div class="relative">
+                        <button @click="openSem = !openSem" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-pdf"></i> Download Report Card <i class="fa-solid fa-chevron-down text-xs ml-1"></i>
+                        </button>
+                        <div x-show="openSem" @click.outside="openSem = false" x-transition class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50 text-sm space-y-1" style="display: none;">
+                            <a href="{% url 'download_report_card_pdf' student.id '1st-semester' %}" class="block px-4 py-2 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">
+                                <i class="fa-solid fa-file-lines text-emerald-600 mr-2"></i> 1st Semester Report Card
+                            </a>
+                            <a href="{% url 'download_report_card_pdf' student.id '2nd-semester' %}" class="block px-4 py-2 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 font-medium">
+                                <i class="fa-solid fa-file-lines text-emerald-600 mr-2"></i> 2nd Semester Report Card
+                            </a>
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <a href="{% url 'download_report_card_pdf' student.id 'annual' %}" class="block px-4 py-2 text-brand-700 font-bold hover:bg-brand-50">
+                                <i class="fa-solid fa-award text-brand-600 mr-2"></i> Annual (Avg of 2 Semesters)
+                            </a>
+                        </div>
+                    </div>
+                    <a href="{% url 'download_transcript_pdf' student.id %}" class="px-3 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors flex items-center gap-1.5">
+                        <i class="fa-solid fa-graduation-cap"></i> Official Transcript
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Historical Transcripts Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative mt-6" x-data="{ addHistoricalModal: false, subjects: [{name: '', sem1: '', sem2: ''}] }">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-brand-500"></i> Historical Transcripts
+                </h2>
+                <button @click="addHistoricalModal = true" class="text-sm font-semibold text-brand-600 bg-brand-50 px-3 py-1.5 rounded-lg hover:bg-brand-100 transition-colors flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i> Add Legacy Grade
+                </button>
+            </div>
+            
+            <p class="text-sm text-slate-500 mb-4">Enter past grades (e.g. Grade 9, 10) taken before using this system. These will appear on the final Official Transcript.</p>
+            
+            {% if historical_records %}
+                <div class="space-y-4">
+                    {% for rec in historical_records %}
+                        <div class="border rounded-xl p-4 bg-slate-50">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-slate-800">{{ rec.grade_name }}</h3>
+                                <span class="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-1 rounded-full">{{ rec.academic_year_name }}</span>
+                            </div>
+                            <div class="text-sm text-slate-600 grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+                                {% for sub in rec.subjects_json %}
+                                    <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex justify-between items-center">
+                                        <span class="font-medium truncate mr-2" title="{{ sub.name }}">{{ sub.name }}</span>
+                                        <span class="font-bold {% if sub.letter == 'F' %}text-red-500{% else %}text-emerald-600{% endif %}">{{ sub.avg }} ({{ sub.letter }})</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                    <i class="fa-solid fa-folder-open text-slate-300 text-3xl mb-2"></i>
+                    <p class="text-slate-500 text-sm font-medium">No historical records added yet.</p>
+                </div>
+            {% endif %}
+            
+            <!-- Add Historical Modal -->
+            <div x-show="addHistoricalModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" style="display: none;" x-transition>
+                <div @click.outside="addHistoricalModal = false" class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                        <h3 class="text-xl font-bold text-slate-800">Add Historical Grade Data</h3>
+                        <button @click="addHistoricalModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                    </div>
+                    
+                    <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="flex-1 overflow-y-auto">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add_historical_transcript">
+                        
+                        <div class="p-6 space-y-6">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">Grade Name *</label>
+                                    <input type="text" name="grade_name" placeholder="e.g. Grade 9" required class="w-full rounded-xl border-slate-300 focus:border-brand-500 focus:ring-brand-500 shadow-sm text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">Level (Numeric) *</label>
+                                    <input type="number" name="grade_level" placeholder="e.g. 9" required class="w-full rounded-xl border-slate-300 focus:border-brand-500 focus:ring-brand-500 shadow-sm text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">Academic Year *</label>
+                                    <input type="text" name="academic_year_name" placeholder="e.g. 2022/2023" required class="w-full rounded-xl border-slate-300 focus:border-brand-500 focus:ring-brand-500 shadow-sm text-sm">
+                                </div>
+                            </div>
+                            
+                            <hr class="border-slate-200">
+                            
+                            <div>
+                                <h4 class="font-bold text-slate-800 mb-3 flex justify-between items-center">
+                                    Subjects
+                                    <button type="button" @click="subjects.push({name: '', sem1: '', sem2: ''})" class="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded hover:bg-emerald-200 transition-colors font-semibold">
+                                        <i class="fa-solid fa-plus mr-1"></i> Add Subject Row
+                                    </button>
+                                </h4>
+                                
+                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                                    <div class="grid grid-cols-12 gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
+                                        <div class="col-span-5">Subject Name</div>
+                                        <div class="col-span-3">Sem 1 Score</div>
+                                        <div class="col-span-3">Sem 2 Score</div>
+                                        <div class="col-span-1 text-center"><i class="fa-solid fa-trash"></i></div>
+                                    </div>
+                                    
+                                    <template x-for="(sub, index) in subjects" :key="index">
+                                        <div class="grid grid-cols-12 gap-2 items-center">
+                                            <div class="col-span-5">
+                                                <input type="text" name="subject_name[]" x-model="sub.name" required class="w-full rounded-lg border-slate-300 focus:border-brand-500 focus:ring-brand-500 text-sm py-1.5" placeholder="e.g. Mathematics">
+                                            </div>
+                                            <div class="col-span-3">
+                                                <input type="number" step="0.1" name="sem1_score[]" x-model="sub.sem1" class="w-full rounded-lg border-slate-300 focus:border-brand-500 focus:ring-brand-500 text-sm py-1.5" placeholder="0-100">
+                                            </div>
+                                            <div class="col-span-3">
+                                                <input type="number" step="0.1" name="sem2_score[]" x-model="sub.sem2" class="w-full rounded-lg border-slate-300 focus:border-brand-500 focus:ring-brand-500 text-sm py-1.5" placeholder="0-100">
+                                            </div>
+                                            <div class="col-span-1 text-center">
+                                                <button type="button" @click="subjects.splice(index, 1)" class="text-red-400 hover:text-red-600 transition-colors">
+                                                    <i class="fa-solid fa-circle-xmark text-lg"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+                            <button type="button" @click="addHistoricalModal = false" class="px-5 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+                            <button type="submit" class="px-5 py-2.5 rounded-xl font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-colors">Save Historical Record</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+<!-- Modal: Edit Student Profile -->
+<div id="editStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-lg w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center gap-2">
+                <i class="fa-solid fa-user-pen text-purple-600"></i> Edit Student Profile
+            </h3>
+            <button type="button" onclick="closeModal('editStudentModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'students:admin_profile' student.id %}" enctype="multipart/form-data" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_profile">
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Student ID / Code</label>
+                <input type="text" value="{{ student.student_id }}" readonly class="w-full px-3 py-2 bg-slate-100 border rounded-xl font-mono text-xs text-slate-600 font-bold">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">First Name *</label>
+                    <input type="text" name="first_name" required value="{{ student.first_name }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Father's Name *</label>
+                    <input type="text" name="middle_name" required value="{{ student.middle_name }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Grandfather's Name</label>
+                    <input type="text" name="last_name" value="{{ student.last_name }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Amharic Full Name (ፊደል)</label>
+                    <input type="text" name="amharic_name" value="{{ student.amharic_name|default:'' }}" placeholder="e.g. አበበ ጊርማ" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Gender</label>
+                    <select name="gender" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-bold">
+                        <option value="M" {% if student.gender == 'M' %}selected{% endif %}>Male (M)</option>
+                        <option value="F" {% if student.gender == 'F' %}selected{% endif %}>Female (F)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Date of Birth</label>
+                    <input type="date" name="date_of_birth" value="{{ student.date_of_birth|date:'Y-m-d' }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Lifecycle Status</label>
+                    <select name="status" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-bold">
+                        <option value="ACTIVE" {% if student.status == 'ACTIVE' %}selected{% endif %}>Active</option>
+                        <option value="PROMOTED" {% if student.status == 'PROMOTED' %}selected{% endif %}>Promoted</option>
+                        <option value="RETAINED" {% if student.status == 'RETAINED' %}selected{% endif %}>Retained (Repeating)</option>
+                        <option value="WITHDRAWN" {% if student.status == 'WITHDRAWN' %}selected{% endif %}>Withdrawn</option>
+                        <option value="GRADUATED" {% if student.status == 'GRADUATED' %}selected{% endif %}>Graduated</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Phone Number</label>
+                    <input type="text" name="phone" value="{{ student.phone|default:'' }}" placeholder="+2519..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">National / Fayda ID</label>
+                    <input type="text" name="national_id" value="{{ student.national_id|default:'' }}" placeholder="ETH-..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono">
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Address / Location</label>
+                <input type="text" name="address" value="{{ student.address|default:'' }}" placeholder="City, Subcity, House No..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Region</label>
+                    <input type="text" name="region" value="{{ student.region|default:'' }}" placeholder="Addis Ababa" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Woreda</label>
+                    <input type="text" name="woreda" value="{{ student.woreda|default:'' }}" placeholder="Bole" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Kebele</label>
+                    <input type="text" name="kebele" value="{{ student.kebele|default:'' }}" placeholder="03" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('editStudentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Reset Account Password -->
+<div id="resetPasswordModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center">
+                    <i class="fa-solid fa-key text-amber-500 mr-2"></i>Reset Account Password
+                </h3>
+                <p class="text-xs text-slate-500 font-medium">{{ student.full_name }}</p>
+            </div>
+            <button onclick="closeModal('resetPasswordModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+        <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reset_account_password">
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Target Account</label>
+                <select id="resetTargetType" name="target_type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold">
+                    <option value="STUDENT">Student Account ({{ student.user.username }})</option>
+                    <option value="PARENT">Linked Parent Account</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">New Temporary / Permanent Password</label>
+                <input type="text" name="new_password" required placeholder="e.g. Pass@2026 or welcome123" class="w-full px-3 py-2 border rounded-xl font-mono text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                <p class="text-[11px] text-slate-400 mt-1">The user will be prompted to change their password upon their next login.</p>
+            </div>
+            <div class="pt-3 flex justify-end space-x-2">
+                <button type="button" onclick="closeModal('resetPasswordModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow">Update & Save Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openResetPasswordModal(targetType) {
+    if (targetType) {
+        document.getElementById('resetTargetType').value = targetType;
+    }
+    openModal('resetPasswordModal');
+}
+</script>
+{% endblock %}

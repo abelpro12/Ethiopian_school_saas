@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Academic Period Close & Mark Lock Engine{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 space-y-6">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900 flex items-center gap-2">
+            <i class="fa-solid fa-lock text-indigo-600"></i>Academic Period Close & Mark Security Engine
+        </h1>
+        <p class="text-slate-500 text-sm mt-1">Manage mark entry security lock status, compute final results, averages, and section ranks.</p>
+    </div>
+
+    <!-- Admin Mark Lock & Unlock Control Card -->
+    {% if sem %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="space-y-1">
+            <div class="flex items-center gap-2">
+                <h3 class="font-bold text-slate-900 text-base">Mark Data Entry Security</h3>
+                {% if sem.status == 'LOCKED' %}
+                    <span class="px-3 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-full text-xs font-black inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock text-[10px]"></i> LOCKED (Teachers Cannot Edit)
+                    </span>
+                {% else %}
+                    <span class="px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-xs font-black inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-lock-open text-[10px]"></i> OPEN (Teachers Can Save Marks)
+                    </span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-slate-500">
+                {% if sem.status == 'LOCKED' %}
+                    All assessment component mark entry is locked down. Teachers cannot enter or modify student marks.
+                {% else %}
+                    Mark entry is active. Lock the period when assessment mark collection is complete to prevent tampering.
+                {% endif %}
+            </p>
+        </div>
+
+        <form action="{% url 'assessments:toggle_period_lock' sem.id %}" method="POST">
+            {% csrf_token %}
+            {% if sem.status == 'LOCKED' %}
+                <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-lock-open"></i> Unlock Mark Entry
+                </button>
+            {% else %}
+                <button type="submit" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-lock"></i> Lock Mark Entry
+                </button>
+            {% endif %}
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Period Computation Card -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+        <i class="fa-solid fa-gears text-6xl text-indigo-300 mb-6 block"></i>
+        <h2 class="text-xl font-black text-slate-900 mb-2">Run Computation for {{ sem.name }} ({{ ay.display_name }})</h2>
+        <p class="text-slate-600 mb-6 max-w-lg mx-auto text-sm">
+            This will aggregate all APPROVED and LOCKED marks for all enrolled students, compute their final subject scores, average score, pass/fail status, and generate section & grade ranks.
+        </p>
+
+        {% if results_exist %}
+        <div class="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-xl text-xs font-medium mb-6 max-w-lg mx-auto text-left flex items-start gap-2.5">
+            <i class="fa-solid fa-triangle-exclamation text-amber-600 text-base mt-0.5"></i>
+            <div>
+                <strong>Existing Computation Detected:</strong>
+                <p class="mt-0.5">Results have already been computed for this period. Re-running will recalculate and update ranks, averages, and auto-lock the period.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="POST" onsubmit="return confirm('Are you sure you want to run the Academic Period Close computation? This will compute final scores and lock the period.')">
+            {% csrf_token %}
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-colors shadow-md text-base inline-flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> Compute & Publish Period Results
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

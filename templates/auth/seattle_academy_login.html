@@ -1,0 +1,311 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Sign In — Seattle Academy</title>
+    <meta name="description" content="Official Student, Parent, Teacher, and Administrator Portal Sign-In for Seattle Academy, Addis Ababa.">
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Tailwind CSS CDN matching Homepage Theme -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        saBlue: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',  /* Official Seattle Royal Blue */
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#0b1329',
+                        },
+                        saOrange: {
+                            400: '#fb923c',
+                            500: '#f97316',  /* Official Sunburst Orange */
+                            600: '#ea580c',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .header-shadow { box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.12); }
+        
+        .eth-stripe {
+            height: 4px;
+            background: linear-gradient(90deg, #009b48 0%, #ffda44 50%, #d21034 100%);
+        }
+
+        /* Glassmorphic Portal Card matching Homepage */
+        .portal-glass-card {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 25px 60px -15px rgba(37, 99, 235, 0.16);
+            border-radius: 2rem;
+            transition: all 0.35s ease;
+        }
+
+        .mesh-bg {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(37, 99, 235, 0.14) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(249, 115, 22, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.09) 0px, transparent 50%);
+        }
+    </style>
+</head>
+<body class="mesh-bg text-slate-800 font-sans antialiased min-h-screen flex flex-col justify-between relative overflow-x-hidden">
+    <!-- Official Seattle Academy Crest Badge Robotics STEM Background Overlay -->
+    <div class="absolute inset-0 bg-cover bg-center filter brightness-95 transform scale-105 transition-transform duration-10000"
+         style="background-image: url('{% static 'images/seattle_official_logo_badge_robotics_hero_bg.jpg' %}?v=1.1');"></div>
+    <div class="fixed inset-0 z-0 bg-gradient-to-b from-slate-50/85 via-white/80 to-slate-50/90 pointer-events-none"></div>
+
+
+
+
+
+
+    <!-- Top Announcement Bar -->
+    <div class="bg-slate-950 text-white text-xs py-2.5 px-4 border-b border-slate-800 z-10">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Portal Online
+                </span>
+                <span class="text-slate-300 text-[11px] font-medium hidden md:inline">
+                    🎓 Seattle Academy — Secure Multi-Role Portal Authentication (Students, Parents, Teachers & Admins).
+                </span>
+            </div>
+            <div class="flex items-center gap-5 text-[11px] text-slate-300 font-medium">
+                <a href="tel:+251937381801" class="hover:text-saOrange-500 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-headset text-saOrange-500"></i> Helpdesk: +251 937 381 801
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN HEADER -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md header-shadow transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo Badge -->
+                <a href="{% url 'seattle_academy_home' %}" class="flex items-center gap-3.5 group">
+                    <div class="w-12 h-12 rounded-2xl bg-white p-1 shadow-md border border-slate-100 group-hover:scale-105 transition transform flex items-center justify-center overflow-hidden">
+                        <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <span class="font-heading font-extrabold text-2xl tracking-tight text-saBlue-600 group-hover:text-saBlue-700 transition">Seattle Academy</span>
+                        <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Official SaaS Portal Sign In</p>
+                    </div>
+                </a>
+
+                <!-- Back to Main Website Button -->
+                <a href="{% url 'seattle_academy_home' %}" 
+                   class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center gap-2 border border-slate-200">
+                    <i class="fa-solid fa-arrow-left text-saBlue-600"></i>
+                    Back to Official Website
+                </a>
+            </div>
+        </div>
+        <div class="eth-stripe"></div>
+    </header>
+
+    <!-- BACKGROUND CANVAS PARTICLES -->
+    <canvas id="heroParticles" class="absolute inset-0 pointer-events-none opacity-40 z-0"></canvas>
+
+    <!-- MAIN LOGIN CARD SECTION -->
+    <main class="relative z-10 my-12 px-4 flex items-center justify-center">
+        <div class="w-full max-w-md">
+            
+            <!-- Logo Header Badge -->
+            <div class="text-center mb-6">
+                <div class="w-24 h-24 rounded-3xl bg-white p-2.5 mx-auto shadow-xl shadow-saBlue-600/20 mb-3 flex items-center justify-center overflow-hidden border-2 border-slate-200/80 transform hover:scale-105 transition">
+                    <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-full h-full object-contain">
+                </div>
+                <h1 class="font-heading font-black text-3xl text-slate-900 tracking-tight">Portal Sign In</h1>
+                <p class="text-xs text-slate-500 mt-1 font-semibold">Enter your credentials to access your dashboard</p>
+                <div class="w-16 h-1 bg-saOrange-500 rounded-full mx-auto mt-3"></div>
+            </div>
+
+            <!-- Role Badge Bar -->
+            <div class="flex justify-center gap-2 mb-6 text-[11px] font-bold">
+                <span class="px-3 py-1 bg-blue-100 text-saBlue-700 rounded-full flex items-center gap-1 border border-blue-200">
+                    <i class="fa-solid fa-user-graduate"></i> Student
+                </span>
+                <span class="px-3 py-1 bg-orange-100 text-saOrange-700 rounded-full flex items-center gap-1 border border-orange-200">
+                    <i class="fa-solid fa-users"></i> Parent
+                </span>
+                <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full flex items-center gap-1 border border-emerald-200">
+                    <i class="fa-solid fa-chalkboard-user"></i> Teacher
+                </span>
+                <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-full flex items-center gap-1 border border-slate-200">
+                    <i class="fa-solid fa-user-shield"></i> Admin
+                </span>
+            </div>
+
+            <!-- LOGIN CARD -->
+            <div class="portal-glass-card p-8 sm:p-10 space-y-6">
+
+                <!-- Flash Messages -->
+                {% if messages %}
+                {% for message in messages %}
+                <div class="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 font-bold">
+                    <i class="fa-solid fa-circle-exclamation text-red-500 text-base shrink-0"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- Form -->
+                <form method="POST" action="{% url 'login' %}" class="space-y-5">
+                    {% csrf_token %}
+                    <input type="hidden" name="login_source" value="seattle_academy">
+
+
+                    <div>
+                        <label for="usernameInput" class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Username / Student ID</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="usernameInput" name="username" required autocomplete="username"
+                                placeholder="Enter your username or ID"
+                                class="w-full bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 pl-11 pr-4 py-3.5 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-saBlue-600 focus:bg-white transition shadow-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="passwordInput" class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Password</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="password" id="passwordInput" name="password" required autocomplete="current-password"
+                                placeholder="Enter your password"
+                                class="w-full bg-slate-50 border border-slate-300 text-slate-900 placeholder-slate-400 pl-11 pr-12 py-3.5 rounded-2xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-saBlue-600 focus:bg-white transition shadow-sm">
+                            <button type="button" onclick="togglePwd()" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition">
+                                <i id="eyeIcon" class="fa-regular fa-eye text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit"
+                        class="w-full py-4 bg-gradient-to-r from-saBlue-600 to-saBlue-700 hover:from-saBlue-700 hover:to-saBlue-800 text-white font-black rounded-2xl text-xs shadow-xl shadow-saBlue-600/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 mt-4">
+                        <i class="fa-solid fa-right-to-bracket text-saOrange-400 text-sm"></i>
+                        Sign In to Seattle Academy Portal
+                    </button>
+                </form>
+
+                <!-- Helpdesk Footer -->
+                <div class="border-t border-slate-200/80 pt-5 text-center space-y-1">
+                    <p class="text-[11px] text-slate-500 font-semibold">
+                        Need password reset or access assistance?
+                    </p>
+                    <p class="text-xs text-saOrange-600 font-extrabold">
+                        <i class="fa-solid fa-phone text-saOrange-500 mr-1"></i> Contact IT Support: <a href="tel:+251937381801" class="hover:underline">+251 937 381 801</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="relative z-10 py-6 text-center text-xs text-slate-500 border-t border-slate-200 bg-white/80 backdrop-blur-md flex flex-col items-center gap-2">
+        <div>© 2026 Seattle Academy • Powered by Ethiopian School SaaS Enterprise Edition.</div>
+        <div>
+            <a href="/login/?portal=main" class="text-saBlue-600 hover:text-saBlue-700 font-semibold hover:underline inline-flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-layer-group text-xs"></i> Switch to EthioSchool SaaS Main Platform Sign-In
+            </a>
+        </div>
+    </footer>
+
+
+    <!-- CANVAS PARTICLES SCRIPT -->
+    <script>
+        function togglePwd() {
+            const inp = document.getElementById('passwordInput');
+            const ico = document.getElementById('eyeIcon');
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                ico.className = 'fa-regular fa-eye-slash text-sm';
+            } else {
+                inp.type = 'password';
+                ico.className = 'fa-regular fa-eye text-sm';
+            }
+        }
+
+        const canvas = document.getElementById('heroParticles');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 3 + 1;
+                    this.speedX = Math.random() * 0.8 - 0.4;
+                    this.speedY = Math.random() * 0.8 - 0.4;
+                    this.color = Math.random() > 0.5 ? 'rgba(37, 99, 235, 0.35)' : 'rgba(249, 115, 22, 0.35)';
+                }
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+                }
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function initParticles() {
+                particles = [];
+                for (let i = 0; i < 40; i++) {
+                    particles.push(new Particle());
+                }
+            }
+            initParticles();
+
+            function animateParticles() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+                requestAnimationFrame(animateParticles);
+            }
+            animateParticles();
+        }
+    </script>
+</body>
+</html>

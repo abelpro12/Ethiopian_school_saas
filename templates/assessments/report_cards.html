@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Report Cards{% endblock %}
+
+{% block content %}
+<style>
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #printableArea, #printableArea * {
+            visibility: visible;
+        }
+        #printableArea {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+        .no-print {
+            display: none !important;
+        }
+    }
+</style>
+
+<div class="max-w-7xl mx-auto py-8">
+    <div class="mb-8 flex justify-between items-center no-print">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Report Cards</h1>
+            <p class="text-gray-600 text-sm mt-1">Generate and print report cards for a section.</p>
+        </div>
+        {% if results %}
+        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors shadow-sm">
+            <i class="fa-solid fa-print mr-2"></i> Print All
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Section Selector -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6 no-print">
+        <form method="GET" class="flex items-end gap-4">
+            <div class="flex-1 max-w-md">
+                <label for="section_id" class="block text-sm font-medium text-gray-700 mb-1">Select Section</label>
+                <select name="section_id" id="section_id" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" required>
+                    <option value="">-- Choose a Section --</option>
+                    {% for sec in sections %}
+                        <option value="{{ sec.id }}" {% if selected_section and selected_section.id == sec.id %}selected{% endif %}>
+                            {{ sec.grade.name }} - {{ sec.name }} ({{ sec.stream.code }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors shadow-sm">
+                Generate
+            </button>
+        </form>
+    </div>
+
+    {% if selected_section %}
+        {% if not results %}
+            <div class="bg-white p-12 rounded-lg shadow-sm border border-gray-200 text-center no-print">
+                <i class="fa-solid fa-file-invoice text-4xl text-gray-300 mb-4 block"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Published Results</h3>
+                <p class="text-gray-500 max-w-sm mx-auto">No published semester results found for this section. Please ensure marks are approved and the Semester Close Engine has been run.</p>
+                <a href="{% url 'assessments:period_close' %}" class="inline-block mt-4 text-indigo-600 hover:underline">Run Period Close</a>
+            </div>
+        {% else %}
+            <div id="printableArea">
+                {% for result in results %}
+                <div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200 mb-8 page-break relative">
+                    <!-- School Header Placeholder -->
+                    <div class="text-center mb-8 border-b-2 border-gray-800 pb-6">
+                        <h1 class="text-3xl font-bold uppercase tracking-wider text-gray-900">{{ request.school.name }}</h1>
+                        <h2 class="text-xl font-semibold text-gray-700 mt-1">OFFICIAL STUDENT REPORT CARD</h2>
+                        <p class="text-gray-600 mt-1">{{ ay.display_name }} Academic Year | {{ sem.name }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-6 mb-8">
+                        <div>
+                            <table class="w-full text-sm">
+                                <tr><td class="font-bold py-1 text-gray-600 w-1/3">Student Name:</td><td class="font-bold text-gray-900 text-lg uppercase">{{ result.enrollment.student.full_name }}</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">ID Number:</td><td class="font-medium text-gray-900">{{ result.enrollment.student.admission_number }}</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">Grade & Section:</td><td class="font-medium text-gray-900">{{ selected_section.grade.name }} - {{ selected_section.name }}</td></tr>
+                            </table>
+                        </div>
+                        <div>
+                            <table class="w-full text-sm border-l border-gray-200 pl-4">
+                                <tr><td class="font-bold py-1 text-gray-600 w-1/3">Homeroom Teacher:</td><td class="font-medium text-gray-900">{% if selected_section.class_teacher %}{{ selected_section.class_teacher.get_full_name|default:selected_section.class_teacher.username }}{% else %}Not Assigned{% endif %}</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">Total Score:</td><td class="font-medium text-gray-900">{{ result.total_score }}</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">Average:</td><td class="font-bold text-indigo-600 text-lg">{{ result.average_score }}%</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">Rank in Section:</td><td class="font-bold text-gray-900">{{ result.section_rank }} / {{ results|length }}</td></tr>
+                            </table>
+                        </div>
+                        <div>
+                            <table class="w-full text-sm border-l border-gray-200 pl-4">
+                                <tr><td colspan="2" class="font-bold py-1 text-gray-900 uppercase">Attendance Summary</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600 w-1/2">Days Present:</td><td class="font-medium text-emerald-600">{{ result.attendance_present }}</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">Days Absent:</td><td class="font-medium text-red-600">{{ result.attendance_absent }}</td></tr>
+                                <tr><td class="font-bold py-1 text-gray-600">Days Late:</td><td class="font-medium text-amber-600">{{ result.attendance_late }}</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <table class="w-full text-sm mb-8 border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 border-y-2 border-gray-400">
+                                <th class="text-left py-2 px-2 uppercase text-gray-700 w-2/3">Subject</th>
+                                <th class="text-center py-2 px-2 uppercase text-gray-700">Total Mark (100)</th>
+                                <th class="text-center py-2 px-2 uppercase text-gray-700">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subject_id, data in result.results_json.items %}
+                            <tr class="border-b border-gray-200">
+                                <td class="py-2 px-2 font-medium text-gray-800">{{ data.name }}</td>
+                                <td class="text-center py-2 px-2 font-bold">{{ data.total }}</td>
+                                <td class="text-center py-2 px-2">
+                                    {% if data.total >= 50 %}<span class="text-emerald-600 font-bold">PASS</span>{% else %}<span class="text-red-600 font-bold">FAIL</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <div class="grid grid-cols-2 gap-8 mt-12">
+                        <div class="text-center border-t border-gray-400 pt-2">
+                            <p class="font-bold text-gray-800">Homeroom Teacher Signature</p>
+                        </div>
+                        <div class="text-center border-t border-gray-400 pt-2">
+                            <p class="font-bold text-gray-800">Principal Signature & Stamp</p>
+                        </div>
+                    </div>
+                    
+                    <div class="absolute bottom-4 left-8 right-8 text-center text-xs text-gray-400 no-print">
+                        Page break will occur here when printed.
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

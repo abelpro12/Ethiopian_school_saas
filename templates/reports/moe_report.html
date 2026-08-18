@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Ministry of Education Statistics Report{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-slate-900 flex items-center justify-center shadow-lg shadow-indigo-600/25 flex-shrink-0">
+        <i class="fa-solid fa-chart-column text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Ministry of Education Report</h1>
+        <p class="text-sm text-slate-500">{{ moe_data.school.name }} · {{ moe_data.current_ay.name|default:"All Academic Years" }}</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'moe_export_excel' %}" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-500/20 transition">
+        <i class="fa-solid fa-file-excel"></i> Export Excel (.xlsx)
+      </a>
+      <button onclick="window.print()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+        <i class="fa-solid fa-print"></i> Print
+      </button>
+    </div>
+  </div>
+
+  <!-- Key Metrics Row -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-center">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Registered</p>
+      <p class="text-3xl font-extrabold text-brand-600 font-heading">{{ moe_data.total_students }}</p>
+      <p class="text-[11px] text-slate-500 mt-1 font-medium">
+        <span class="text-blue-600">♂ {{ moe_data.male_students }}</span> /
+        <span class="text-rose-600">♀ {{ moe_data.female_students }}</span>
+      </p>
+    </div>
+
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-center">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Currently Enrolled</p>
+      <p class="text-3xl font-extrabold text-emerald-600 font-heading">{{ moe_data.enrolled_students }}</p>
+      <p class="text-[11px] text-slate-400 mt-1 font-medium">{{ moe_data.current_ay.name|default:"Active Students" }}</p>
+    </div>
+
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-center">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Teaching Staff</p>
+      <p class="text-3xl font-extrabold text-purple-600 font-heading">{{ moe_data.total_teachers }}</p>
+      <p class="text-[11px] text-slate-400 mt-1 font-medium">Active Teachers</p>
+    </div>
+
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 text-center">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Active Grades</p>
+      <p class="text-3xl font-extrabold text-amber-600 font-heading">{{ moe_data.grade_breakdown|length }}</p>
+      <p class="text-[11px] text-slate-400 mt-1 font-medium">Grade Levels</p>
+    </div>
+  </div>
+
+  <!-- Breakdown Table -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div class="p-5 border-b border-slate-100">
+      <h3 class="font-heading font-bold text-slate-800 text-base">Grade-wise Student Enrollment Breakdown</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+          <tr>
+            <th class="px-5 py-3.5">Grade Level</th>
+            <th class="px-4 py-3.5 text-right">Total</th>
+            <th class="px-4 py-3.5 text-right">Male Students</th>
+            <th class="px-4 py-3.5 text-right">Female Students</th>
+            <th class="px-5 py-3.5 text-center">Gender Ratio Visual</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 font-medium">
+          {% for g in moe_data.grade_breakdown %}
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="px-5 py-4 font-bold text-slate-800 text-sm">Grade {{ g.grade }}</td>
+            <td class="px-4 py-4 text-right font-extrabold text-slate-900 text-sm">{{ g.total }}</td>
+            <td class="px-4 py-4 text-right font-bold text-blue-600">{{ g.male }}</td>
+            <td class="px-4 py-4 text-right font-bold text-rose-600">{{ g.female }}</td>
+            <td class="px-5 py-4 w-48">
+              <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                {% if g.total > 0 %}
+                <div class="bg-blue-500 h-full" style="width: {% widthratio g.male g.total 100 %}%"></div>
+                <div class="bg-rose-500 h-full" style="width: {% widthratio g.female g.total 100 %}%"></div>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-5 py-12 text-center text-slate-400">No enrollment data recorded for current academic year.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% if moe_data.grade_breakdown %}
+        <tfoot class="bg-slate-50 font-bold text-slate-800 border-t-2 border-slate-200">
+          <tr>
+            <td class="px-5 py-3.5">Total Enrollment</td>
+            <td class="px-4 py-3.5 text-right text-sm">{{ moe_data.enrolled_students }}</td>
+            <td class="px-4 py-3.5 text-right text-blue-600">{{ moe_data.male_students }}</td>
+            <td class="px-4 py-3.5 text-right text-rose-600">{{ moe_data.female_students }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Library Catalog{% endblock %}
+{% block content %}
+
+<div class="max-w-6xl mx-auto space-y-6">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/25 flex-shrink-0">
+        <i class="fa-solid fa-book-open-reader text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Library Catalog</h1>
+        <p class="text-sm text-slate-500">{{ books.count }} book{{ books.count|pluralize }} available in school library</p>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'library:dashboard' %}" class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition">
+        <i class="fa-solid fa-list-check"></i> Borrow Dashboard
+      </a>
+      <a href="{% url 'library:add_book' %}" class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-sky-500/25 transition">
+        <i class="fa-solid fa-plus"></i> Add Book
+      </a>
+    </div>
+  </div>
+
+  <form method="get" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+    <div class="flex-1 min-w-0">
+      <input type="text" name="q" value="{{ query }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="Search title, author, subject, ISBN...">
+    </div>
+    <div class="sm:w-48">
+      <select name="category" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        <option value="">All Categories</option>
+        {% for val, label in categories %}<option value="{{ val }}" {% if category == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="flex gap-2">
+      <button type="submit" class="flex-1 sm:flex-none bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition">Search</button>
+      <a href="{% url 'library:catalog' %}" class="flex-1 sm:flex-none flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs px-3 py-2.5 rounded-xl transition">Clear</a>
+    </div>
+  </form>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+    {% for book in books %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition group">
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="badge badge-purple">{{ book.get_category_display }}</span>
+          {% if book.is_available %}
+            <span class="badge badge-green">Available ({{ book.available_copies }})</span>
+          {% else %}
+            <span class="badge badge-red">Out of Stock</span>
+          {% endif %}
+        </div>
+        <h3 class="font-heading font-bold text-slate-800 text-base mb-1 group-hover:text-sky-600 transition">{{ book.title }}</h3>
+        <p class="text-xs text-slate-500 font-medium mb-3"><i class="fa-solid fa-user-pen text-[10px] me-1 text-slate-400"></i>{{ book.author|default:"Unknown Author" }}</p>
+
+        {% if book.subject %}
+        <p class="text-[11px] text-slate-400"><i class="fa-solid fa-book text-[10px] me-1"></i>{{ book.subject }} {% if book.grade_level %}· {{ book.grade_level }}{% endif %}</p>
+        {% endif %}
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-between mt-4 text-[11px] text-slate-400">
+        <div class="flex items-center gap-2">
+          <span>{{ book.total_copies }} cop{{ book.total_copies|pluralize:"y,ies" }}</span>
+          {% if book.isbn %}· <span class="font-mono">{{ book.isbn }}</span>{% endif %}
+        </div>
+        
+        <div class="flex items-center gap-1.5">
+          <a href="{% url 'library:edit_book' book.id %}" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-sky-50 text-slate-500 hover:text-sky-600 flex items-center justify-center transition" title="Edit Book">
+            <i class="fa-solid fa-pen text-xs"></i>
+          </a>
+          <form method="post" action="{% url 'library:delete_book' book.id %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 flex items-center justify-center transition" title="Delete Book" onclick="return confirm('Are you sure you want to delete \'{{ book.title|escapejs }}\' from the library catalog?')">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">
+      <i class="fa-solid fa-book-bookmark text-4xl opacity-20 mb-3 block"></i>
+      <p class="font-bold text-slate-600 text-sm">No Books Found in Catalog</p>
+      <a href="{% url 'library:add_book' %}" class="text-sky-600 hover:underline text-xs mt-1 inline-block">Add the first book</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+[Unit]
+Description=Gunicorn daemon for Ethiopian School SaaS
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/ethiopian_school_saas
+ExecStart=/var/www/ethiopian_school_saas/venv/bin/gunicorn --config deployment/gunicorn/gunicorn_conf.py config.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
