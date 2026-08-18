@@ -110,7 +110,8 @@
             </div>
             
             {% if target_ay_id and target_section_id %}
-            <div class="overflow-x-auto">
+            <!-- Desktop Table -->
+            <div class="hidden sm:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
@@ -128,19 +129,27 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <input type="checkbox" name="students" value="{{ enrollment.id }}" class="student-checkbox h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ enrollment.student.student_id }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ enrollment.student.full_name }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ enrollment.grade.name }}
-                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ enrollment.student.student_id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ enrollment.student.full_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ enrollment.grade.name }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div class="sm:hidden divide-y divide-gray-100">
+                {% for enrollment in students %}
+                <label class="flex items-center gap-4 px-4 py-3.5 hover:bg-slate-50 cursor-pointer">
+                    <input type="checkbox" name="students" value="{{ enrollment.id }}" class="student-checkbox h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded flex-shrink-0" checked>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-gray-900 text-sm">{{ enrollment.student.full_name }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5 font-mono">{{ enrollment.student.student_id }} &middot; {{ enrollment.grade.name }}</p>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-gray-300 text-xs flex-shrink-0"></i>
+                </label>
+                {% endfor %}
             </div>
             {% else %}
             <div class="px-4 py-12 text-center">

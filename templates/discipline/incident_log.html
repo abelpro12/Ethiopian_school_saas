@@ -41,8 +41,8 @@
     </div>
   </form>
 
-  <!-- Table -->
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+  <!-- Desktop Table -->
+  <div class="hidden sm:block bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-left text-xs">
         <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
@@ -99,6 +99,42 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Mobile Cards -->
+  <div class="sm:hidden space-y-3">
+    {% for incident in incidents %}
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-slate-800 text-sm truncate">{{ incident.title }}</p>
+          <p class="text-xs text-slate-400 mt-0.5">{{ incident.get_category_display }} · {{ incident.incident_date|date:"M d, Y" }}</p>
+        </div>
+        <div class="flex-shrink-0 flex flex-col items-end gap-1.5">
+          {% if incident.severity == 'CRITICAL' %}<span class="badge badge-red">Critical</span>
+          {% elif incident.severity == 'SERIOUS' %}<span class="badge badge-yellow">Serious</span>
+          {% elif incident.severity == 'MODERATE' %}<span class="badge badge-blue">Moderate</span>
+          {% else %}<span class="badge badge-gray">Minor</span>{% endif %}
+          {% if incident.status == 'OPEN' %}<span class="badge badge-blue">Open</span>
+          {% elif incident.status == 'RESOLVED' %}<span class="badge badge-green">Resolved</span>
+          {% elif incident.status == 'ESCALATED' %}<span class="badge badge-red">Escalated</span>
+          {% else %}<span class="badge badge-gray">Dismissed</span>{% endif %}
+        </div>
+      </div>
+      <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+        <span><i class="fa-solid fa-user mr-1"></i>{{ incident.reported_by.get_full_name|default:"Unknown" }} · <strong class="text-slate-700">{{ incident.students_involved.count }}</strong> student{{ incident.students_involved.count|pluralize }}</span>
+        <a href="{% url 'discipline:detail' incident.id %}" class="bg-red-50 text-red-600 font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 text-xs">
+          <i class="fa-solid fa-eye text-[10px]"></i> View
+        </a>
+      </div>
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-2xl border border-slate-100 p-10 text-center text-slate-400">
+      <i class="fa-solid fa-shield text-3xl opacity-20 mb-2 block"></i>
+      <p class="font-bold text-slate-600 text-sm">No incidents recorded</p>
+      <a href="{% url 'discipline:log' %}" class="text-red-600 text-xs mt-1 inline-block">Log an incident</a>
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% endblock %}

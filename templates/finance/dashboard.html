@@ -65,7 +65,6 @@
 </div>
 {% endif %}
 
-<!-- Invoices Table -->
 <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-8">
     <div class="p-5 border-b border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -73,7 +72,9 @@
             <span class="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1 block">Recent 20 Invoices</span>
         </div>
     </div>
-    <div class="overflow-x-auto">
+
+    <!-- Desktop Table -->
+    <div class="hidden sm:block overflow-x-auto">
         <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="bg-slate-100/50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
                 <tr>
@@ -117,6 +118,41 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="sm:hidden divide-y divide-slate-100">
+        {% for inv in recent_invoices %}
+        <div class="p-4 space-y-2">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-slate-800 text-sm">{{ inv.student.full_name }}</p>
+                    <p class="text-xs font-mono text-slate-400 mt-0.5">{{ inv.invoice_number }} · {{ inv.student.student_id }}</p>
+                </div>
+                <span class="badge flex-shrink-0 {% if inv.status == 'PAID' %}badge-green{% elif inv.status == 'PARTIALLY_PAID' %}badge-yellow{% else %}badge-red{% endif %}">
+                    {{ inv.get_status_display }}
+                </span>
+            </div>
+            <div class="flex items-center justify-between">
+                <div class="text-xs space-y-0.5">
+                    <p class="text-slate-500">Total: <span class="font-bold text-slate-700 font-mono">ETB {{ inv.total_amount }}</span></p>
+                    <p class="{% if inv.remaining_balance > 0 %}text-red-500{% else %}text-emerald-500{% endif %} font-bold text-xs font-mono">Balance: ETB {{ inv.remaining_balance }}</p>
+                </div>
+                {% if inv.remaining_balance > 0 %}
+                <a href="{% url 'finance:record_payment' inv.id %}" class="bg-brand-50 text-brand-700 font-bold px-4 py-2 rounded-xl text-xs border border-brand-200/50 flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus-circle"></i> Pay
+                </a>
+                {% else %}
+                <span class="text-xs text-emerald-600 font-bold"><i class="fa-solid fa-check-circle mr-1"></i>Cleared</span>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="p-10 text-center text-slate-400">
+            <i class="fa-solid fa-file-invoice-dollar text-3xl opacity-20 mb-2 block"></i>
+            <p class="font-bold text-slate-600 text-sm">No invoices yet</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 

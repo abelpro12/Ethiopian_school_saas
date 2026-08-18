@@ -44,10 +44,11 @@
         </div>
     </div>
 
-    <!-- Alumni List Preview -->
     <div class="p-6">
         <h3 class="text-sm font-bold text-slate-800 mb-4">{{ alumni_list.count }} Alumni Found</h3>
-        <div class="overflow-x-auto">
+
+        <!-- Desktop Table -->
+        <div class="hidden sm:block overflow-x-auto">
             <table class="w-full text-left text-sm whitespace-nowrap">
                 <thead class="bg-slate-50 text-slate-500 font-medium">
                     <tr>
@@ -70,20 +71,39 @@
                             </span>
                         </td>
                         <td class="py-3 px-4 text-right">
-                            <a href="{% url 'students:admin_profile' student.id %}" class="text-brand-600 hover:text-brand-700 font-medium text-xs">
-                                View Profile
-                            </a>
+                            <a href="{% url 'students:admin_profile' student.id %}" class="text-brand-600 hover:text-brand-700 font-medium text-xs">View Profile</a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="py-8 text-center text-slate-500">
-                            No alumni records found for this selection.
-                        </td>
+                        <td colspan="5" class="py-8 text-center text-slate-500">No alumni records found for this selection.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="sm:hidden space-y-3">
+            {% for student in alumni_list %}
+            <div class="bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 text-sm">{{ student.full_name }}</p>
+                    <p class="text-xs text-slate-400 font-mono mt-0.5">{{ student.student_id }} &middot; {{ student.get_gender_display }}</p>
+                    <span class="inline-flex items-center mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-brand-100 text-brand-800">
+                        {{ student.get_status_display }}
+                    </span>
+                </div>
+                <a href="{% url 'students:admin_profile' student.id %}" class="flex-shrink-0 bg-white border border-slate-200 text-brand-600 font-bold text-xs px-3 py-2 rounded-lg shadow-sm">
+                    <i class="fa-solid fa-eye mr-1"></i>Profile
+                </a>
+            </div>
+            {% empty %}
+            <div class="bg-slate-50 rounded-xl border border-slate-100 p-10 text-center text-slate-400">
+                <i class="fa-solid fa-graduation-cap text-3xl opacity-20 mb-2 block"></i>
+                <p class="font-bold text-slate-600 text-sm">No alumni found</p>
+            </div>
+            {% endfor %}
         </div>
     </div>
 </div>
