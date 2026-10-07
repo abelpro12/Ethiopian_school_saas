@@ -256,6 +256,9 @@
         <a href="{% url 'platform:subscription_management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-gift w-5 text-center"></i><span>Subscriptions & Free Trials</span>
         </a>
+        <a href="{% url 'audit:activity_log' %}" class="nav-link {% if request.resolver_match.app_name == 'audit' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-clock-rotate-left w-5 text-center text-rose-400"></i><span>Global Audit Trail</span>
+        </a>
         {% endif %}
 
         {% if request.user.role != 'SUPER_ADMIN' or active_school %}
@@ -268,6 +271,9 @@
         </a>
         <a href="{% url 'user_management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-user-shield text-brand-400"></i><span>User Management</span>
+        </a>
+        <a href="{% url 'audit:activity_log' %}" class="nav-link {% if request.resolver_match.app_name == 'audit' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-clock-rotate-left text-rose-400"></i><span>Activity & Audit Log</span>
         </a>
         <a href="{% url 'id_card_generator' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-id-card text-purple-400"></i><span>ID Cards & QR Studio</span>
@@ -292,8 +298,14 @@
         <a href="{% url 'assessments:components' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-list-check text-brand-400"></i><span>Assessments Config</span>
         </a>
+        <a href="{% url 'examinations:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-laptop-code text-cyan-400"></i><span>Online Exams & CBT</span>
+        </a>
         <a href="{% url 'assessments:review' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-check-double text-emerald-400"></i><span>Review Marks</span>
+        </a>
+        <a href="{% url 'assessments:manage_locks' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_locks' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-lock text-rose-400"></i><span>Mark Entry Locks</span>
         </a>
         <a href="{% url 'assessments:report_cards' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-file-signature text-amber-400"></i><span>Report Cards</span>
@@ -415,6 +427,9 @@
         <a href="{% url 'assessments:mark_entry' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-clipboard-check text-indigo-400"></i><span>Gradebook</span>
         </a>
+        <a href="{% url 'examinations:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-laptop-code text-cyan-400"></i><span>Online Exams (CBT)</span>
+        </a>
         <a href="{% url 'teachers:homeroom' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-users-rectangle text-brand-400"></i><span>Homeroom Portal</span>
         </a>
@@ -452,6 +467,9 @@
         <a href="{% url 'student_portal' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-user-graduate text-indigo-400"></i><span>My Academic Portal</span>
         </a>
+        <a href="{% url 'examinations:student_list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-laptop-code text-emerald-400"></i><span>Online Exams (CBT)</span>
+        </a>
         <a href="/homework/" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-pen-to-square text-amber-400"></i><span>My Homework</span>
         </a>
@@ -462,8 +480,16 @@
 
         <!-- Available to all roles in school context -->
         <div class="nav-section mt-3">Communication</div>
-        <a href="/messaging/inbox/" class="nav-link" onclick="closeSidebarOnMobile()">
-            <i class="fa-solid fa-comments text-emerald-400"></i><span>Messages</span>
+        <a href="{% url 'video_calls:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-video text-indigo-400"></i><span>Virtual Class & Calls</span>
+        </a>
+        <a href="/messaging/inbox/" class="nav-link flex items-center justify-between group" onclick="closeSidebarOnMobile()">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-comments text-emerald-400"></i><span>Messages</span>
+            </div>
+            <span id="sidebarUnreadBadge" class="{% if unread_messages_count and unread_messages_count > 0 %}inline-flex{% else %}hidden{% endif %} items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black text-white bg-rose-500 rounded-full shadow-sm">
+                {{ unread_messages_count|default:"0" }}
+            </span>
         </a>
         <a href="/library/" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library</span>
@@ -613,6 +639,12 @@
                 </select>
             </form>
             {% endif %}
+            <a href="/messaging/inbox/" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center relative transition" title="Direct Messages">
+                <i class="fa-regular fa-comment-dots text-sm"></i>
+                <span id="topbarUnreadBadge" class="{% if unread_messages_count and unread_messages_count > 0 %}flex{% else %}hidden{% endif %} absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black items-center justify-center ring-2 ring-white shadow-xs">
+                    {{ unread_messages_count|default:"0" }}
+                </span>
+            </a>
             <button class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center relative transition" title="Notifications">
                 <i class="fa-regular fa-bell text-sm"></i>
                 <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
@@ -1162,6 +1194,115 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Floating Real-Time Push Notification Toast Container -->
+<div id="livePushToastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+<script>
+    (function() {
+        let lastUnreadCount = {{ unread_messages_count|default:0 }};
+        let isFirstPoll = true;
+
+        function updateUnreadBadges(count, latestMsg) {
+            const sidebarBadge = document.getElementById('sidebarUnreadBadge');
+            const topbarBadge = document.getElementById('topbarUnreadBadge');
+            const portalBadges = document.querySelectorAll('.portal-unread-badge');
+
+            const hasUnread = count > 0;
+            const countStr = count > 99 ? '99+' : count.toString();
+
+            if (sidebarBadge) {
+                sidebarBadge.textContent = countStr;
+                if (hasUnread) {
+                    sidebarBadge.classList.remove('hidden');
+                    sidebarBadge.classList.add('inline-flex');
+                } else {
+                    sidebarBadge.classList.add('hidden');
+                    sidebarBadge.classList.remove('inline-flex');
+                }
+            }
+
+            if (topbarBadge) {
+                topbarBadge.textContent = countStr;
+                if (hasUnread) {
+                    topbarBadge.classList.remove('hidden');
+                    topbarBadge.classList.add('flex');
+                } else {
+                    topbarBadge.classList.add('hidden');
+                    topbarBadge.classList.remove('flex');
+                }
+            }
+
+            portalBadges.forEach(b => {
+                b.textContent = countStr;
+                b.style.display = hasUnread ? 'inline-flex' : 'none';
+            });
+
+            // Show real-time push toast if new message arrived while browsing
+            if (!isFirstPoll && count > lastUnreadCount && latestMsg) {
+                showPushToast(latestMsg);
+            }
+
+            lastUnreadCount = count;
+            isFirstPoll = false;
+        }
+
+        function showPushToast(msg) {
+            const container = document.getElementById('livePushToastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = 'pointer-events-auto bg-slate-900/95 text-white p-4 rounded-2xl shadow-2xl border border-slate-700/80 backdrop-blur-md flex items-start gap-3 transform transition-all duration-300 translate-y-4 opacity-0';
+            toast.innerHTML = `
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center text-white text-base shrink-0 shadow-md">
+                    <i class="fa-solid fa-comment-dots animate-bounce"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                        <h4 class="text-xs font-black text-emerald-400 truncate">New Message from ${msg.sender}</h4>
+                        <span class="text-[10px] text-slate-400 font-mono">${msg.sent_at}</span>
+                    </div>
+                    <p class="text-xs text-slate-200 mt-1 line-clamp-2">${msg.body}</p>
+                    <a href="/messaging/thread/${msg.conv_id}/" class="inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded-lg transition">
+                        <span>Reply / Open</span> <i class="fa-solid fa-arrow-right text-[9px]"></i>
+                    </a>
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white text-xs p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-4', 'opacity-0');
+            }, 50);
+
+            // Auto-dismiss after 8 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 8000);
+        }
+
+        // Poll every 10 seconds if user is active/logged in
+        {% if user.is_authenticated %}
+        setInterval(() => {
+            fetch('/messaging/api/unread-count/', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && typeof data.unread_count === 'number') {
+                    updateUnreadBadges(data.unread_count, data.latest_message);
+                }
+            })
+            .catch(() => {});
+        }, 10000);
+        {% endif %}
+    })();
+</script>
 
 {% block extra_scripts %}{% endblock %}
 </body>

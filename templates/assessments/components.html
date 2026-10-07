@@ -417,6 +417,13 @@
                 </select>
             </div>
 
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="overwrite_standard_existing" name="overwrite_existing" value="true" checked class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4">
+                <label for="overwrite_standard_existing" class="text-xs text-slate-700 font-medium cursor-pointer">
+                    Cleanly replace existing unmarked components on target subjects
+                </label>
+            </div>
+
             <div class="pt-3 flex justify-end space-x-2 border-t">
                 <button type="button" onclick="closeStandardSchemeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
                 <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow">Apply 100% Scheme</button>
@@ -594,14 +601,25 @@
                     <i class="fa-solid fa-calendar-clock text-amber-600"></i> 1. Source Past Year & Scope
                 </p>
 
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Source Past Academic Year *</label>
-                    <select name="source_year_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800" required>
-                        <option value="">-- Select Source Past Academic Year --</option>
-                        {% for py in past_years %}
-                        <option value="{{ py.id }}">{{ py.name }} ({{ py.ethiopian_year }} E.C.)</option>
-                        {% endfor %}
-                    </select>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Source Past Academic Year *</label>
+                        <select name="source_year_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold text-slate-800" required>
+                            <option value="">-- Select Past Year --</option>
+                            {% for py in past_years %}
+                            <option value="{{ py.id }}">{{ py.name }} ({{ py.ethiopian_year }} E.C.)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Source Evaluation Period</label>
+                        <select name="source_period_name" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-800">
+                            <option value="">Auto-match Current ({{ sem.name }})</option>
+                            {% for p_name in all_period_names %}
+                            <option value="{{ p_name }}">{{ p_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2.5">

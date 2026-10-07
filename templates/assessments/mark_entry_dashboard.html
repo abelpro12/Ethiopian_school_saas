@@ -9,7 +9,21 @@
             <h1 class="text-2xl font-bold text-gray-900">Gradebook Portal</h1>
             <p class="text-gray-600 text-sm mt-1">Select a class and subject to enter or view academic marks.</p>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            {% if user.role == 'SCHOOL_ADMIN' or user.role == 'SUPER_ADMIN' or user.role == 'PRINCIPAL' or user.role == 'REGISTRAR' or user.is_superuser %}
+            <div class="inline-flex items-center rounded-xl shadow-2xs">
+                <button type="button" onclick="openLocksModal()" id="btnMarkEntryLocks" class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-l-xl text-xs font-bold transition flex items-center gap-2">
+                    <i class="fa-solid fa-lock text-rose-600"></i>
+                    <span>Mark Entry Locks</span>
+                    {% if total_active_locks > 0 %}
+                    <span class="px-1.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black leading-none">{{ total_active_locks }}</span>
+                    {% endif %}
+                </button>
+                <a href="{% url 'assessments:manage_locks' %}" title="Open Full Rules & Audit Dashboard" class="px-2.5 py-2 bg-rose-100 hover:bg-rose-200 text-rose-800 border-y border-r border-rose-200 rounded-r-xl text-xs font-bold transition flex items-center justify-center">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[11px]"></i>
+                </a>
+            </div>
+            {% endif %}
             <form method="GET" action="" class="flex items-center gap-2">
                 <label for="subject_filter" class="text-sm font-semibold text-gray-700 whitespace-nowrap">Filter by Subject:</label>
                 <select id="subject_filter" name="subject_id" onchange="this.form.submit()" class="px-3 py-2 border rounded-xl bg-white text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
@@ -29,21 +43,45 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {% for assignment in assignments %}
-        <a href="{% url 'assessments:mark_entry_grid' assignment.section.id assignment.subject.id %}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-indigo-300 transition-all block group">
+        <a href="{% url 'assessments:mark_entry_grid' assignment.section.id assignment.subject.id %}" class="bg-white rounded-xl shadow-xs border border-gray-200 p-6 hover:shadow-md hover:border-indigo-300 transition-all block group relative {% if assignment.is_locked %}border-l-4 border-l-rose-500{% endif %}">
             <div class="flex items-start justify-between mb-4">
                 <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                     <i class="fa-solid fa-book-open text-xl"></i>
                 </div>
-                {% if user.role != 'TEACHER' %}
-                <span class="text-xs font-medium bg-gray-100 text-gray-600 py-1 px-2 rounded-full">
-                    {{ assignment.teacher.user.get_full_name|default:assignment.teacher.user.username }}
-                </span>
-                {% endif %}
+                <div class="flex flex-col items-end gap-1.5">
+                    <div class="flex items-center gap-1.5">
+                        {% if assignment.is_locked %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200" title="{{ assignment.lock_reason }}">
+                            <i class="fa-solid fa-lock text-[10px]"></i> Locked
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <i class="fa-solid fa-lock-open text-[10px]"></i> Open
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if user.role != 'TEACHER' %}
+                    <span class="text-xs font-medium bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full">
+                        {{ assignment.teacher.user.get_full_name|default:assignment.teacher.user.username }}
+                    </span>
+                    {% endif %}
+                </div>
             </div>
             <h3 class="text-lg font-bold text-gray-900 mb-1">{{ assignment.subject.name }}</h3>
-            <p class="text-gray-500 text-sm font-medium mb-3">{{ assignment.section.grade.name }} - {{ assignment.section.name }}</p>
-            <div class="flex items-center text-sm text-indigo-600 font-medium mt-4 group-hover:text-indigo-700">
-                Enter Marks <i class="fa-solid fa-arrow-right ml-2 transform group-hover:translate-x-1 transition-transform"></i>
+            <p class="text-gray-500 text-sm font-medium mb-2">{{ assignment.section.grade.name }} - {{ assignment.section.name }}</p>
+            
+            {% if assignment.is_locked and assignment.lock_reason %}
+            <p class="text-xs text-rose-600 font-semibold truncate mb-2 flex items-center gap-1" title="{{ assignment.lock_reason }}">
+                <i class="fa-solid fa-circle-exclamation text-[11px] shrink-0"></i>
+                <span class="truncate">{{ assignment.lock_reason }}</span>
+            </p>
+            {% endif %}
+
+            <div class="flex items-center justify-between text-sm mt-4 pt-3 border-t border-gray-100 font-medium">
+                <span class="{% if assignment.is_locked %}text-gray-500{% else %}text-indigo-600 group-hover:text-indigo-700{% endif %}">
+                    {% if assignment.is_locked %}View Marks (Locked){% else %}Enter Marks{% endif %}
+                </span>
+                <i class="fa-solid {% if assignment.is_locked %}fa-eye text-gray-400{% else %}fa-arrow-right text-indigo-600 group-hover:translate-x-1{% endif %} transition-transform"></i>
             </div>
         </a>
         {% empty %}
@@ -55,4 +93,185 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- MARK ENTRY LOCKS INTERACTIVE MODAL -->
+<div id="locksModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-rose-600 to-amber-600 p-5 text-white flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-lg shadow-inner">
+                    <i class="fa-solid fa-lock"></i>
+                </span>
+                <div>
+                    <h3 class="text-base font-black tracking-tight">Mark Entry Locks Control</h3>
+                    <p class="text-xs text-white/80">Lock or unlock gradebook data entry by Grade, Subject, or Teacher</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeLocksModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+            <!-- 1. Quick Lock by Grade -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-graduation-cap text-indigo-600"></i> Lock / Unlock by Grade:
+                    </label>
+                    <span class="text-[11px] text-slate-400">Applies to all subjects & sections in that grade</span>
+                </div>
+                <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_type" value="grade">
+                    <select name="target_id" class="flex-1 px-3 py-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none" required>
+                        <option value="">-- Choose Grade Level --</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}">Grade {{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs shrink-0">
+                        <i class="fa-solid fa-bolt"></i> Toggle Grade Lock
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. Quick Lock by Subject -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-book text-emerald-600"></i> Lock / Unlock by Subject:
+                    </label>
+                    <span class="text-[11px] text-slate-400">Locks that specific subject across school</span>
+                </div>
+                <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_type" value="subject">
+                    <select name="target_id" class="flex-1 px-3 py-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none" required>
+                        <option value="">-- Choose Subject --</option>
+                        {% for sub in all_subjects|default:subjects %}
+                        <option value="{{ sub.id }}">{{ sub.name }} ({{ sub.code }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs shrink-0">
+                        <i class="fa-solid fa-bolt"></i> Toggle Subject Lock
+                    </button>
+                </form>
+            </div>
+
+            <!-- 3. Quick Lock by Teacher -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-chalkboard-user text-amber-600"></i> Lock / Unlock by Teacher:
+                    </label>
+                    <span class="text-[11px] text-slate-400">Restricts specific teacher from saving marks</span>
+                </div>
+                <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_type" value="teacher">
+                    <select name="target_id" class="flex-1 px-3 py-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-rose-500 focus:outline-none" required>
+                        <option value="">-- Choose Teacher --</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.get_full_name|default:t.username }} (@{{ t.username }})</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs shrink-0">
+                        <i class="fa-solid fa-bolt"></i> Toggle Teacher Lock
+                    </button>
+                </form>
+            </div>
+
+            <!-- Active Locks Section -->
+            <div class="border-t border-slate-200 pt-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halved text-rose-500"></i> Currently Active Locks ({{ total_active_locks|default:0 }})
+                    </h4>
+                    {% if total_active_locks > 0 %}
+                    <form method="POST" action="{% url 'assessments:manage_locks' %}" onsubmit="return confirm('Unlock ALL active locks across the school?');" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="unlock_all">
+                        <button type="submit" class="text-[11px] font-bold text-rose-600 hover:text-rose-800 underline">
+                            Unlock All
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+
+                {% if active_locks %}
+                <div class="space-y-2 max-h-48 overflow-y-auto">
+                    {% for l in active_locks %}
+                    <div class="flex items-center justify-between p-2.5 bg-rose-50/60 border border-rose-200 rounded-xl text-xs">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-lock text-rose-600"></i>
+                            <div>
+                                <span class="font-bold text-slate-800">
+                                    {% if l.grade %}Grade {{ l.grade.name }}{% endif %}
+                                    {% if l.subject %}Subject: {{ l.subject.name }}{% endif %}
+                                    {% if l.teacher %}Teacher: {{ l.teacher.get_full_name|default:l.teacher.username }}{% endif %}
+                                </span>
+                                {% if l.reason %}
+                                <span class="text-slate-500 text-[11px]">({{ l.reason }})</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <form method="POST" action="{% url 'assessments:toggle_mark_lock' l.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-[11px] font-bold transition flex items-center gap-1">
+                                <i class="fa-solid fa-lock-open text-[10px]"></i> Unlock
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-xs text-slate-500 italic bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+                    <i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> No active lock rules. All gradebooks are currently open for mark entry.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 p-4 border-t border-slate-100 flex items-center justify-between">
+            <a href="{% url 'assessments:manage_locks' %}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 underline underline-offset-2">
+                <i class="fa-solid fa-sliders"></i> Go to Full Lock Rules & Audit Trail &rarr;
+            </a>
+            <button type="button" onclick="closeLocksModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openLocksModal() {
+    const modal = document.getElementById('locksModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeLocksModal() {
+    const modal = document.getElementById('locksModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeLocksModal();
+    }
+});
+
+// Close when clicking modal backdrop
+document.getElementById('locksModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeLocksModal();
+    }
+});
+</script>
 {% endblock %}

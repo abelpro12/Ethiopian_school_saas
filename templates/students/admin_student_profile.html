@@ -21,6 +21,52 @@
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
     <!-- Profile Info -->
     <div class="col-span-1 md:col-span-1 space-y-6">
+        <!-- Student Photo & Identity Card -->
+        <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden flex flex-col items-center text-center">
+            <div class="absolute -right-10 -bottom-10 w-36 h-36 bg-purple-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+            <div class="relative group mb-3.5">
+                <div class="w-28 h-36 rounded-2xl overflow-hidden border-2 border-white/25 shadow-2xl bg-slate-800 flex items-center justify-center relative">
+                    {% if student.photo %}
+                    <img src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover">
+                    {% else %}
+                    <div class="flex flex-col items-center justify-center text-slate-400 p-2">
+                        <i class="fa-solid fa-user-tie text-4xl mb-1.5 text-slate-400"></i>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">No Photo</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <!-- Quick Upload Camera Icon Overlay -->
+                <button type="button" onclick="openModal('editStudentModal')" class="absolute -bottom-2 -right-2 bg-purple-600 hover:bg-purple-500 text-white w-9 h-9 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 border-2 border-slate-900" title="Upload or Change Passport Photo">
+                    <i class="fa-solid fa-camera text-xs"></i>
+                </button>
+            </div>
+
+            <h2 class="text-lg font-bold font-heading tracking-wide text-white">{{ student.full_name }}</h2>
+            {% if student.amharic_name %}
+            <p class="text-xs text-purple-200/90 font-medium font-amharic mt-0.5">{{ student.amharic_name }}</p>
+            {% endif %}
+            
+            <div class="flex items-center gap-1.5 mt-2.5">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/10 text-purple-200 border border-white/15">
+                    {{ student.student_id }}
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold {% if student.status == 'ACTIVE' %}bg-emerald-500/20 text-emerald-300 border border-emerald-500/30{% else %}bg-amber-500/20 text-amber-300 border border-amber-500/30{% endif %}">
+                    {{ student.get_status_display }}
+                </span>
+            </div>
+
+            <!-- Quick Action Links -->
+            <div class="w-full grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/10">
+                <button type="button" onclick="openModal('editStudentModal')" class="w-full py-2 px-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-camera text-purple-300"></i> Upload Photo
+                </button>
+                <a href="{% url 'official_transcript_html_view' student.id %}" target="_blank" class="w-full py-2 px-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-stamp"></i> Transcript
+                </a>
+            </div>
+        </div>
+
         <!-- Personal Details & Credentials -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center justify-between">
@@ -70,46 +116,115 @@
 
         <!-- Linked Guardians & Parent Credentials -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2 flex items-center justify-between">
-                <span>Linked Guardians</span>
-                <i class="fa-solid fa-users text-brand-600"></i>
-            </h2>
-            <ul class="space-y-4 text-sm">
-                {% for guardian_rel in student.guardianships.all %}
-                <li class="border border-slate-200/80 rounded-xl p-4 bg-slate-50/70 space-y-2">
-                    <div class="flex justify-between items-start">
-                        <p class="font-bold text-slate-900">{{ guardian_rel.parent.user.get_full_name|default:guardian_rel.parent.user.username }}</p>
-                        <span class="text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200/80 px-2 py-0.5 rounded-full">{{ guardian_rel.parent.relationship }}</span>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-3 mb-4 gap-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-users"></i>
                     </div>
-                    <p class="text-xs text-slate-600"><i class="fa-solid fa-phone text-slate-400 mr-1"></i> {{ guardian_rel.parent.phone }}</p>
-                    
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 leading-tight">Linked Guardians</h2>
+                        <p class="text-[11px] text-slate-400">Parents &amp; guardians linked to this student</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <button type="button" onclick="openModal('addParentModal')" class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold text-xs rounded-xl transition border border-brand-200 shadow-xs" title="Add a new parent user account">
+                        <i class="fa-solid fa-user-plus text-[11px]"></i> Add New Parent
+                    </button>
+                    <button type="button" onclick="openModal('linkParentModal')" class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition border border-slate-200 shadow-xs" title="Link an existing school parent">
+                        <i class="fa-solid fa-link text-[11px]"></i> Link Existing
+                    </button>
+                </div>
+            </div>
+
+            <ul class="space-y-4 text-sm">
+                {% for guardian_rel in guardianships %}
+                <li class="border border-slate-200 rounded-xl p-4 bg-slate-50/70 hover:bg-slate-50 transition space-y-3">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <p class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                {{ guardian_rel.parent.user.get_full_name|default:guardian_rel.parent.user.username }}
+                                {% if guardian_rel.is_primary %}
+                                <span class="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                    <i class="fa-solid fa-star text-[9px] text-emerald-500"></i> Primary Contact
+                                </span>
+                                {% endif %}
+                            </p>
+                            <div class="flex items-center gap-2 mt-1 text-xs text-slate-600">
+                                <span><i class="fa-solid fa-phone text-slate-400 mr-1"></i> <a href="tel:{{ guardian_rel.parent.phone }}" class="hover:text-brand-600 hover:underline font-mono">{{ guardian_rel.parent.phone }}</a></span>
+                                {% if guardian_rel.parent.user.email %}
+                                <span>•</span>
+                                <span><i class="fa-solid fa-envelope text-slate-400 mr-1"></i> {{ guardian_rel.parent.user.email }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <span class="text-[11px] font-bold bg-brand-50 text-brand-700 border border-brand-200/80 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                            {{ guardian_rel.parent.relationship }}
+                        </span>
+                    </div>
+
                     <!-- Parent Credentials Box -->
-                    <div class="mt-2 p-2.5 bg-white border border-slate-200 rounded-lg space-y-1.5 text-xs">
-                        <p class="text-[11px] font-bold text-slate-600 flex items-center">
-                            <i class="fa-solid fa-key text-amber-500 mr-1"></i>Parent Login Credentials
-                        </p>
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-500">Username:</span>
-                            <code class="bg-indigo-50 text-indigo-900 border border-indigo-200/80 px-1.5 py-0.5 rounded font-mono font-bold">{{ guardian_rel.parent.user.username }}</code>
+                    <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                        <div class="flex justify-between items-center text-[11px]">
+                            <span class="text-slate-600 font-bold flex items-center">
+                                <i class="fa-solid fa-key text-amber-500 mr-1"></i> Parent Login Credentials
+                            </span>
+                            <span class="text-[10px] text-slate-400 font-medium">Role: Parent/Guardian</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-slate-500">Password:</span>
-                            <span class="text-xs text-slate-500 italic">Hidden &mdash;
-                                <button type="button" onclick="openResetPasswordModal('PARENT')" class="text-brand-600 hover:underline font-bold">Reset Password</button>
+                            <span class="text-slate-500">Username:</span>
+                            <code class="bg-indigo-50 text-indigo-900 border border-indigo-200/80 px-2 py-0.5 rounded font-mono font-bold">{{ guardian_rel.parent.user.username }}</code>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500">Current Password:</span>
+                            {% if guardian_rel.parent.user.current_password %}
+                            <span class="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 rounded font-mono font-bold text-xs">
+                                🔑 {{ guardian_rel.parent.user.current_password }}
                             </span>
+                            {% else %}
+                            <span class="text-xs text-slate-500 italic">Protected</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Actions Bar for this Guardian -->
+                    <div class="flex items-center justify-between pt-1 gap-2 border-t border-slate-200/60 text-xs">
+                        <button type="button"
+                                onclick="openEditParentModal('{{ guardian_rel.parent.id }}', '{{ guardian_rel.id }}', '{{ guardian_rel.parent.user.first_name|escapejs }}', '{{ guardian_rel.parent.user.last_name|escapejs }}', '{{ guardian_rel.parent.phone|escapejs }}', '{{ guardian_rel.parent.relationship|escapejs }}', '{{ guardian_rel.parent.preferred_language|escapejs }}', '{{ guardian_rel.parent.user.email|escapejs }}', {{ guardian_rel.is_primary|yesno:'true,false' }})"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition">
+                            <i class="fa-solid fa-pen-to-square"></i> Edit Profile
+                        </button>
+                        
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="openResetPasswordModal('PARENT')" class="text-xs text-amber-600 hover:text-amber-800 font-bold px-2 py-1 hover:bg-amber-50 rounded transition">
+                                Reset Password
+                            </button>
+                            <form method="POST" action="{% url 'students:admin_profile' student.id %}" onsubmit="return confirm('Are you sure you want to unlink {{ guardian_rel.parent.user.get_full_name|default:guardian_rel.parent.user.username|escapejs }} from {{ student.full_name|escapejs }}? The parent account will remain registered in the school.');" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unlink_parent">
+                                <input type="hidden" name="guardianship_id" value="{{ guardian_rel.id }}">
+                                <button type="submit" class="text-xs text-red-600 hover:text-red-800 font-bold px-2 py-1 hover:bg-red-50 rounded transition" title="Unlink this guardian from this student">
+                                    <i class="fa-solid fa-unlink"></i> Unlink
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </li>
                 {% empty %}
-                <div class="border border-amber-200 bg-amber-50/60 rounded-xl p-4 text-xs text-amber-900 space-y-2">
-                    <p class="font-bold">Auto-Linked Parent Account:</p>
-                    <div class="flex justify-between items-center">
-                        <span class="text-amber-800">Username:</span>
-                        <code class="bg-white border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">p_{{ student.student_id|lower }}</code>
+                <div class="border border-slate-200 border-dashed rounded-xl p-6 text-center text-slate-500 bg-slate-50/50 space-y-3">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
+                        <i class="fa-solid fa-users-slash"></i>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-amber-800">Initial Password:</span>
-                        <code class="bg-white border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold text-amber-900">parent123</code>
+                    <div>
+                        <p class="font-bold text-slate-700 text-sm">No Parent or Guardian Linked</p>
+                        <p class="text-xs text-slate-400 mt-0.5">This student currently has no guardian connected to their profile.</p>
+                    </div>
+                    <div class="flex items-center justify-center gap-2 pt-1">
+                        <button type="button" onclick="openModal('addParentModal')" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-plus"></i> Add New Parent
+                        </button>
+                        <button type="button" onclick="openModal('linkParentModal')" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs rounded-xl transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-link"></i> Link Existing Parent
+                        </button>
                     </div>
                 </div>
                 {% endfor %}
@@ -228,8 +343,11 @@
                             </a>
                         </div>
                     </div>
-                    <a href="{% url 'download_transcript_pdf' student.id %}" class="px-3 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors flex items-center gap-1.5">
-                        <i class="fa-solid fa-graduation-cap"></i> Official Transcript
+                    <a href="{% url 'official_transcript_html_view' student.id %}" target="_blank" class="px-3 py-1.5 bg-brand-600 text-white rounded-lg text-sm font-semibold hover:bg-brand-700 transition-colors flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-graduation-cap"></i> Official Transcript (Print)
+                    </a>
+                    <a href="{% url 'download_transcript_pdf' student.id %}" class="px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-colors flex items-center gap-1" title="Download Direct PDF">
+                        <i class="fa-solid fa-file-pdf text-red-500"></i> PDF
                     </a>
                 </div>
             </div>
@@ -356,59 +474,125 @@
 
 <!-- Modal: Edit Student Profile -->
 <div id="editStudentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-white max-w-lg w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center border-b pb-3">
-            <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center gap-2">
-                <i class="fa-solid fa-user-pen text-purple-600"></i> Edit Student Profile
-            </h3>
-            <button type="button" onclick="closeModal('editStudentModal')" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+    <div class="bg-white max-w-2xl w-full p-6 sm:p-7 rounded-3xl shadow-2xl space-y-5 max-h-[92vh] overflow-y-auto">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3.5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center text-base shadow-sm">
+                    <i class="fa-solid fa-user-pen"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 font-heading">Edit Student Profile</h3>
+                    <p class="text-xs text-slate-500">Update identity, passport photo, and academic demographic records</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeModal('editStudentModal')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition">✕</button>
         </div>
-        <form method="POST" action="{% url 'students:admin_profile' student.id %}" enctype="multipart/form-data" class="space-y-4 text-xs">
+
+        <form method="POST" action="{% url 'students:admin_profile' student.id %}" enctype="multipart/form-data" class="space-y-5 text-xs">
             {% csrf_token %}
             <input type="hidden" name="action" value="edit_profile">
 
+            <!-- HERO PHOTO UPLOAD SECTION -->
+            <div class="p-4 bg-gradient-to-r from-purple-50/80 via-indigo-50/40 to-slate-50 border border-purple-100/90 rounded-2xl flex flex-col sm:flex-row items-center sm:items-start gap-4">
+                <!-- Passport Photo Frame Preview -->
+                <div class="w-24 h-32 rounded-xl overflow-hidden border-2 border-purple-300 shadow-md bg-white flex-shrink-0 flex items-center justify-center relative">
+                    {% if student.photo %}
+                    <img id="studentPhotoPreview" src="{{ student.photo.url }}" alt="{{ student.full_name }}" class="w-full h-full object-cover">
+                    <div id="studentPhotoPlaceholder" class="hidden flex flex-col items-center justify-center text-slate-400 p-2">
+                        <i class="fa-solid fa-camera text-2xl text-purple-400 mb-1"></i>
+                        <span class="text-[8px] font-bold uppercase tracking-wider text-purple-600">No Photo</span>
+                    </div>
+                    {% else %}
+                    <img id="studentPhotoPreview" src="" alt="Photo Preview" class="w-full h-full object-cover hidden">
+                    <div id="studentPhotoPlaceholder" class="flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                        <i class="fa-solid fa-camera text-2xl text-purple-400 mb-1"></i>
+                        <span class="text-[8px] font-bold uppercase tracking-wider text-purple-600">No Photo</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Upload Trigger & Instructions -->
+                <div class="flex-grow flex flex-col justify-between text-center sm:text-left h-full">
+                    <div>
+                        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                            <h4 class="font-bold text-slate-900 text-sm">Official Passport Photo</h4>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">Required for Transcript</span>
+                        </div>
+                        <p class="text-slate-500 text-[11px] leading-relaxed mb-3">
+                            Upload student's formal passport photo. It automatically appears on their official transcript, student ID card, and academic reports.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                        <input type="file" id="studentPhotoInput" name="photo" accept="image/jpeg,image/png,image/webp" onchange="previewStudentPhoto(this)" class="hidden">
+                        <label for="studentPhotoInput" class="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-sm hover:shadow">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Choose Passport Photo
+                        </label>
+                        <span id="studentPhotoFilename" class="text-xs font-mono text-purple-700 bg-purple-100/70 border border-purple-200 px-2 py-1 rounded-lg hidden truncate max-w-[220px]"></span>
+
+                        {% if student.photo %}
+                        <label class="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 cursor-pointer font-semibold py-1 px-2 rounded-lg hover:bg-rose-50 transition">
+                            <input type="checkbox" name="remove_photo" value="1" class="rounded text-rose-600 border-slate-300 focus:ring-rose-500">
+                            <span>Remove Photo</span>
+                        </label>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- STUDENT IDENTIFIER -->
             <div>
-                <label class="block font-semibold text-slate-700 mb-1">Student ID / Code</label>
-                <input type="text" value="{{ student.student_id }}" readonly class="w-full px-3 py-2 bg-slate-100 border rounded-xl font-mono text-xs text-slate-600 font-bold">
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">First Name *</label>
-                    <input type="text" name="first_name" required value="{{ student.first_name }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Father's Name *</label>
-                    <input type="text" name="middle_name" required value="{{ student.middle_name }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Grandfather's Name</label>
-                    <input type="text" name="last_name" value="{{ student.last_name }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                <label class="block font-bold text-slate-700 mb-1">Student Identification Code</label>
+                <div class="flex items-center">
+                    <span class="inline-flex items-center px-3 py-2 rounded-l-xl border border-r-0 border-slate-200 bg-slate-50 text-slate-500 font-mono text-xs">ID</span>
+                    <input type="text" value="{{ student.student_id }}" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-r-xl font-mono text-xs text-slate-700 font-bold focus:outline-none">
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <!-- FULL NAMES (ENGLISH) -->
+            <div class="space-y-1">
+                <label class="block font-bold text-slate-700">Full Name (English) *</label>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                        <input type="text" name="first_name" required value="{{ student.first_name }}" placeholder="First Name *" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-medium">
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Student's Name</span>
+                    </div>
+                    <div>
+                        <input type="text" name="middle_name" required value="{{ student.middle_name }}" placeholder="Father's Name *" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-medium">
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Father's Name</span>
+                    </div>
+                    <div>
+                        <input type="text" name="last_name" value="{{ student.last_name }}" placeholder="Grandfather's Name" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-medium">
+                        <span class="text-[10px] text-slate-400 mt-0.5 block">Grandfather's Name</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AMHARIC NAME & GENDER -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Amharic Full Name (ፊደል)</label>
-                    <input type="text" name="amharic_name" value="{{ student.amharic_name|default:'' }}" placeholder="e.g. አበበ ጊርማ" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-medium">
+                    <label class="block font-bold text-slate-700 mb-1">Amharic Full Name (የተማሪው ሙሉ ስም በፊደል)</label>
+                    <input type="text" name="amharic_name" value="{{ student.amharic_name|default:'' }}" placeholder="ምሳሌ፡ አበበ ግርማ በቀለ" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-medium font-amharic">
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Gender</label>
-                    <select name="gender" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-bold">
+                    <label class="block font-bold text-slate-700 mb-1">Gender</label>
+                    <select name="gender" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-bold bg-white">
                         <option value="M" {% if student.gender == 'M' %}selected{% endif %}>Male (M)</option>
                         <option value="F" {% if student.gender == 'F' %}selected{% endif %}>Female (F)</option>
                     </select>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <!-- DATE OF BIRTH & LIFECYCLE STATUS -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Date of Birth</label>
-                    <input type="date" name="date_of_birth" value="{{ student.date_of_birth|date:'Y-m-d' }}" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <label class="block font-bold text-slate-700 mb-1">Date of Birth</label>
+                    <input type="date" name="date_of_birth" value="{{ student.date_of_birth|date:'Y-m-d' }}" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Lifecycle Status</label>
-                    <select name="status" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-bold">
+                    <label class="block font-bold text-slate-700 mb-1">Lifecycle Status</label>
+                    <select name="status" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-bold bg-white">
                         <option value="ACTIVE" {% if student.status == 'ACTIVE' %}selected{% endif %}>Active</option>
                         <option value="PROMOTED" {% if student.status == 'PROMOTED' %}selected{% endif %}>Promoted</option>
                         <option value="RETAINED" {% if student.status == 'RETAINED' %}selected{% endif %}>Retained (Repeating)</option>
@@ -418,40 +602,47 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <!-- CONTACT & NATIONAL ID -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Phone Number</label>
-                    <input type="text" name="phone" value="{{ student.phone|default:'' }}" placeholder="+2519..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono">
+                    <label class="block font-bold text-slate-700 mb-1">Phone Number</label>
+                    <input type="text" name="phone" value="{{ student.phone|default:'' }}" placeholder="+251 9..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-mono">
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">National / Fayda ID</label>
-                    <input type="text" name="national_id" value="{{ student.national_id|default:'' }}" placeholder="ETH-..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono">
+                    <label class="block font-bold text-slate-700 mb-1">National / Fayda ID (ፋይዳ ቁጥር)</label>
+                    <input type="text" name="national_id" value="{{ student.national_id|default:'' }}" placeholder="ETH-..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none font-mono">
                 </div>
             </div>
 
+            <!-- ADDRESS DETAILS -->
             <div>
-                <label class="block font-semibold text-slate-700 mb-1">Address / Location</label>
-                <input type="text" name="address" value="{{ student.address|default:'' }}" placeholder="City, Subcity, House No..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                <label class="block font-bold text-slate-700 mb-1">Address / Location</label>
+                <input type="text" name="address" value="{{ student.address|default:'' }}" placeholder="City, Subcity, House No..." class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 focus:outline-none">
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Region</label>
-                    <input type="text" name="region" value="{{ student.region|default:'' }}" placeholder="Addis Ababa" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <label class="block font-bold text-slate-700 mb-1">Region</label>
+                    <input type="text" name="region" value="{{ student.region|default:'' }}" placeholder="Addis Ababa" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Woreda</label>
-                    <input type="text" name="woreda" value="{{ student.woreda|default:'' }}" placeholder="Bole" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <label class="block font-bold text-slate-700 mb-1">Woreda</label>
+                    <input type="text" name="woreda" value="{{ student.woreda|default:'' }}" placeholder="Bole" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Kebele</label>
-                    <input type="text" name="kebele" value="{{ student.kebele|default:'' }}" placeholder="03" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <label class="block font-bold text-slate-700 mb-1">Kebele</label>
+                    <input type="text" name="kebele" value="{{ student.kebele|default:'' }}" placeholder="03" class="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none">
                 </div>
             </div>
 
-            <div class="pt-3 flex justify-end space-x-2">
-                <button type="button" onclick="closeModal('editStudentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow">Save Changes</button>
+            <!-- MODAL ACTIONS -->
+            <div class="pt-3 border-t border-slate-100 flex justify-end items-center gap-2.5">
+                <button type="button" onclick="closeModal('editStudentModal')" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md shadow-purple-600/25 transition-all hover:shadow-lg flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Changes
+                </button>
             </div>
         </form>
     </div>
@@ -492,12 +683,279 @@
     </div>
 </div>
 
+<!-- Modal: Add New Parent/Guardian -->
+<div id="addParentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-lg w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center">
+                    <i class="fa-solid fa-user-plus text-brand-600 mr-2"></i>Add New Parent / Guardian
+                </h3>
+                <p class="text-xs text-slate-500 font-medium">Create a new parent account and link to {{ student.full_name }}</p>
+            </div>
+            <button onclick="closeModal('addParentModal')" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+        <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="space-y-3.5 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add_parent">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                    <input type="text" name="first_name" required value="{{ student.middle_name|default:'' }}" placeholder="e.g. Derege" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Last Name / Grandfather</label>
+                    <input type="text" name="last_name" value="{{ student.last_name|default:'' }}" placeholder="e.g. Ababu" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
+                    <input type="text" name="phone" required placeholder="+251 9..." class="w-full px-3 py-2 border rounded-xl font-mono focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Relationship</label>
+                    <select name="relationship" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white font-medium">
+                        <option value="Father">Father</option>
+                        <option value="Mother">Mother</option>
+                        <option value="Legal Guardian">Legal Guardian</option>
+                        <option value="Grandparent">Grandparent</option>
+                        <option value="Uncle">Uncle</option>
+                        <option value="Aunt">Aunt</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Preferred Language</label>
+                    <select name="preferred_language" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none bg-white">
+                        <option value="am">Amharic (አማርኛ)</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Email (Optional)</label>
+                    <input type="email" name="email" placeholder="parent@example.com" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <p class="font-bold text-slate-700 flex items-center text-[11px]">
+                    <i class="fa-solid fa-shield-halved text-brand-500 mr-1.5"></i>Login Credentials (Auto-Generated if Blank)
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] text-slate-500 mb-0.5">Username (Optional)</label>
+                        <input type="text" name="username" placeholder="e.g. p_{{ student.student_id|lower }}" class="w-full px-2.5 py-1.5 border rounded-lg font-mono text-xs bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-500 mb-0.5">Password</label>
+                        <input type="text" name="password" value="parent123" class="w-full px-2.5 py-1.5 border rounded-lg font-mono text-xs bg-white">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" id="addIsPrimary" name="is_primary" checked class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                <label for="addIsPrimary" class="text-xs font-semibold text-slate-700">Set as Primary Guardian / Emergency Contact</label>
+            </div>
+
+            <div class="pt-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="closeModal('addParentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> Create & Link Parent
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Link Existing Parent -->
+<div id="linkParentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center">
+                    <i class="fa-solid fa-link text-indigo-600 mr-2"></i>Link Existing School Parent
+                </h3>
+                <p class="text-xs text-slate-500 font-medium">Link a registered parent or sibling's guardian to {{ student.full_name }}</p>
+            </div>
+            <button onclick="closeModal('linkParentModal')" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+        <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="link_existing_parent">
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Select Parent / Guardian <span class="text-red-500">*</span></label>
+                <select name="parent_id" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium text-xs">
+                    <option value="">-- Choose Existing Parent --</option>
+                    {% for p in all_parents %}
+                    <option value="{{ p.id }}">{{ p.user.get_full_name|default:p.user.username }} — {{ p.phone }} ({{ p.relationship }})</option>
+                    {% endfor %}
+                </select>
+                <p class="text-[11px] text-slate-400 mt-1">Single login account can manage multiple children/siblings across the school.</p>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Relationship to this Student</label>
+                <select name="relationship" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium">
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Legal Guardian">Legal Guardian</option>
+                    <option value="Grandparent">Grandparent</option>
+                    <option value="Uncle">Uncle</option>
+                    <option value="Aunt">Aunt</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" id="linkIsPrimary" name="is_primary" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <label for="linkIsPrimary" class="text-xs font-semibold text-slate-700">Set as Primary Contact for this student</label>
+            </div>
+
+            <div class="pt-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="closeModal('linkParentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-link"></i> Link Parent
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Guardian / Parent Profile -->
+<div id="editParentModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-white max-w-lg w-full p-6 rounded-2xl shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center border-b pb-3">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900 font-heading flex items-center">
+                    <i class="fa-solid fa-user-pen text-indigo-600 mr-2"></i>Edit Guardian Profile
+                </h3>
+                <p class="text-xs text-slate-500 font-medium">Update parent/guardian details for <span id="editParentFullName" class="font-bold text-slate-800"></span></p>
+            </div>
+            <button onclick="closeModal('editParentModal')" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+        </div>
+        <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="space-y-3.5 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_parent">
+            <input type="hidden" id="editParentId" name="parent_id">
+            <input type="hidden" id="editGuardianshipId" name="guardianship_id">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="editParentFirstName" name="first_name" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Last Name</label>
+                    <input type="text" id="editParentLastName" name="last_name" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
+                    <input type="text" id="editParentPhone" name="phone" required class="w-full px-3 py-2 border rounded-xl font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Relationship</label>
+                    <select id="editParentRelationship" name="relationship" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium">
+                        <option value="Father">Father</option>
+                        <option value="Mother">Mother</option>
+                        <option value="Legal Guardian">Legal Guardian</option>
+                        <option value="Grandparent">Grandparent</option>
+                        <option value="Uncle">Uncle</option>
+                        <option value="Aunt">Aunt</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Preferred Language</label>
+                    <select id="editParentLanguage" name="preferred_language" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                        <option value="am">Amharic (አማርኛ)</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Email</label>
+                    <input type="email" id="editParentEmail" name="email" placeholder="parent@example.com" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Change Password (Leave blank to keep unchanged)</label>
+                <input type="text" name="new_password" placeholder="Enter new password (min. 6 chars)..." class="w-full px-3 py-2 border rounded-xl font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" id="editParentIsPrimary" name="is_primary" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <label for="editParentIsPrimary" class="text-xs font-semibold text-slate-700">Primary Contact for {{ student.first_name }}</label>
+            </div>
+
+            <div class="pt-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="closeModal('editParentModal')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-floppy-disk"></i> Save Guardian Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 function openResetPasswordModal(targetType) {
     if (targetType) {
         document.getElementById('resetTargetType').value = targetType;
     }
     openModal('resetPasswordModal');
+}
+
+function openEditParentModal(parentId, guardianshipId, firstName, lastName, phone, relationship, language, email, isPrimary) {
+    document.getElementById('editParentId').value = parentId || '';
+    document.getElementById('editGuardianshipId').value = guardianshipId || '';
+    document.getElementById('editParentFirstName').value = firstName || '';
+    document.getElementById('editParentLastName').value = lastName || '';
+    document.getElementById('editParentPhone').value = phone || '';
+    document.getElementById('editParentRelationship').value = relationship || 'Father';
+    document.getElementById('editParentLanguage').value = language || 'am';
+    document.getElementById('editParentEmail').value = email || '';
+    document.getElementById('editParentIsPrimary').checked = !!isPrimary;
+    const nameDisplay = (firstName + ' ' + lastName).trim() || 'Parent';
+    document.getElementById('editParentFullName').textContent = nameDisplay;
+    openModal('editParentModal');
+}
+
+function previewStudentPhoto(input) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('studentPhotoPreview');
+            const placeholder = document.getElementById('studentPhotoPlaceholder');
+            const filenameEl = document.getElementById('studentPhotoFilename');
+            if (preview) {
+                preview.src = e.target.result;
+                preview.classList.remove('hidden');
+            }
+            if (placeholder) {
+                placeholder.classList.add('hidden');
+            }
+            if (filenameEl) {
+                filenameEl.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+                filenameEl.classList.remove('hidden');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
 }
 </script>
 {% endblock %}

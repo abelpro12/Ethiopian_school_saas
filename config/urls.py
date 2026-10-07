@@ -37,6 +37,9 @@ urlpatterns = [
     path('attendance/', include('apps.attendance.urls', namespace='attendance')),
     path('hr/', include('apps.hr.urls', namespace='hr')),
     path('timetable/', include('apps.timetable.urls', namespace='timetable')),
+    path('video-calls/', include('apps.video_calls.urls', namespace='video_calls')),
+    path('examinations/', include('apps.examinations.urls', namespace='examinations')),
+    path('audit/', include('apps.audit.urls', namespace='audit')),
 ]
 
 if settings.DEBUG:

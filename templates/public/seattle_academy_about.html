@@ -1,0 +1,1039 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About Us — Seattle Academy | 25 Years of Educational Excellence in Addis Ababa</title>
+    <meta name="description" content="Discover Seattle Academy's 25-year history, mission, vision, core values, and our commitment to educational and STEM excellence from Kindergarten to High School in Addis Ababa, Ethiopia.">
+    <link rel="icon" type="image/png" href="{% static 'images/seattle_academy_logo.png' %}">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome 6 Pro/Free -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Tailwind CSS (Play CDN for rapid ultra-rich design) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        saBlue: {
+                            50:  '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#002D62', /* Seattle Official Dark Navy */
+                            700: '#002047',
+                            800: '#001633',
+                            900: '#000c1e',
+                        },
+                        saOrange: {
+                            400: '#fb923c',
+                            500: '#FF7900', /* Seattle Vibrant Orange */
+                            600: '#ea580c',
+                            700: '#c2410c',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                        mono: ['Space Grotesk', 'monospace'],
+                    },
+                    animation: {
+                        'float-slow': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 3s infinite',
+                        'pulse-glow': 'pulseGlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shimmer': 'shimmer 2.5s infinite linear',
+                        'spin-slow': 'spin 20s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-12px)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.6', transform: 'scale(1)' },
+                            '50%': { opacity: '1', transform: 'scale(1.05)' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Ethiopian National Stripe */
+        .eth-stripe {
+            background: linear-gradient(90deg, #078930 33.3%, #FCDD09 33.3% 66.6%, #DA121A 66.6%);
+            height: 3px;
+        }
+
+        /* Glassmorphism & Shadows */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .glass-dark {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .header-shadow {
+            box-shadow: 0 4px 25px -4px rgba(0, 45, 98, 0.1);
+        }
+
+        /* Navigation Underline Slider */
+        .nav-link {
+            position: relative;
+            transition: color 0.2s ease;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2.5px;
+            background: #FF7900;
+            border-radius: 9999px;
+            transition: width 0.25s ease;
+        }
+        .nav-link:hover::after, .nav-link.active::after {
+            width: 100%;
+        }
+
+        /* Gradient Text Helper */
+        .gradient-text-blue {
+            background: linear-gradient(135deg, #002D62 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gradient-text-orange {
+            background: linear-gradient(135deg, #FF7900 0%, #fb923c 50%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 3D Tilt Card Base */
+        .tilt-card {
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+            transform-style: preserve-3d;
+        }
+        .tilt-card:hover {
+            transform: translateY(-8px) scale(1.01);
+            box-shadow: 0 20px 40px -15px rgba(0, 45, 98, 0.15);
+        }
+
+        /* Scroll Reveal Utility */
+        .reveal-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reveal-up.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Timeline Animated Line */
+        .timeline-container {
+            position: relative;
+        }
+        .timeline-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            background: linear-gradient(180deg, #3b82f6 0%, #002D62 50%, #FF7900 100%);
+            transform: translateX(-50%);
+            border-radius: 9999px;
+        }
+        @media (max-width: 768px) {
+            .timeline-container::before {
+                left: 28px;
+            }
+        }
+
+        /* Glowing Pulse Node */
+        .glowing-node {
+            box-shadow: 0 0 0 0 rgba(255, 121, 0, 0.7);
+            animation: nodePulse 2s infinite;
+        }
+        @keyframes nodePulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(255, 121, 0, 0.7);
+            }
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 12px rgba(255, 121, 0, 0);
+            }
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(255, 121, 0, 0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen selection:bg-saOrange-500 selection:text-white">
+
+    <!-- TOP BAR -->
+    <div class="bg-slate-950 text-white text-xs py-2.5 px-4 border-b border-slate-800 z-50 relative">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-saOrange-500/20 text-saOrange-400 font-bold text-[11px] border border-saOrange-500/30">
+                    <span class="w-2 h-2 rounded-full bg-saOrange-400 animate-pulse"></span> Silver Jubilee • 25 Years of Excellence
+                </span>
+                <span class="text-slate-300 text-[11px] font-medium hidden md:inline">
+                    🎓 Seattle Academy — Shaping Future Leaders from Kindergarten to High School.
+                </span>
+            </div>
+            <div class="flex items-center gap-5 text-[11px] text-slate-300 font-medium">
+                <a href="tel:+251937381801" class="hover:text-saOrange-400 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-phone text-saOrange-500"></i> +251 937 381 801
+                </a>
+                <span class="text-slate-700">|</span>
+                <a href="mailto:info@seattleacademy.edu.et" class="hover:text-saOrange-400 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-envelope text-saOrange-500"></i> info@seattleacademy.edu.et
+                </a>
+                <span class="text-slate-700">|</span>
+                <a href="{% url 'seattle_academy_login' %}" class="text-saOrange-400 hover:text-saOrange-300 font-bold flex items-center gap-1">
+                    <i class="fa-solid fa-user-lock"></i> Portal Login
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN HEADER -->
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md header-shadow transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo Badge -->
+                <a href="{% url 'seattle_academy_home' %}" class="flex items-center gap-3.5 group">
+                    <div class="w-12 h-12 rounded-2xl bg-white p-1 shadow-md border border-slate-100 group-hover:scale-105 transition transform flex items-center justify-center overflow-hidden">
+                        <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <span class="font-heading font-extrabold text-xl sm:text-2xl tracking-tight text-saBlue-600 group-hover:text-saBlue-700 transition">Seattle Academy</span>
+                        <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase hidden sm:block">Kindergarten to High School • 3,000+ Students</p>
+                    </div>
+                </a>
+
+                <!-- Desktop Nav Items -->
+                <nav class="hidden md:flex items-center gap-8 lg:gap-10 text-[15px] font-bold text-slate-800">
+                    <a href="{% url 'seattle_academy_home' %}" id="nav-home" class="nav-link hover:text-saBlue-600">Home</a>
+                    <a href="{% url 'seattle_academy_about' %}" id="nav-about" class="nav-link active text-saBlue-600 font-extrabold">About Us</a>
+                    <a href="{% url 'seattle_academy_home' %}#academics" id="nav-academics" class="nav-link hover:text-saBlue-600">Academics</a>
+                    <a href="{% url 'seattle_academy_news_gallery' %}" id="nav-news" class="nav-link hover:text-saBlue-600">News &amp; Events</a>
+                    <a href="{% url 'seattle_academy_news_gallery' %}#gallery" id="nav-gallery" class="nav-link hover:text-saBlue-600">Gallery</a>
+                    <a href="{% url 'seattle_academy_home' %}#contact" id="nav-contact" class="nav-link hover:text-saBlue-600">Contact</a>
+                </nav>
+
+                <!-- Desktop Action Button + Mobile Menu Toggle -->
+                <div class="flex items-center gap-3">
+                    <a href="{% url 'seattle_academy_login' %}" 
+                       class="hidden md:inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 hover:from-saBlue-700 hover:to-saBlue-800 text-white font-bold text-xs shadow-lg shadow-saBlue-600/30 transition hover:scale-105 active:scale-95">
+                        <i class="fa-solid fa-lock text-saOrange-400"></i>
+                        Portal Sign In
+                    </a>
+                    <button id="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Open navigation menu"
+                        class="md:hidden flex flex-col justify-center items-center w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 transition gap-1.5">
+                        <span id="burger-line-1" class="w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 origin-center"></span>
+                        <span id="burger-line-2" class="w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300"></span>
+                        <span id="burger-line-3" class="w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 origin-center"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="eth-stripe"></div>
+
+        <!-- Mobile Nav Drawer -->
+        <div id="mobile-nav" class="md:hidden overflow-hidden max-h-0 transition-all duration-500 ease-in-out bg-white border-t border-slate-100">
+            <nav class="px-4 py-4 space-y-1">
+                <a href="{% url 'seattle_academy_home' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-house text-saBlue-400 w-4 text-center"></i> Home
+                </a>
+                <a href="{% url 'seattle_academy_about' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-saBlue-50 text-saBlue-600 font-extrabold text-sm transition">
+                    <i class="fa-solid fa-circle-info text-saBlue-600 w-4 text-center"></i> About Us
+                </a>
+                <a href="{% url 'seattle_academy_home' %}#academics" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-graduation-cap text-saBlue-400 w-4 text-center"></i> Academics
+                </a>
+                <a href="{% url 'seattle_academy_news_gallery' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-newspaper text-saBlue-400 w-4 text-center"></i> News &amp; Events
+                </a>
+                <a href="{% url 'seattle_academy_news_gallery' %}#gallery" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-images text-saBlue-400 w-4 text-center"></i> Gallery
+                </a>
+                <a href="{% url 'seattle_academy_home' %}#contact" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-phone text-saBlue-400 w-4 text-center"></i> Contact
+                </a>
+                <div class="pt-3 pb-1">
+                    <a href="{% url 'seattle_academy_login' %}" 
+                       class="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 text-white font-extrabold text-sm shadow-lg shadow-saBlue-600/25 transition active:scale-95">
+                        <i class="fa-solid fa-right-to-bracket text-saOrange-400"></i> Student &amp; Parent Portal
+                    </a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- HERO SECTION WITH INTERACTIVE PARTICLE CANVAS -->
+    <section class="relative py-24 bg-gradient-to-b from-slate-950 via-saBlue-900 to-saBlue-700 text-white overflow-hidden">
+        <!-- Interactive Knowledge & STEM Node Canvas -->
+        <canvas id="aboutHeroCanvas" class="absolute inset-0 pointer-events-none opacity-40 z-0"></canvas>
+
+        <!-- Ambient Glowing Orbs -->
+        <div class="absolute inset-0 pointer-events-none overflow-hidden">
+            <div class="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full bg-saOrange-500/20 blur-[120px] animate-float-slow"></div>
+            <div class="absolute top-1/3 -right-20 w-[450px] h-[450px] rounded-full bg-blue-500/25 blur-[120px] animate-float-delayed"></div>
+            <div class="absolute -bottom-20 left-1/3 w-[400px] h-[400px] rounded-full bg-emerald-500/15 blur-[100px]"></div>
+        </div>
+
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            
+            <!-- Animated Badge -->
+            <div class="inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-white/10 backdrop-blur-md text-saOrange-300 text-xs font-bold mb-6 border border-white/20 shadow-lg animate-pulse-glow">
+                <i class="fa-solid fa-crown text-saOrange-400 text-sm"></i>
+                <span>25+ Years of Educational Leadership in Addis Ababa</span>
+            </div>
+            
+            <!-- Main Title with Shimmer Glow -->
+            <h1 class="font-heading font-black text-5xl sm:text-7xl lg:text-8xl text-white tracking-tight leading-[1.1] max-w-5xl mx-auto">
+                About <span class="bg-gradient-to-r from-saOrange-400 via-amber-300 to-saOrange-500 bg-clip-text text-transparent drop-shadow-sm">Us</span>
+            </h1>
+
+            <p class="mt-6 text-xl sm:text-2xl text-blue-100 max-w-3xl mx-auto font-medium leading-relaxed">
+                Learn about our history, mission, and commitment to excellence
+            </p>
+
+            <!-- Interactive Metrics Counter Strip -->
+            <div class="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 max-w-5xl mx-auto">
+                
+                <div class="p-6 rounded-3xl bg-white/10 backdrop-blur-lg border border-white/15 hover:border-saOrange-400/60 transition-all duration-300 group hover:-translate-y-1 shadow-xl">
+                    <div class="w-10 h-10 rounded-xl bg-saOrange-500/20 text-saOrange-400 flex items-center justify-center mx-auto mb-3 text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+                    <span class="font-heading font-black text-3xl sm:text-5xl text-white block">
+                        <span class="counter" data-target="25">0</span><span class="text-saOrange-400">+</span>
+                    </span>
+                    <span class="text-xs font-extrabold text-blue-200 tracking-wider uppercase mt-1 block">Years of Excellence</span>
+                </div>
+
+                <div class="p-6 rounded-3xl bg-white/10 backdrop-blur-lg border border-white/15 hover:border-saOrange-400/60 transition-all duration-300 group hover:-translate-y-1 shadow-xl">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center mx-auto mb-3 text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
+                    <span class="font-heading font-black text-3xl sm:text-5xl text-saOrange-400 block">
+                        <span class="counter" data-target="3000">0</span><span class="text-white">+</span>
+                    </span>
+                    <span class="text-xs font-extrabold text-blue-200 tracking-wider uppercase mt-1 block">Enrolled Students</span>
+                </div>
+
+                <div class="p-6 rounded-3xl bg-white/10 backdrop-blur-lg border border-white/15 hover:border-saOrange-400/60 transition-all duration-300 group hover:-translate-y-1 shadow-xl">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center mx-auto mb-3 text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-chalkboard-user"></i>
+                    </div>
+                    <span class="font-heading font-black text-3xl sm:text-5xl text-white block">
+                        <span class="counter" data-target="100">0</span><span class="text-emerald-400">+</span>
+                    </span>
+                    <span class="text-xs font-extrabold text-blue-200 tracking-wider uppercase mt-1 block">Qualified Faculty</span>
+                </div>
+
+                <div class="p-6 rounded-3xl bg-white/10 backdrop-blur-lg border border-white/15 hover:border-saOrange-400/60 transition-all duration-300 group hover:-translate-y-1 shadow-xl">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center mx-auto mb-3 text-lg group-hover:scale-110 transition">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+                    <span class="font-heading font-black text-3xl sm:text-5xl text-emerald-400 block">
+                        <span class="counter" data-target="100">0</span><span class="text-white">%</span>
+                    </span>
+                    <span class="text-xs font-extrabold text-blue-200 tracking-wider uppercase mt-1 block">EUEE Exam Pass Rate</span>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 1: WELCOME TO SEATTLE ACADEMY -->
+    <section class="py-24 bg-white relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+                
+                <!-- Left Text Column -->
+                <div class="lg:col-span-7 space-y-6 reveal-up">
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-saBlue-50 text-saBlue-600 text-xs font-extrabold border border-saBlue-100 shadow-sm">
+                        <i class="fa-solid fa-graduation-cap text-saOrange-500"></i> A Quarter-Century of Academic Distinction
+                    </div>
+
+                    <h2 class="font-heading font-black text-3xl sm:text-5xl text-slate-900 tracking-tight leading-tight">
+                        Welcome to <span class="gradient-text-blue">Seattle Academy</span>
+                    </h2>
+
+                    <div class="text-slate-600 text-base sm:text-lg leading-relaxed space-y-5">
+                        <p class="font-medium text-slate-800 text-lg sm:text-xl leading-relaxed border-l-4 border-saOrange-500 pl-4 bg-orange-50/50 py-2 rounded-r-xl">
+                            Seattle School has been a beacon of educational excellence in Addis Ababa for over 25 years. Founded with a vision to provide world-class education to Ethiopian students, we have consistently delivered outstanding academic results and shaped the future of thousands of young minds.
+                        </p>
+                        <p>
+                            Our commitment to holistic education ensures that every student develops not just academically, but also morally, socially, and emotionally. We believe in nurturing well-rounded individuals who are prepared to contribute positively to society.
+                        </p>
+                    </div>
+
+                    <!-- Highlight Interactive Cards -->
+                    <div class="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="tilt-card p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/40 border border-slate-200/80 flex items-start gap-3.5">
+                            <div class="w-11 h-11 rounded-xl bg-saBlue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-saBlue-600/30">
+                                <i class="fa-solid fa-brain text-base"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-900">Holistic Growth</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">Academic, moral &amp; social maturity</p>
+                            </div>
+                        </div>
+
+                        <div class="tilt-card p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-orange-50/40 border border-slate-200/80 flex items-start gap-3.5">
+                            <div class="w-11 h-11 rounded-xl bg-saOrange-500 text-white flex items-center justify-center shrink-0 shadow-md shadow-saOrange-500/30">
+                                <i class="fa-solid fa-microchip text-base"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-900">STEM Leadership</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">Robotics, AI &amp; Science Labs</p>
+                            </div>
+                        </div>
+
+                        <div class="tilt-card p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-emerald-50/40 border border-slate-200/80 flex items-start gap-3.5">
+                            <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30">
+                                <i class="fa-solid fa-earth-africa text-base"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-sm text-slate-900">Global Citizens</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">National pride &amp; world impact</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Visual Banner Card (Exact User-Approved Card with 3D Tilt) -->
+                <div class="lg:col-span-5 reveal-up">
+                    <div class="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white group tilt-card">
+                        <img src="{% static 'images/seattle_about_robotics.png' %}?v=2" 
+                             alt="Seattle Academy Student Engineering Robotics Hardware" 
+                             class="w-full h-[480px] sm:h-[500px] object-cover object-center group-hover:scale-105 transition duration-500">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent flex flex-col justify-end p-8 text-white">
+                            <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-saOrange-500 text-white text-xs font-extrabold w-max mb-3 shadow">
+                                🏆 Established 1999 • STEM
+                            </span>
+                            <h3 class="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">Building Tomorrow's Innovators</h3>
+                            <p class="text-sm text-slate-200 mt-1.5 leading-relaxed">Nurturing creative, ethical, and high-achieving leaders for Ethiopia and the world.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: MISSION & VISION WITH RADIANT GLOW -->
+    <section class="py-24 bg-gradient-to-b from-slate-100/90 via-slate-50 to-white border-y border-slate-200 relative overflow-hidden">
+        
+        <!-- Subtle Grid Pattern in background -->
+        <div class="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#002D62_1px,transparent_1px)] [background-size:24px_24px]"></div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16 reveal-up">
+                <span class="px-4 py-1.5 rounded-full bg-saOrange-100 text-saOrange-600 text-xs font-extrabold tracking-wide uppercase border border-saOrange-200 shadow-sm">
+                    Purpose &amp; Aspiration
+                </span>
+                <h2 class="font-heading font-black text-3xl sm:text-5xl text-slate-900 tracking-tight mt-3">
+                    Our Mission &amp; Vision
+                </h2>
+                <p class="text-slate-600 text-base sm:text-lg mt-3">
+                    Guiding principles that drive our dedication to every student every single day.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                
+                <!-- Our Mission Card -->
+                <div class="group relative rounded-3xl bg-white p-8 sm:p-10 shadow-xl shadow-slate-200/60 border-2 border-saBlue-100 hover:border-saBlue-500 transition-all duration-300 flex flex-col justify-between tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-36 h-36 bg-saBlue-50 rounded-bl-full pointer-events-none -z-0 group-hover:scale-110 transition duration-500"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-saBlue-600 to-saBlue-800 text-white flex items-center justify-center text-2xl shadow-xl shadow-saBlue-600/30 mb-6 group-hover:rotate-6 group-hover:scale-110 transition transform">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+
+                        <span class="text-xs font-extrabold uppercase tracking-widest text-saBlue-600">Core Purpose</span>
+                        <h3 class="font-heading font-black text-2xl sm:text-3xl text-slate-900 mt-1 mb-4">
+                            Our Mission
+                        </h3>
+
+                        <p class="text-slate-600 text-base sm:text-lg leading-relaxed font-normal">
+                            To provide quality education that empowers students to achieve their full potential, develop critical thinking skills, and become responsible global citizens. We are committed to creating a supportive learning environment that fosters academic excellence, creativity, and character development.
+                        </p>
+                    </div>
+
+                    <div class="relative z-10 pt-6 mt-8 border-t border-slate-100 flex items-center gap-2.5 text-saBlue-600 font-extrabold text-sm">
+                        <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-check"></i>
+                        </span>
+                        <span>Empowering Every Student to Excel &amp; Lead</span>
+                    </div>
+                </div>
+
+                <!-- Our Vision Card -->
+                <div class="group relative rounded-3xl bg-white p-8 sm:p-10 shadow-xl shadow-slate-200/60 border-2 border-saOrange-100 hover:border-saOrange-500 transition-all duration-300 flex flex-col justify-between tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-36 h-36 bg-saOrange-50 rounded-bl-full pointer-events-none -z-0 group-hover:scale-110 transition duration-500"></div>
+                    
+                    <div class="relative z-10">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-saOrange-500 to-saOrange-600 text-white flex items-center justify-center text-2xl shadow-xl shadow-saOrange-500/30 mb-6 group-hover:-rotate-6 group-hover:scale-110 transition transform">
+                            <i class="fa-solid fa-compass"></i>
+                        </div>
+
+                        <span class="text-xs font-extrabold uppercase tracking-widest text-saOrange-600">Future Horizon</span>
+                        <h3 class="font-heading font-black text-2xl sm:text-3xl text-slate-900 mt-1 mb-4">
+                            Our Vision
+                        </h3>
+
+                        <p class="text-slate-600 text-base sm:text-lg leading-relaxed font-normal">
+                            To be the leading educational institution in Ethiopia, recognized for academic excellence, innovative teaching methods, and producing graduates who excel in higher education and contribute meaningfully to national development and global progress.
+                        </p>
+                    </div>
+
+                    <div class="relative z-10 pt-6 mt-8 border-t border-slate-100 flex items-center gap-2.5 text-saOrange-600 font-extrabold text-sm">
+                        <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-check"></i>
+                        </span>
+                        <span>National Leadership &amp; Global Distinction</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: OUR CORE VALUES (6 INTERACTIVE WOW CARDS) -->
+    <section class="py-24 bg-white relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16 reveal-up">
+                <span class="px-4 py-1.5 rounded-full bg-saBlue-50 text-saBlue-600 text-xs font-extrabold tracking-wide uppercase border border-saBlue-100 shadow-sm">
+                    Character &amp; Culture
+                </span>
+                <h2 class="font-heading font-black text-3xl sm:text-5xl text-slate-900 tracking-tight mt-3">
+                    Our Core Values
+                </h2>
+                <p class="text-slate-600 text-base sm:text-lg mt-3">
+                    The bedrock principles that define our faculty, student body, and school community.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                
+                <!-- 1. Integrity -->
+                <div class="tilt-card p-8 rounded-3xl bg-slate-50/80 hover:bg-white border-2 border-slate-100 hover:border-saBlue-500 transition-all duration-300 flex flex-col justify-between reveal-up group shadow-sm hover:shadow-xl">
+                    <div>
+                        <div class="w-14 h-14 rounded-2xl bg-blue-600/10 text-saBlue-600 flex items-center justify-center text-2xl mb-6 group-hover:bg-saBlue-600 group-hover:text-white transition shadow-sm">
+                            <i class="fa-solid fa-scale-balanced"></i>
+                        </div>
+                        <h3 class="font-heading font-extrabold text-2xl text-slate-900 mb-3 group-hover:text-saBlue-600 transition">Integrity</h3>
+                        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                            We uphold the highest standards of honesty, ethics, and moral character in all our actions and decisions.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Ethics &amp; Trust</span>
+                        <i class="fa-solid fa-arrow-right text-saBlue-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+                    </div>
+                </div>
+
+                <!-- 2. Excellence -->
+                <div class="tilt-card p-8 rounded-3xl bg-slate-50/80 hover:bg-white border-2 border-slate-100 hover:border-saOrange-500 transition-all duration-300 flex flex-col justify-between reveal-up group shadow-sm hover:shadow-xl">
+                    <div>
+                        <div class="w-14 h-14 rounded-2xl bg-orange-600/10 text-saOrange-600 flex items-center justify-center text-2xl mb-6 group-hover:bg-saOrange-500 group-hover:text-white transition shadow-sm">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <h3 class="font-heading font-extrabold text-2xl text-slate-900 mb-3 group-hover:text-saOrange-600 transition">Excellence</h3>
+                        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                            We strive for excellence in everything we do, from teaching and learning to administration and facilities.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Highest Standards</span>
+                        <i class="fa-solid fa-arrow-right text-saOrange-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+                    </div>
+                </div>
+
+                <!-- 3. Respect -->
+                <div class="tilt-card p-8 rounded-3xl bg-slate-50/80 hover:bg-white border-2 border-slate-100 hover:border-emerald-500 transition-all duration-300 flex flex-col justify-between reveal-up group shadow-sm hover:shadow-xl">
+                    <div>
+                        <div class="w-14 h-14 rounded-2xl bg-emerald-600/10 text-emerald-600 flex items-center justify-center text-2xl mb-6 group-hover:bg-emerald-600 group-hover:text-white transition shadow-sm">
+                            <i class="fa-solid fa-handshake-simple"></i>
+                        </div>
+                        <h3 class="font-heading font-extrabold text-2xl text-slate-900 mb-3 group-hover:text-emerald-600 transition">Respect</h3>
+                        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                            We foster an environment of mutual respect where every individual is valued and treated with dignity.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Dignity &amp; Empathy</span>
+                        <i class="fa-solid fa-arrow-right text-emerald-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+                    </div>
+                </div>
+
+                <!-- 4. Collaboration -->
+                <div class="tilt-card p-8 rounded-3xl bg-slate-50/80 hover:bg-white border-2 border-slate-100 hover:border-purple-500 transition-all duration-300 flex flex-col justify-between reveal-up group shadow-sm hover:shadow-xl">
+                    <div>
+                        <div class="w-14 h-14 rounded-2xl bg-purple-600/10 text-purple-600 flex items-center justify-center text-2xl mb-6 group-hover:bg-purple-600 group-hover:text-white transition shadow-sm">
+                            <i class="fa-solid fa-users-gear"></i>
+                        </div>
+                        <h3 class="font-heading font-extrabold text-2xl text-slate-900 mb-3 group-hover:text-purple-600 transition">Collaboration</h3>
+                        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                            We believe in the power of teamwork and collaboration among students, teachers, parents, and the community.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Community &amp; Teamwork</span>
+                        <i class="fa-solid fa-arrow-right text-purple-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+                    </div>
+                </div>
+
+                <!-- 5. Innovation -->
+                <div class="tilt-card p-8 rounded-3xl bg-slate-50/80 hover:bg-white border-2 border-slate-100 hover:border-indigo-500 transition-all duration-300 flex flex-col justify-between reveal-up group shadow-sm hover:shadow-xl">
+                    <div>
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center text-2xl mb-6 group-hover:bg-indigo-600 group-hover:text-white transition shadow-sm">
+                            <i class="fa-solid fa-lightbulb"></i>
+                        </div>
+                        <h3 class="font-heading font-extrabold text-2xl text-slate-900 mb-3 group-hover:text-indigo-600 transition">Innovation</h3>
+                        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                            We embrace innovative teaching methods and technologies to enhance learning experiences.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Creativity &amp; Tech</span>
+                        <i class="fa-solid fa-arrow-right text-indigo-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+                    </div>
+                </div>
+
+                <!-- 6. Responsibility -->
+                <div class="tilt-card p-8 rounded-3xl bg-slate-50/80 hover:bg-white border-2 border-slate-100 hover:border-teal-500 transition-all duration-300 flex flex-col justify-between reveal-up group shadow-sm hover:shadow-xl">
+                    <div>
+                        <div class="w-14 h-14 rounded-2xl bg-teal-600/10 text-teal-600 flex items-center justify-center text-2xl mb-6 group-hover:bg-teal-600 group-hover:text-white transition shadow-sm">
+                            <i class="fa-solid fa-earth-africa"></i>
+                        </div>
+                        <h3 class="font-heading font-extrabold text-2xl text-slate-900 mb-3 group-hover:text-teal-600 transition">Responsibility</h3>
+                        <p class="text-slate-600 text-sm sm:text-base leading-relaxed">
+                            We cultivate a sense of responsibility in our students towards themselves, their community, and the environment.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-200/60 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        <span>Civic &amp; Global Duty</span>
+                        <i class="fa-solid fa-arrow-right text-teal-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition"></i>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 4: OUR HISTORY (ANIMATED 25-YEAR STEPPER TIMELINE) -->
+    <section class="py-24 bg-slate-950 text-white relative overflow-hidden">
+        <!-- Abstract Background Lines & Stars -->
+        <div class="absolute inset-0 opacity-15 pointer-events-none bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]"></div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-20 reveal-up">
+                <span class="px-4 py-1.5 rounded-full bg-saOrange-500/20 text-saOrange-400 text-xs font-extrabold tracking-wide uppercase border border-saOrange-500/30">
+                    Milestone Chronology
+                </span>
+                <h2 class="font-heading font-black text-3xl sm:text-5xl text-white tracking-tight mt-3">
+                    Our History
+                </h2>
+                <p class="text-slate-300 text-base sm:text-lg mt-3">
+                    From a humble beginning of 50 students to an award-winning institution of 3,000+ young leaders.
+                </p>
+            </div>
+
+            <!-- Timeline Stepper Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <!-- 1999: Establishment -->
+                <div class="relative p-8 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-saOrange-500 transition-all duration-300 flex flex-col justify-between group tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-saOrange-500/10 rounded-bl-full pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-heading font-black text-3xl sm:text-4xl text-saOrange-400">1999</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">Milestone 1</span>
+                        </div>
+                        <h3 class="font-heading font-bold text-xl text-white mb-2 group-hover:text-saOrange-400 transition">Establishment</h3>
+                        <p class="text-slate-300 text-sm leading-relaxed">
+                            Seattle School was founded with 50 students and 8 teachers, starting from a small building with a big vision.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-800/80 flex items-center gap-2 text-xs text-saOrange-400 font-bold">
+                        <i class="fa-solid fa-seedling"></i> Founding Year &amp; Core Vision
+                    </div>
+                </div>
+
+                <!-- 2005: Expansion -->
+                <div class="relative p-8 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-blue-400 transition-all duration-300 flex flex-col justify-between group tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-heading font-black text-3xl sm:text-4xl text-blue-400">2005</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">Milestone 2</span>
+                        </div>
+                        <h3 class="font-heading font-bold text-xl text-white mb-2 group-hover:text-blue-400 transition">Expansion</h3>
+                        <p class="text-slate-300 text-sm leading-relaxed">
+                            The school expanded its facilities, adding a new building and modern classrooms to accommodate growing enrollment.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-800/80 flex items-center gap-2 text-xs text-blue-400 font-bold">
+                        <i class="fa-solid fa-building"></i> Campus Expansion
+                    </div>
+                </div>
+
+                <!-- 2010: First EUEE Success -->
+                <div class="relative p-8 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-emerald-400 transition-all duration-300 flex flex-col justify-between group tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-bl-full pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-heading font-black text-3xl sm:text-4xl text-emerald-400">2010</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">Milestone 3</span>
+                        </div>
+                        <h3 class="font-heading font-bold text-xl text-white mb-2 group-hover:text-emerald-400 transition">First EUEE Success</h3>
+                        <p class="text-slate-300 text-sm leading-relaxed">
+                            Our first batch of students achieved outstanding results in the national entrance examination, setting a tradition of excellence.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-800/80 flex items-center gap-2 text-xs text-emerald-400 font-bold">
+                        <i class="fa-solid fa-award"></i> Academic Landmark
+                    </div>
+                </div>
+
+                <!-- 2015: Infrastructure Upgrade -->
+                <div class="relative p-8 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-purple-400 transition-all duration-300 flex flex-col justify-between group tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-bl-full pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-heading font-black text-3xl sm:text-4xl text-purple-400">2015</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">Milestone 4</span>
+                        </div>
+                        <h3 class="font-heading font-bold text-xl text-white mb-2 group-hover:text-purple-400 transition">Infrastructure Upgrade</h3>
+                        <p class="text-slate-300 text-sm leading-relaxed">
+                            Major infrastructure development including modern science labs, computer labs, and library renovation.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-800/80 flex items-center gap-2 text-xs text-purple-400 font-bold">
+                        <i class="fa-solid fa-flask"></i> Science Labs &amp; Tech
+                    </div>
+                </div>
+
+                <!-- 2020: Digital Transformation -->
+                <div class="relative p-8 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-indigo-400 transition-all duration-300 flex flex-col justify-between group tilt-card reveal-up">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-heading font-black text-3xl sm:text-4xl text-indigo-400">2020</span>
+                            <span class="px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">Milestone 5</span>
+                        </div>
+                        <h3 class="font-heading font-bold text-xl text-white mb-2 group-hover:text-indigo-400 transition">Digital Transformation</h3>
+                        <p class="text-slate-300 text-sm leading-relaxed">
+                            Embraced digital learning technologies and established smart classrooms with modern teaching tools.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-slate-800/80 flex items-center gap-2 text-xs text-indigo-400 font-bold">
+                        <i class="fa-solid fa-laptop-code"></i> Smart Digital Learning
+                    </div>
+                </div>
+
+                <!-- 2024: Celebrating 25 Years (Silver Jubilee) -->
+                <div class="relative p-8 rounded-3xl bg-gradient-to-br from-saOrange-600/30 via-slate-900 to-slate-900 border-2 border-saOrange-500 transition-all duration-300 flex flex-col justify-between group tilt-card reveal-up shadow-2xl shadow-saOrange-500/20">
+                    <div class="absolute top-0 right-0 w-28 h-28 bg-saOrange-500/20 rounded-bl-full pointer-events-none"></div>
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="font-heading font-black text-3xl sm:text-4xl text-saOrange-400">2024</span>
+                            <span class="px-3 py-1 rounded-full bg-saOrange-500 text-white text-xs font-extrabold shadow-md animate-pulse">Silver Jubilee</span>
+                        </div>
+                        <h3 class="font-heading font-bold text-xl text-white mb-2 group-hover:text-saOrange-300 transition">Celebrating 25 Years</h3>
+                        <p class="text-slate-200 text-sm leading-relaxed font-medium">
+                            Celebrating 25 years of educational excellence with over 1500 students and 100+ qualified teachers.
+                        </p>
+                    </div>
+                    <div class="pt-4 mt-6 border-t border-saOrange-500/40 flex items-center gap-2 text-xs text-saOrange-300 font-extrabold">
+                        <i class="fa-solid fa-crown"></i> 25 Years of Educational Impact
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 5: CALL TO ACTION (INTERACTIVE GLOW BANNER) -->
+    <section class="py-20 bg-gradient-to-r from-saBlue-700 via-saBlue-600 to-saOrange-600 text-white relative overflow-hidden">
+        <!-- Glow circles -->
+        <div class="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-saOrange-400/20 blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center reveal-up">
+            <h2 class="font-heading font-black text-3xl sm:text-5xl lg:text-6xl tracking-tight">
+                Join the Seattle Academy Family
+            </h2>
+            <p class="mt-4 text-lg sm:text-xl text-blue-100 max-w-2xl mx-auto font-normal">
+                Discover how our 25-year legacy, expert faculty, and award-winning STEM curriculum prepare your child to excel.
+            </p>
+            <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-5">
+                <a href="{% url 'seattle_academy_home' %}#contact" 
+                   class="w-full sm:w-auto px-9 py-4 rounded-2xl bg-white text-saBlue-700 font-extrabold text-sm shadow-2xl hover:bg-blue-50 transition transform hover:-translate-y-1 flex items-center justify-center gap-2.5">
+                    <i class="fa-solid fa-envelope text-saOrange-500 text-base"></i> Contact Admissions
+                </a>
+                <a href="{% url 'seattle_academy_login' %}" 
+                   class="w-full sm:w-auto px-9 py-4 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-sm shadow-2xl transition transform hover:-translate-y-1 flex items-center justify-center gap-2.5 border border-white/20">
+                    <i class="fa-solid fa-lock text-saOrange-400 text-base"></i> Student &amp; Parent Portal
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-950 text-slate-400 text-sm mt-auto border-t border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+                
+                <!-- School Info -->
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-10 h-10 object-contain bg-white rounded-lg p-1">
+                        <span class="font-heading font-extrabold text-xl text-white tracking-tight">Seattle Academy</span>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Leading private educational institution serving students from Kindergarten to High School with academic, STEM, and moral distinction.
+                    </p>
+                    <div class="flex items-center gap-3 pt-2">
+                        <a href="#" class="w-9 h-9 rounded-xl bg-slate-900 hover:bg-saBlue-600 text-slate-300 hover:text-white transition flex items-center justify-center">
+                            <i class="fa-brands fa-facebook-f text-sm"></i>
+                        </a>
+                        <a href="#" class="w-9 h-9 rounded-xl bg-slate-900 hover:bg-saBlue-600 text-slate-300 hover:text-white transition flex items-center justify-center">
+                            <i class="fa-brands fa-telegram text-sm"></i>
+                        </a>
+                        <a href="#" class="w-9 h-9 rounded-xl bg-slate-900 hover:bg-saBlue-600 text-slate-300 hover:text-white transition flex items-center justify-center">
+                            <i class="fa-brands fa-linkedin-in text-sm"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Navigation Links -->
+                <div>
+                    <h4 class="font-heading font-bold text-white text-base mb-4">Quick Navigation</h4>
+                    <ul class="space-y-2.5 text-xs">
+                        <li><a href="{% url 'seattle_academy_home' %}" class="hover:text-white transition">Home</a></li>
+                        <li><a href="{% url 'seattle_academy_about' %}" class="text-saOrange-400 font-bold hover:text-white transition">About Us</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}#academics" class="hover:text-white transition">Academics &amp; Programs</a></li>
+                        <li><a href="{% url 'seattle_academy_news_gallery' %}" class="hover:text-white transition">News &amp; Events</a></li>
+                        <li><a href="{% url 'seattle_academy_news_gallery' %}#gallery" class="hover:text-white transition">Media Gallery</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}#contact" class="hover:text-white transition">Contact Us</a></li>
+                    </ul>
+                </div>
+
+                <!-- Academic Divisions -->
+                <div>
+                    <h4 class="font-heading font-bold text-white text-base mb-4">Academic Divisions</h4>
+                    <ul class="space-y-2.5 text-xs">
+                        <li><a href="{% url 'seattle_academy_home' %}#academics" class="hover:text-white transition">Kindergarten &amp; Early Years</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}#academics" class="hover:text-white transition">Primary School (Grades 1–6)</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}#academics" class="hover:text-white transition">Middle School (Grades 7–8)</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}#academics" class="hover:text-white transition">High School (Grades 9–12)</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}#academics" class="hover:text-white transition">Robotics &amp; AI Center</a></li>
+                    </ul>
+                </div>
+
+                <!-- Contact & Campus -->
+                <div>
+                    <h4 class="font-heading font-bold text-white text-base mb-4">Campus Location</h4>
+                    <ul class="space-y-3 text-xs">
+                        <li class="flex items-start gap-2.5">
+                            <i class="fa-solid fa-location-dot text-saOrange-500 mt-0.5"></i>
+                            <span>Addis Ababa, Ethiopia</span>
+                        </li>
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-phone text-saOrange-500"></i>
+                            <a href="tel:+251937381801" class="hover:text-white">+251 937 381 801</a>
+                        </li>
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-envelope text-saOrange-500"></i>
+                            <a href="mailto:info@seattleacademy.edu.et" class="hover:text-white">info@seattleacademy.edu.et</a>
+                        </li>
+                        <li class="pt-2">
+                            <a href="{% url 'seattle_academy_login' %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-saBlue-600 hover:bg-saBlue-700 text-white font-bold text-xs transition">
+                                <i class="fa-solid fa-lock text-saOrange-400"></i> Sign In to Portal
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <div class="mt-12 pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+                <p>&copy; 2026 Seattle Academy. All rights reserved. Addis Ababa, Ethiopia.</p>
+                <div class="flex items-center gap-4">
+                    <a href="{% url 'seattle_academy_home' %}" class="hover:text-slate-300">Home</a>
+                    <a href="{% url 'seattle_academy_about' %}" class="hover:text-slate-300">About Us</a>
+                    <a href="{% url 'seattle_academy_login' %}" class="hover:text-slate-300">Portal Sign In</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- INTERACTIVE SCRIPTS & WOW FACTOR ANIMATIONS -->
+    <script>
+        // 1. Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-nav');
+            const line1 = document.getElementById('burger-line-1');
+            const line2 = document.getElementById('burger-line-2');
+            const line3 = document.getElementById('burger-line-3');
+
+            if (menu.classList.contains('max-h-0')) {
+                menu.classList.remove('max-h-0');
+                menu.classList.add('max-h-[500px]');
+                line1.classList.add('rotate-45', 'translate-y-2');
+                line2.classList.add('opacity-0');
+                line3.classList.add('-rotate-45', '-translate-y-2');
+            } else {
+                menu.classList.add('max-h-0');
+                menu.classList.remove('max-h-[500px]');
+                line1.classList.remove('rotate-45', 'translate-y-2');
+                line2.classList.remove('opacity-0');
+                line3.classList.remove('-rotate-45', '-translate-y-2');
+            }
+        }
+
+        // 2. Interactive Knowledge Canvas Particles in Hero
+        (function initHeroParticles() {
+            const canvas = document.getElementById('aboutHeroCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+            const particleCount = 45;
+
+            function resize() {
+                width = canvas.width = canvas.offsetWidth;
+                height = canvas.height = canvas.offsetHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                    this.vx = (Math.random() - 0.5) * 0.7;
+                    this.vy = (Math.random() - 0.5) * 0.7;
+                    this.radius = Math.random() * 2.2 + 1;
+                    this.color = Math.random() > 0.5 ? 'rgba(255, 121, 0, ' : 'rgba(96, 165, 250, ';
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > width) this.vx *= -1;
+                    if (this.y < 0 || this.y > height) this.vy *= -1;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color + '0.8)';
+                    ctx.fill();
+                }
+            }
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+                
+                // Draw connecting lines between close particles
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 110) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * (1 - dist / 110)})`;
+                            ctx.lineWidth = 0.8;
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+        // 3. Scroll Reveal Observer
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, { threshold: 0.12 });
+
+        document.querySelectorAll('.reveal-up').forEach(el => observer.observe(el));
+
+        // 4. Animated Integer Stat Counter
+        const counterObserver = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const counter = entry.target;
+                    const target = +counter.getAttribute('data-target');
+                    const duration = 1800;
+                    const startTime = performance.now();
+
+                    function updateCount(currentTime) {
+                        const elapsed = currentTime - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+                        // Ease out cubic
+                        const easeOut = 1 - Math.pow(1 - progress, 3);
+                        counter.innerText = Math.floor(easeOut * target).toLocaleString();
+
+                        if (progress < 1) {
+                            requestAnimationFrame(updateCount);
+                        } else {
+                            counter.innerText = target.toLocaleString();
+                        }
+                    }
+                    requestAnimationFrame(updateCount);
+                    obs.unobserve(counter);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.counter').forEach(el => counterObserver.observe(el));
+    </script>
+</body>
+</html>

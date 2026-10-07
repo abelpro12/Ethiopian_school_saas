@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'apps.hr',
     'apps.timetable',
     'apps.platform_management',
+    'apps.video_calls',
 ]
 
 MIDDLEWARE = [
@@ -112,6 +113,10 @@ TEMPLATES = [
                 'apps.tenants.context_processors.tenant_context',
                 'apps.academics.context_processors.academic_year_context',
                 'apps.academics.context_processors.calendar_preference_context',
+                'apps.messaging.context_processors.unread_messages_context',
+            ],
+            'builtins': [
+                'apps.academics.templatetags.common_tags',
             ],
         },
     },
@@ -299,4 +304,14 @@ LOGGING = {
 import sys
 if 'test' in sys.argv:
     AXES_ENABLED = False
+
+# ==============================================================================
+# VIDEO CONFERENCING CONFIGURATION (Jitsi Meet WebRTC)
+# Options:
+# 1. 'meet.jit.si' (Official high-speed global server - best with Standalone Popout Window)
+# 2. 'meet.yourdomain.com' (Your custom self-hosted Jitsi instance)
+# ==============================================================================
+JITSI_DOMAIN = os.environ.get('JITSI_DOMAIN', 'meet.jit.si')
+
+
 

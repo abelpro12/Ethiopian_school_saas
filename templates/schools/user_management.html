@@ -171,6 +171,22 @@
             </div>
             {% endif %}
             {% endwith %}
+            {% elif current_role == 'PARENT' %}
+            {% with guardianships=target_user.parent_profile.guardianships.all %}
+            {% if guardianships %}
+            <div class="bg-slate-50 rounded-xl px-3 py-2 mb-3 space-y-1">
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Linked Student(s)</p>
+                {% for g in guardianships %}
+                <div class="flex items-center justify-between text-xs">
+                    <a href="{% url 'students:admin_profile' g.student.id %}" class="font-bold text-slate-800 hover:text-brand-600 transition">
+                        {{ g.student.full_name }} <span class="text-slate-400 font-mono text-[10px]">({{ g.student.student_id }})</span>
+                    </a>
+                    <span class="text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200 px-1.5 py-0.5 rounded-full">{{ g.parent.relationship }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
             {% endif %}
 
             <div class="flex flex-wrap items-center gap-2">
@@ -224,6 +240,8 @@
                         <th class="py-3 px-4">Username &amp; Current Password</th>
                         {% if current_role == 'STUDENT' %}
                         <th class="py-3 px-4">Class Placement ({% if current_academic_year %}{{ current_academic_year.ethiopian_year }} E.C.{% else %}Active Year{% endif %})</th>
+                        {% elif current_role == 'PARENT' %}
+                        <th class="py-3 px-4">Linked Student(s) &amp; Relationship</th>
                         {% endif %}
                         <th class="py-3 px-4">Status</th>
                         <th class="py-3 px-4 rounded-r-lg">Actions</th>
@@ -299,6 +317,32 @@
                                     {% endif %}
                                 {% else %}
                                     <span class="text-slate-400 italic">Not Enrolled</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        {% elif current_role == 'PARENT' %}
+                        <td class="py-3 px-4 text-slate-700">
+                            {% with guardianships=target_user.parent_profile.guardianships.all %}
+                                {% if guardianships %}
+                                    <div class="flex flex-col gap-1.5">
+                                        {% for g in guardianships %}
+                                        <div class="flex items-center gap-2">
+                                            <a href="{% url 'students:admin_profile' g.student.id %}" class="font-semibold text-slate-800 hover:text-brand-600 transition flex items-center gap-1.5">
+                                                <i class="fa-solid fa-graduation-cap text-indigo-500 text-xs"></i>
+                                                <span>{{ g.student.full_name }}</span>
+                                                <span class="text-[11px] font-mono text-slate-400">({{ g.student.student_id }})</span>
+                                            </a>
+                                            <span class="text-[10px] font-bold bg-brand-50 text-brand-700 border border-brand-200/80 px-2 py-0.5 rounded-full">
+                                                {{ g.parent.relationship }}
+                                            </span>
+                                            {% if g.is_primary %}
+                                            <span class="text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded-full">Primary</span>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-xs text-slate-400 italic">No linked students</span>
                                 {% endif %}
                             {% endwith %}
                         </td>

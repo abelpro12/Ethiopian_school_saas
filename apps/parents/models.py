@@ -70,12 +70,12 @@ class ParentProfile(TenantAwareModel):
                 }
             )
             if created:
-                from django.contrib.auth.hashers import make_password
-                import secrets
-                temp_password = secrets.token_urlsafe(10)
+                from apps.accounts.utils import get_default_role_password
+                temp_password = get_default_role_password(UserRole.PARENT)
                 user.set_password(temp_password)
                 user.must_change_password = True
                 user.save()
+
 
             parent_profile, _ = cls.objects.get_or_create(
                 user=user,

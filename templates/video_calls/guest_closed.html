@@ -1,0 +1,30 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Not Available — {{ meeting.title }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body { font-family: 'Plus Jakarta Sans', sans-serif; }</style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-5 shadow-2xl">
+        <div class="w-16 h-16 rounded-3xl bg-slate-800 text-indigo-400 flex items-center justify-center mx-auto text-2xl shadow-inner">
+            <i class="fa-solid fa-lock"></i>
+        </div>
+        <div class="space-y-1">
+            <h2 class="text-xl font-black text-white">Meeting Unavailable</h2>
+            <p class="text-xs text-slate-400 font-medium">{{ reason }}</p>
+        </div>
+        <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs text-left space-y-1 text-slate-400">
+            <p><strong>Session:</strong> {{ meeting.title }}</p>
+            <p><strong>Host:</strong> {{ meeting.host.get_full_name|default:meeting.host.username }}</p>
+            <p><strong>School:</strong> {{ meeting.school.name|default:"EthioSchool" }}</p>
+        </div>
+        <p class="text-[11px] text-slate-500">Please contact the meeting host or school administration if you need assistance.</p>
+    </div>
+</body>
+</html>

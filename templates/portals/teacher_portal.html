@@ -93,9 +93,12 @@
                 </div>
                 <span class="text-xs font-bold text-slate-800 group-hover:text-purple-700">Tutorial Portal</span>
             </a>
-            <a href="/messaging/inbox/" class="group p-3 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition text-center flex flex-col items-center">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-xs shadow-md shadow-emerald-500/20 group-hover:scale-110 transition mb-1.5">
+            <a href="/messaging/inbox/" class="group p-3 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition text-center flex flex-col items-center relative">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-xs shadow-md shadow-emerald-500/20 group-hover:scale-110 transition mb-1.5 relative">
                     <i class="fa-solid fa-comments"></i>
+                    <span class="portal-unread-badge {% if unread_messages_count and unread_messages_count > 0 %}inline-flex{% else %}hidden{% endif %} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black items-center justify-center ring-2 ring-white shadow-xs">
+                        {{ unread_messages_count|default:"0" }}
+                    </span>
                 </div>
                 <span class="text-xs font-bold text-slate-800 group-hover:text-emerald-700">Messages</span>
             </a>

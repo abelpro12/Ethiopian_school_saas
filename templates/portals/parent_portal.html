@@ -41,9 +41,12 @@
             <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-50 px-2 py-0.5 rounded-full border border-brand-200/60">Quick Access</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <a href="/messaging/inbox/" class="group p-3.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition flex-shrink-0">
+            <a href="/messaging/inbox/" class="group p-3.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition flex items-center gap-3 relative">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition flex-shrink-0 relative">
                     <i class="fa-solid fa-comments"></i>
+                    <span class="portal-unread-badge {% if unread_messages_count and unread_messages_count > 0 %}inline-flex{% else %}hidden{% endif %} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black items-center justify-center ring-2 ring-white shadow-xs">
+                        {{ unread_messages_count|default:"0" }}
+                    </span>
                 </div>
                 <div>
                     <span class="text-xs font-bold text-slate-800 group-hover:text-emerald-700 block">Message Teachers</span>

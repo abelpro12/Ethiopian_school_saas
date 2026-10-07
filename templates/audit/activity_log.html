@@ -1,0 +1,677 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Activity & Audit Log — {{ school.name|default:"EthioSchool" }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header Section -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
+                <a href="{% url 'index' %}" class="hover:text-blue-600 transition"><i class="fa-solid fa-house"></i></a>
+                <span>/</span>
+                <a href="{% url 'admin_dashboard' %}" class="hover:text-blue-600 transition">Administration</a>
+                <span>/</span>
+                <span class="text-slate-700 font-bold">Activity & Audit Trail</span>
+                {% if school %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
+                    {{ school.code }}
+                </span>
+                {% endif %}
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-heading font-black text-slate-800 tracking-tight flex items-center gap-3">
+                <span class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center text-lg shadow-md shadow-rose-500/20">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </span>
+                Activity & Audit Trail
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1 max-w-3xl">
+                Tamper-evident system activity log recording academic entries, admissions, security logins, and administrative actions for accountability and governance.
+            </p>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="flex flex-wrap items-center gap-2.5">
+            <div class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold shadow-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Audit Trail Live</span>
+            </div>
+
+            {% if current_tab == 'logins' %}
+            <a href="{% url 'audit:export_login_csv' %}?q={{ q|urlencode }}&actor_id={{ actor_id }}&timeframe={{ timeframe }}" class="px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-2 shadow-xs hover:border-slate-300">
+                <i class="fa-solid fa-file-csv text-emerald-600 text-sm"></i>
+                <span>Export Logins (CSV)</span>
+            </a>
+            {% else %}
+            <a href="{% url 'audit:export_activity_csv' %}?q={{ q|urlencode }}&action_type={{ action_type }}&actor_id={{ actor_id }}&timeframe={{ timeframe }}" class="px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center gap-2 shadow-xs hover:border-slate-300">
+                <i class="fa-solid fa-file-csv text-emerald-600 text-sm"></i>
+                <span>Export Audit Log (CSV)</span>
+            </a>
+            {% endif %}
+
+            {% if all_schools and all_schools|length > 1 %}
+            <!-- Super Admin School Switcher -->
+            <form method="GET" class="inline">
+                <input type="hidden" name="tab" value="{{ current_tab }}">
+                <select name="school_id" onchange="this.form.submit()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 shadow-xs focus:ring-2 focus:ring-blue-500">
+                    {% for sc in all_schools %}
+                    <option value="{{ sc.id }}" {% if school and school.id == sc.id %}selected{% endif %}>{{ sc.name }} ({{ sc.code }})</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- KPI Metric Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Card 1: Total Activities -->
+        <div class="bg-white rounded-2xl shadow-xs border border-slate-100 p-4 sm:p-5 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Audit Events</p>
+                    <h3 class="text-2xl sm:text-3xl font-black text-slate-800 mt-1">{{ total_activities }}</h3>
+                    <p class="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-database text-slate-400"></i> Platform Immutable
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl flex-shrink-0">
+                    <i class="fa-solid fa-list-check"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Marks & Assessments -->
+        <div class="bg-white rounded-2xl shadow-xs border border-slate-100 p-4 sm:p-5 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Grade & Mark Edits</p>
+                    <h3 class="text-2xl sm:text-3xl font-black text-indigo-600 mt-1">{{ total_mark_events }}</h3>
+                    <p class="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-graduation-cap text-indigo-400"></i> Teacher Submissions
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl flex-shrink-0">
+                    <i class="fa-solid fa-pen-ruler"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Admissions & Enrollment -->
+        <div class="bg-white rounded-2xl shadow-xs border border-slate-100 p-4 sm:p-5 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Admissions & Enrol</p>
+                    <h3 class="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">{{ total_admission_events }}</h3>
+                    <p class="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                        <i class="fa-solid fa-user-plus text-emerald-400"></i> Registrar Lifecycle
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl flex-shrink-0">
+                    <i class="fa-solid fa-user-graduate"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Logins & Security -->
+        <div class="bg-white rounded-2xl shadow-xs border border-slate-100 p-4 sm:p-5 card-hover">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Authentication Events</p>
+                    <h3 class="text-2xl sm:text-3xl font-black text-slate-800 mt-1">{{ total_logins }}</h3>
+                    <p class="text-[11px] font-medium mt-1 flex items-center gap-1.5">
+                        <span class="text-emerald-600 font-bold"><i class="fa-solid fa-circle-check"></i> {{ success_logins }} ok</span>
+                        {% if failed_logins > 0 %}
+                        <span class="text-rose-600 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> {{ failed_logins }} failed</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl flex-shrink-0">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Card Container -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <!-- Navigation Tabs -->
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 pt-3 bg-slate-50/50">
+            <div class="flex items-center gap-2">
+                <a href="?tab=activity{% if q %}&q={{ q|urlencode }}{% endif %}{% if timeframe %}&timeframe={{ timeframe }}{% endif %}"
+                   class="px-4 py-3 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition {% if current_tab != 'logins' %}border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs{% else %}border-transparent text-slate-500 hover:text-slate-700{% endif %}">
+                    <i class="fa-solid fa-timeline"></i>
+                    <span>System & Academic Activities</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black {% if current_tab != 'logins' %}bg-blue-100 text-blue-700{% else %}bg-slate-200 text-slate-600{% endif %}">
+                        {{ total_activities }}
+                    </span>
+                </a>
+
+                <a href="?tab=logins{% if q %}&q={{ q|urlencode }}{% endif %}{% if timeframe %}&timeframe={{ timeframe }}{% endif %}"
+                   class="px-4 py-3 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition {% if current_tab == 'logins' %}border-blue-600 text-blue-600 bg-white rounded-t-xl shadow-xs{% else %}border-transparent text-slate-500 hover:text-slate-700{% endif %}">
+                    <i class="fa-solid fa-key"></i>
+                    <span>Authentication & Login Log</span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black {% if current_tab == 'logins' %}bg-blue-100 text-blue-700{% else %}bg-slate-200 text-slate-600{% endif %}">
+                        {{ total_logins }}
+                    </span>
+                </a>
+            </div>
+
+            <!-- Timeframe Filter Chips -->
+            <div class="hidden md:flex items-center gap-1.5 py-2">
+                <span class="text-[11px] font-bold text-slate-400 mr-1">Time:</span>
+                <a href="?tab={{ current_tab }}&timeframe=all{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}"
+                   class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition {% if timeframe == 'all' or not timeframe %}bg-blue-600 text-white shadow-xs{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+                    All
+                </a>
+                <a href="?tab={{ current_tab }}&timeframe=today{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}"
+                   class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition {% if timeframe == 'today' %}bg-blue-600 text-white shadow-xs{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+                    Today
+                </a>
+                <a href="?tab={{ current_tab }}&timeframe=week{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}"
+                   class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition {% if timeframe == 'week' %}bg-blue-600 text-white shadow-xs{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+                    7 Days
+                </a>
+                <a href="?tab={{ current_tab }}&timeframe=month{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}"
+                   class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition {% if timeframe == 'month' %}bg-blue-600 text-white shadow-xs{% else %}bg-white border border-slate-200 text-slate-600 hover:bg-slate-50{% endif %}">
+                    30 Days
+                </a>
+            </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="p-4 sm:p-5 border-b border-slate-100 bg-white">
+            <form method="GET" class="space-y-3">
+                <input type="hidden" name="tab" value="{{ current_tab }}">
+                <input type="hidden" name="timeframe" value="{{ timeframe }}">
+                {% if school %}<input type="hidden" name="school_id" value="{{ school.id }}">{% endif %}
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    <!-- Search Input -->
+                    <div class="sm:col-span-5 relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="search" name="q" value="{{ q }}" placeholder="Search actor name, username, action, object, IP..."
+                               class="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    </div>
+
+                    {% if current_tab != 'logins' %}
+                    <!-- Action Category Dropdown -->
+                    <div class="sm:col-span-3">
+                        <select name="action_type" class="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL" {% if action_type == 'ALL' or not action_type %}selected{% endif %}>All Action Types</option>
+                            <option value="MARKS" {% if action_type == 'MARKS' %}selected{% endif %}>📝 Marks & Assessments</option>
+                            <option value="STUDENTS" {% if action_type == 'STUDENTS' %}selected{% endif %}>🎓 Admissions & Students</option>
+                            <option value="ENROLLMENT" {% if action_type == 'ENROLLMENT' %}selected{% endif %}>🔄 Enrollment & Promotions</option>
+                            <option value="FINANCE" {% if action_type == 'FINANCE' %}selected{% endif %}>💳 Finance & Invoices</option>
+                            <option value="CONFIG" {% if action_type == 'CONFIG' %}selected{% endif %}>⚙️ System & Config</option>
+                        </select>
+                    </div>
+
+                    <!-- Actor / Staff Dropdown -->
+                    <div class="sm:col-span-2">
+                        <select name="actor_id" class="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Actors</option>
+                            {% for act in school_actors %}
+                            <option value="{{ act.id }}" {% if actor_id == act.id|stringformat:"s" %}selected{% endif %}>{{ act.get_full_name|default:act.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% else %}
+                    <!-- Login Status Dropdown -->
+                    <div class="sm:col-span-3">
+                        <select name="login_status" class="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL" {% if login_status == 'ALL' or not login_status %}selected{% endif %}>All Login Statuses</option>
+                            <option value="SUCCESS" {% if login_status == 'SUCCESS' %}selected{% endif %}>✅ Successful Logins</option>
+                            <option value="FAILED" {% if login_status == 'FAILED' %}selected{% endif %}>❌ Failed Attempts</option>
+                            <option value="SUSPICIOUS" {% if login_status == 'SUSPICIOUS' %}selected{% endif %}>⚠️ Suspicious Activity</option>
+                            <option value="BLOCKED" {% if login_status == 'BLOCKED' %}selected{% endif %}>⛔ Blocked</option>
+                        </select>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <select name="actor_id" class="w-full px-3 py-2 text-xs bg-slate-50 rounded-xl border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Users</option>
+                            {% for act in school_actors %}
+                            <option value="{{ act.id }}" {% if actor_id == act.id|stringformat:"s" %}selected{% endif %}>{{ act.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+
+                    <!-- Submit & Reset Buttons -->
+                    <div class="sm:col-span-2 flex items-center gap-2">
+                        <button type="submit" class="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-filter"></i>
+                            <span>Filter</span>
+                        </button>
+                        <a href="?tab={{ current_tab }}" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition" title="Reset Filters">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- ======================= TAB 1: SYSTEM ACTIVITIES ======================= -->
+        {% if current_tab != 'logins' %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        <th class="py-3 px-4">Date & Time</th>
+                        <th class="py-3 px-4">Actor</th>
+                        <th class="py-3 px-4">Action</th>
+                        <th class="py-3 px-4">Target Entity</th>
+                        <th class="py-3 px-4">IP Address</th>
+                        <th class="py-3 px-4 text-right">Details & Payload</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    {% for log in activity_page_obj %}
+                    <tr class="hover:bg-slate-50/80 transition group">
+                        <!-- Timestamp -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="font-bold text-slate-800">{{ log.timestamp|date:"M d, Y" }}</div>
+                            <div class="text-[11px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                <i class="fa-regular fa-clock text-[10px]"></i>
+                                {{ log.timestamp|date:"h:i:s A" }}
+                            </div>
+                        </td>
+
+                        <!-- Actor -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-700 to-slate-900 text-white flex items-center justify-center text-xs font-black shadow-xs flex-shrink-0">
+                                    {% if log.user %}
+                                        {{ log.user.first_name|first|default:log.user.username|first|upper }}
+                                    {% else %}
+                                        S
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-800 leading-tight">
+                                        {% if log.user %}{{ log.user.get_full_name|default:log.user.username }}{% else %}Automated System{% endif %}
+                                    </div>
+                                    <div class="flex items-center gap-1.5 mt-0.5">
+                                        {% if log.user %}
+                                            <span class="text-[10px] text-slate-400 font-mono">@{{ log.user.username }}</span>
+                                            <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase
+                                                {% if log.user.role == 'SCHOOL_ADMIN' or log.user.role == 'SUPER_ADMIN' %}bg-rose-50 text-rose-700 border border-rose-200
+                                                {% elif log.user.role == 'TEACHER' %}bg-indigo-50 text-indigo-700 border border-indigo-200
+                                                {% elif log.user.role == 'REGISTRAR' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                                                {% elif log.user.role == 'PRINCIPAL' %}bg-amber-50 text-amber-700 border border-amber-200
+                                                {% else %}bg-slate-100 text-slate-600{% endif %}">
+                                                {{ log.user.role|default:"Staff" }}
+                                            </span>
+                                        {% else %}
+                                            <span class="text-[10px] text-slate-400">Core Engine</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <!-- Action Badge -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            {% if 'MARK' in log.action %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <i class="fa-solid fa-pen-nib text-[10px]"></i>
+                                {{ log.action }}
+                            </span>
+                            {% elif 'STUDENT' in log.action or 'ADMIT' in log.action %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <i class="fa-solid fa-user-check text-[10px]"></i>
+                                {{ log.action }}
+                            </span>
+                            {% elif 'PROMOT' in log.action or 'ROLLOVER' in log.action or 'ENROLL' in log.action %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                <i class="fa-solid fa-arrow-up-right-dots text-[10px]"></i>
+                                {{ log.action }}
+                            </span>
+                            {% elif 'INVOICE' in log.action or 'PAYMENT' in log.action or 'FEE' in log.action %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <i class="fa-solid fa-receipt text-[10px]"></i>
+                                {{ log.action }}
+                            </span>
+                            {% elif 'CONFIG' in log.action or 'SCHEME' in log.action or 'PROVISION' in log.action %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                                <i class="fa-solid fa-sliders text-[10px]"></i>
+                                {{ log.action }}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                <i class="fa-solid fa-circle-dot text-[10px]"></i>
+                                {{ log.action }}
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Target Entity -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="flex items-center gap-1.5 text-slate-700 font-medium">
+                                {% if log.object_type %}
+                                <span class="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 font-mono">
+                                    {{ log.object_type }}
+                                </span>
+                                {% endif %}
+                                {% if log.object_id %}
+                                <span class="text-xs text-slate-500 font-mono">#{{ log.object_id }}</span>
+                                {% endif %}
+                                {% if not log.object_type and not log.object_id %}
+                                <span class="text-slate-400 italic text-[11px]">System Scope</span>
+                                {% endif %}
+                            </div>
+                        </td>
+
+                        <!-- IP Address -->
+                        <td class="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                            {% if log.ip_address %}
+                            <span class="inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-network-wired text-slate-400 text-[10px]"></i>
+                                {{ log.ip_address }}
+                            </span>
+                            {% else %}
+                            <span class="text-slate-300">127.0.0.1</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Details Button -->
+                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <button onclick="openAuditModal({{ log.id }})" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-bold transition border border-slate-200 hover:border-blue-200 inline-flex items-center gap-1.5">
+                                <i class="fa-solid fa-eye text-xs"></i>
+                                <span>Inspect Diff</span>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-12 text-center">
+                            <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-2xl mx-auto mb-3">
+                                <i class="fa-solid fa-inbox"></i>
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-700">No Activity Logs Found</h4>
+                            <p class="text-xs text-slate-400 mt-1">There are no audit events matching your current filter criteria.</p>
+                            <a href="?tab=activity" class="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition">
+                                <i class="fa-solid fa-rotate-left"></i>
+                                Clear Filters
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ======================= TAB 2: AUTHENTICATION / LOGINS ======================= -->
+        {% else %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                        <th class="py-3 px-4">Date & Time</th>
+                        <th class="py-3 px-4">Attempted Username</th>
+                        <th class="py-3 px-4">Resolved Account</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4">Client IP</th>
+                        <th class="py-3 px-4">Device / User Agent</th>
+                        <th class="py-3 px-4">Failure Reason</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    {% for login in login_page_obj %}
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <!-- Timestamp -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            <div class="font-bold text-slate-800">{{ login.timestamp|date:"M d, Y" }}</div>
+                            <div class="text-[11px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                <i class="fa-regular fa-clock text-[10px]"></i>
+                                {{ login.timestamp|date:"h:i:s A" }}
+                            </div>
+                        </td>
+
+                        <!-- Attempted Username -->
+                        <td class="py-3 px-4 whitespace-nowrap font-mono font-bold text-slate-800">
+                            {{ login.username_attempted }}
+                        </td>
+
+                        <!-- Resolved Account -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            {% if login.user %}
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-800">{{ login.user.get_full_name|default:login.user.username }}</span>
+                                <span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                                    {{ login.user.role }}
+                                </span>
+                            </div>
+                            {% else %}
+                            <span class="text-slate-400 italic">Unmatched Account</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Status Badge -->
+                        <td class="py-3 px-4 whitespace-nowrap">
+                            {% if login.status == 'SUCCESS' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <i class="fa-solid fa-circle-check text-[10px]"></i>
+                                SUCCESS
+                            </span>
+                            {% elif login.status == 'FAILED' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <i class="fa-solid fa-circle-xmark text-[10px]"></i>
+                                FAILED
+                            </span>
+                            {% elif login.status == 'SUSPICIOUS' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                                SUSPICIOUS
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-red-100 text-red-800 border border-red-300">
+                                <i class="fa-solid fa-ban text-[10px]"></i>
+                                BLOCKED
+                            </span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Client IP -->
+                        <td class="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-slate-500">
+                            {{ login.ip_address|default:"127.0.0.1" }}
+                        </td>
+
+                        <!-- Device / User Agent -->
+                        <td class="py-3 px-4 max-w-xs truncate text-[11px] text-slate-500" title="{{ login.user_agent }}">
+                            {{ login.user_agent|default:"Standard Web Browser" }}
+                        </td>
+
+                        <!-- Failure Reason -->
+                        <td class="py-3 px-4 whitespace-nowrap text-[11px]">
+                            {% if login.failure_reason %}
+                            <span class="text-rose-600 font-semibold">{{ login.failure_reason }}</span>
+                            {% else %}
+                            <span class="text-slate-400">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-12 text-center">
+                            <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-2xl mx-auto mb-3">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <h4 class="text-sm font-bold text-slate-700">No Authentication Audits Recorded</h4>
+                            <p class="text-xs text-slate-400 mt-1">No login attempts match current filter criteria.</p>
+                            <a href="?tab=logins" class="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition">
+                                <i class="fa-solid fa-rotate-left"></i>
+                                Clear Filters
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Pagination Controls -->
+        {% if page_obj.has_other_pages %}
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="text-xs text-slate-500">
+                Showing Page <span class="font-bold text-slate-800">{{ page_obj.number }}</span> of <span class="font-bold text-slate-800">{{ page_obj.paginator.num_pages }}</span>
+                ({{ page_obj.paginator.count }} total events)
+            </div>
+
+            <div class="flex items-center gap-1.5">
+                {% if page_obj.has_previous %}
+                <a href="?tab={{ current_tab }}&page={{ page_obj.previous_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}{% if actor_id %}&actor_id={{ actor_id }}{% endif %}{% if timeframe %}&timeframe={{ timeframe }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 transition flex items-center gap-1">
+                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                    <span>Prev</span>
+                </a>
+                {% endif %}
+
+                {% for p in page_obj.paginator.page_range %}
+                    {% if p == page_obj.number %}
+                    <span class="w-8 h-8 rounded-lg bg-blue-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">
+                        {{ p }}
+                    </span>
+                    {% elif p > page_obj.number|add:"-3" and p < page_obj.number|add:"3" %}
+                    <a href="?tab={{ current_tab }}&page={{ p }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}{% if actor_id %}&actor_id={{ actor_id }}{% endif %}{% if timeframe %}&timeframe={{ timeframe }}{% endif %}"
+                       class="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center justify-center transition">
+                        {{ p }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                <a href="?tab={{ current_tab }}&page={{ page_obj.next_page_number }}{% if q %}&q={{ q|urlencode }}{% endif %}{% if action_type %}&action_type={{ action_type }}{% endif %}{% if actor_id %}&actor_id={{ actor_id }}{% endif %}{% if timeframe %}&timeframe={{ timeframe }}{% endif %}"
+                   class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-700 transition flex items-center gap-1">
+                    <span>Next</span>
+                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ======================= AUDIT DETAIL / DIFF MODAL ======================= -->
+<div id="auditDetailModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-base">
+                    <i class="fa-solid fa-code-compare"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-slate-800" id="modalActionTitle">Action Details</h3>
+                    <p class="text-[11px] text-slate-500" id="modalActionSubtitle">Immutable Audit Payload & State Diff</p>
+                </div>
+            </div>
+            <button onclick="closeAuditModal()" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 overflow-y-auto space-y-4 text-xs">
+            <!-- Metadata Grid -->
+            <div class="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Actor</span>
+                    <span class="font-bold text-slate-800" id="modalActor">—</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Role</span>
+                    <span class="font-bold text-slate-800" id="modalRole">—</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Timestamp</span>
+                    <span class="font-mono text-slate-700" id="modalTimestamp">—</span>
+                </div>
+                <div>
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Client IP</span>
+                    <span class="font-mono text-slate-700" id="modalIP">—</span>
+                </div>
+            </div>
+
+            <!-- State Payloads -->
+            <div class="space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            State Changes / Resulting Payload
+                        </span>
+                    </div>
+                    <pre id="modalAfterJson" class="p-4 bg-slate-900 text-emerald-400 rounded-2xl font-mono text-[11px] overflow-x-auto max-h-56 leading-relaxed shadow-inner">
+{ }
+                    </pre>
+                </div>
+
+                <div id="beforeSection">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                            Previous State (Before Value)
+                        </span>
+                    </div>
+                    <pre id="modalBeforeJson" class="p-4 bg-slate-100 text-slate-700 rounded-2xl font-mono text-[11px] overflow-x-auto max-h-40 leading-relaxed border border-slate-200">
+{ }
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end">
+            <button onclick="closeAuditModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function openAuditModal(logId) {
+    const modal = document.getElementById('auditDetailModal');
+    modal.classList.remove('hidden');
+
+    fetch(`/audit/detail/${logId}/`)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('modalActionTitle').textContent = data.action + ' Details';
+            document.getElementById('modalActionSubtitle').textContent = `Target: ${data.object_type || 'General'} #${data.object_id || 'N/A'}`;
+            document.getElementById('modalActor').textContent = `${data.actor_name} (@${data.actor_username})`;
+            document.getElementById('modalRole').textContent = data.actor_role;
+            document.getElementById('modalTimestamp').textContent = data.timestamp;
+            document.getElementById('modalIP').textContent = data.ip_address;
+
+            document.getElementById('modalAfterJson').textContent = JSON.stringify(data.after_value, null, 2);
+
+            if (data.before_value && Object.keys(data.before_value).length > 0) {
+                document.getElementById('beforeSection').classList.remove('hidden');
+                document.getElementById('modalBeforeJson').textContent = JSON.stringify(data.before_value, null, 2);
+            } else {
+                document.getElementById('beforeSection').classList.add('hidden');
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching audit details:', err);
+        });
+}
+
+function closeAuditModal() {
+    document.getElementById('auditDetailModal').classList.add('hidden');
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeAuditModal();
+    }
+});
+</script>
+{% endblock %}

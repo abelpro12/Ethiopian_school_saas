@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_edit %}Edit Online Exam{% else %}Create Online Exam{% endif %} | EthioSchool{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <!-- Breadcrumb & Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold">{% if is_edit %}Edit Exam{% else %}Create New Exam{% endif %}</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-pen text-cyan-600"></i>
+                {% if is_edit %}Edit Exam Configuration{% else %}Create Online Examination{% endif %}
+            </h1>
+        </div>
+
+        <a href="{% url 'examinations:list' %}" class="btn-secondary text-xs">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back to List
+        </a>
+    </div>
+
+    <!-- Main Configuration Form -->
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Section 1: Basic Information -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
+            <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                <div class="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold text-base border border-cyan-100">
+                    1
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 font-heading">Exam Identification & Scope</h2>
+                    <p class="text-xs text-slate-500">Define the title, subject, and student cohort targeted by this assessment.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Exam Title <span class="text-red-500">*</span></label>
+                    <input type="text" name="title" value="{{ exam.title|default:'' }}" required placeholder="e.g., Grade 11 Physics Midterm CBT Exam"
+                        class="input-field text-base font-semibold">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Subject <span class="text-red-500">*</span></label>
+                    <select name="subject_id" required class="input-field font-medium">
+                        <option value="">Select Subject...</option>
+                        {% for group_name, sub_list in grouped_subjects.items %}
+                        <optgroup label="📚 {{ group_name }}">
+                            {% for sub in sub_list %}
+                            <option value="{{ sub.id }}" {% if exam and exam.subject.id == sub.id %}selected{% endif %}>
+                                {{ sub.name }} ({{ sub.code }})
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Academic Period</label>
+                    <select name="period_id" class="input-field">
+                        <option value="">None / General</option>
+                        {% for p in periods %}
+                        <option value="{{ p.id }}" {% if exam and exam.period and exam.period.id == p.id %}selected{% endif %}>
+                            {{ p.name }} ({{ p.academic_year.name }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Target Grade</label>
+                    <select name="grade_id" class="input-field">
+                        <option value="">Auto-detected from Subject / All</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}" {% if exam and exam.grade and exam.grade.id == g.id %}selected{% endif %}>
+                            {{ g.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Target Section (Optional)</label>
+                    <select name="section_id" class="input-field font-medium">
+                        <option value="">All Sections in Grade</option>
+                        {% for group_name, sec_list in grouped_sections.items %}
+                        <optgroup label="🏫 {{ group_name }}">
+                            {% for sec in sec_list %}
+                            <option value="{{ sec.id }}" {% if exam and exam.section and exam.section.id == sec.id %}selected{% endif %}>
+                                {{ sec.name }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Description & Objectives</label>
+                    <textarea name="description" rows="2" placeholder="Brief note regarding covered topics and chapters..."
+                        class="input-field">{{ exam.description|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Timing & Availability Window -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
+            <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base border border-indigo-100">
+                    2
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 font-heading">Schedule Window & Duration</h2>
+                    <p class="text-xs text-slate-500">Specify when the test room opens, when it closes, and candidate time limits.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Window Opens <span class="text-red-500">*</span></label>
+                    <input type="datetime-local" name="start_time" required
+                        value="{{ exam.start_time|date:'Y-m-d\TH:i' }}"
+                        class="input-field text-sm font-mono">
+                    <p class="text-[11px] text-slate-400 mt-1">Start of testing availability</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Window Closes <span class="text-red-500">*</span></label>
+                    <input type="datetime-local" name="end_time" required
+                        value="{{ exam.end_time|date:'Y-m-d\TH:i' }}"
+                        class="input-field text-sm font-mono">
+                    <p class="text-[11px] text-slate-400 mt-1">Hard deadline for submissions</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Time Limit (Minutes) <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="number" name="duration_minutes" value="{{ exam.duration_minutes|default:60 }}" min="5" max="360" required
+                            class="input-field pr-12 font-bold text-slate-800">
+                        <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">MINS</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Countdown per individual attempt</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: Scoring & Gradebook Link -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
+            <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base border border-emerald-100">
+                    3
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 font-heading">Scoring & Gradebook Integration</h2>
+                    <p class="text-xs text-slate-500">Configure total marks, passing percentage, and official gradebook linking.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Total Marks</label>
+                    <input type="number" step="0.5" name="total_marks" value="{{ exam.total_marks|default:'100.00' }}" required
+                        class="input-field font-bold text-slate-800">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Passing Mark (%)</label>
+                    <input type="number" step="1" name="pass_mark" value="{{ exam.pass_mark|default:'50.00' }}" required
+                        class="input-field font-bold text-emerald-600">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Gradebook Sync Component</label>
+                    <select name="assessment_component_id" class="input-field font-medium">
+                        <option value="">No Automatic Gradebook Sync</option>
+                        {% for group_name, comp_list in grouped_components.items %}
+                        <optgroup label="📊 {{ group_name }}">
+                            {% for comp in comp_list %}
+                            <option value="{{ comp.id }}" {% if exam and exam.assessment_component and exam.assessment_component.id == comp.id %}selected{% endif %}>
+                                {{ comp.subject.code }} - {{ comp.name }} ({{ comp.weight }}%)
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[11px] text-slate-400 mt-1">Divided by Grade & Stream</p>
+                </div>
+
+                <div class="md:col-span-3">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Student Instructions</label>
+                    <textarea name="instructions" rows="3" class="input-field font-mono text-xs">{{ exam.instructions|default:"Read each question carefully before answering. Do not switch tabs or leave fullscreen mode during the test." }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: Security & Anti-Cheating Controls -->
+        <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
+            <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-base border border-amber-100">
+                    4
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 font-heading">Security, Anti-Cheating & Proctoring</h2>
+                    <p class="text-xs text-slate-500">Enforce full-screen lockdowns, randomize items, and prevent academic dishonesty.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Proctoring Toggle -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-3">
+                    <input type="checkbox" id="enable_proctoring" name="enable_proctoring"
+                        {% if exam %}{% if exam.enable_proctoring %}checked{% endif %}{% else %}checked{% endif %}
+                        class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500">
+                    <div>
+                        <label for="enable_proctoring" class="text-sm font-bold text-slate-900 cursor-pointer">Live Anti-Cheat Proctoring</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Enforces fullscreen mode, detects tab switching, and tracks window blur incidents.</p>
+                    </div>
+                </div>
+
+                <!-- Max Violations -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div>
+                        <label class="text-sm font-bold text-slate-900">Max Violations Allowed</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Auto-flags or submits when tab-switch threshold exceeded.</p>
+                    </div>
+                    <input type="number" name="max_violations_allowed" min="1" max="10" value="{{ exam.max_violations_allowed|default:3 }}"
+                        class="w-16 input-field text-center font-bold text-sm">
+                </div>
+
+                <!-- Shuffle Questions -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-3">
+                    <input type="checkbox" id="shuffle_questions" name="shuffle_questions"
+                        {% if exam %}{% if exam.shuffle_questions %}checked{% endif %}{% else %}checked{% endif %}
+                        class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500">
+                    <div>
+                        <label for="shuffle_questions" class="text-sm font-bold text-slate-900 cursor-pointer">Shuffle Question Order</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Randomizes question presentation order for each candidate.</p>
+                    </div>
+                </div>
+
+                <!-- Shuffle Options -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-3">
+                    <input type="checkbox" id="shuffle_options" name="shuffle_options"
+                        {% if exam %}{% if exam.shuffle_options %}checked{% endif %}{% else %}checked{% endif %}
+                        class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500">
+                    <div>
+                        <label for="shuffle_options" class="text-sm font-bold text-slate-900 cursor-pointer">Shuffle Multiple Choice Options</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Randomizes choice answers (A, B, C, D) order per student.</p>
+                    </div>
+                </div>
+
+                <!-- Allow Backtracking -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-3">
+                    <input type="checkbox" id="allow_backtracking" name="allow_backtracking"
+                        {% if exam %}{% if exam.allow_backtracking %}checked{% endif %}{% else %}checked{% endif %}
+                        class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500">
+                    <div>
+                        <label for="allow_backtracking" class="text-sm font-bold text-slate-900 cursor-pointer">Allow Question Backtracking</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Permits students to jump back and revise earlier answers during the test.</p>
+                    </div>
+                </div>
+
+                <!-- Immediate Results -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-3">
+                    <input type="checkbox" id="show_results_immediately" name="show_results_immediately"
+                        {% if exam.show_results_immediately %}checked{% endif %}
+                        class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500">
+                    <div>
+                        <label for="show_results_immediately" class="text-sm font-bold text-slate-900 cursor-pointer">Show Score Immediately</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Displays calculated score and pass/fail badge right after student submits.</p>
+                    </div>
+                </div>
+
+                <!-- Show Solutions -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-start gap-3 md:col-span-2">
+                    <input type="checkbox" id="show_correct_answers" name="show_correct_answers"
+                        {% if exam.show_correct_answers_after_submission %}checked{% endif %}
+                        class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500">
+                    <div>
+                        <label for="show_correct_answers" class="text-sm font-bold text-slate-900 cursor-pointer">Allow Full Answer Key Review</label>
+                        <p class="text-xs text-slate-500 mt-0.5">Students can inspect explanations and correct answer keys after grading is complete.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button Row -->
+        <div class="flex items-center justify-end gap-3 pt-4">
+            <a href="{% url 'examinations:list' %}" class="btn-secondary">Cancel</a>
+            <button type="submit" class="btn-primary flex items-center gap-2 px-6 py-3">
+                <i class="fa-solid fa-floppy-disk"></i>
+                {% if is_edit %}Save Changes{% else %}Save & Continue to Questions{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

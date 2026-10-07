@@ -1,0 +1,548 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Live Call: {{ meeting.title }} — {{ active_school.name|default:"EthioSchool" }}{% endblock %}
+
+{% block extra_head %}
+<!-- Jitsi Meet WebRTC External API -->
+<script src="https://meet.jit.si/external_api.js"></script>
+<style>
+
+    /* Full height video room layout */
+    .video-room-container {
+        height: calc(100vh - 120px);
+        min-height: 540px;
+    }
+    @media (max-width: 640px) {
+        .video-room-container {
+            height: calc(100vh - 90px);
+            min-height: 480px;
+        }
+    }
+    #jitsi-container {
+        width: 100%;
+        height: 100%;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        background: #0f172a;
+    }
+    #jitsi-container iframe {
+        border-radius: 1.5rem;
+    }
+    .meter-bar {
+        transition: width 0.1s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-4 pb-6">
+
+    <!-- ═══════════════ STAGE 1: PRE-CALL DEVICE CHECK LOBBY ═══════════════ -->
+    <div id="lobbyContainer" class="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 rounded-3xl p-6 sm:p-10 text-white shadow-2xl border border-slate-800 relative overflow-hidden">
+        <div class="absolute -right-20 -top-20 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-20 -bottom-20 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 max-w-4xl mx-auto">
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold mb-2">
+                        <i class="fa-solid fa-video"></i>
+                        <span>{{ meeting.get_meeting_type_display }}</span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-heading font-black tracking-tight text-white">{{ meeting.title }}</h1>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">Hosted by <strong class="text-slate-200">{{ meeting.host.get_full_name|default:meeting.host.username }}</strong></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-400 text-[11px] font-medium hidden sm:inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-server text-emerald-400"></i> {{ jitsi_domain }}
+                    </span>
+                    <a href="{% url 'video_calls:dashboard' %}" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                        <i class="fa-solid fa-arrow-left"></i> Back to Hub
+                    </a>
+                </div>
+            </div>
+
+            <!-- Pre-call Device Preview Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6 mt-6 items-center">
+                <!-- Video Box Preview -->
+                <div class="md:col-span-7 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden relative aspect-video flex items-center justify-center shadow-inner">
+                    <video id="localPreviewVideo" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+                    
+                    <div id="cameraOffPlaceholder" class="hidden absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-500 space-y-2">
+                        <div class="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-2xl text-slate-400">
+                            <i class="fa-solid fa-video-slash"></i>
+                        </div>
+                        <p class="text-xs font-bold text-slate-400">Camera is turned off</p>
+                    </div>
+
+                    <!-- Overlay Bottom Controls -->
+                    <div class="absolute bottom-3 inset-x-3 flex items-center justify-center gap-3 bg-slate-900/80 backdrop-blur-md py-2 px-4 rounded-xl border border-slate-700/50">
+                        <button type="button" id="lobbyMicBtn" onclick="toggleLobbyMic()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-sm shadow-md transition" title="Toggle Microphone">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                        <button type="button" id="lobbyCamBtn" onclick="toggleLobbyCam()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-sm shadow-md transition" title="Toggle Camera">
+                            <i class="fa-solid fa-video"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Join Action Box -->
+                <div class="md:col-span-5 space-y-4 bg-slate-950/60 p-6 rounded-2xl border border-slate-800/80">
+                    <div>
+                        <h3 class="text-sm font-extrabold uppercase tracking-wider text-slate-400 mb-1">Ready to join?</h3>
+                        <p class="text-xs text-slate-400">Joining as <strong class="text-indigo-300">{{ user_display_name }}</strong> ({{ user_role_display }})</p>
+                    </div>
+
+                    <!-- Mic level indicator -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                            <span><i class="fa-solid fa-volume-high text-indigo-400"></i> Microphone Test</span>
+                            <span id="micStatusText" class="text-emerald-400">Detecting audio...</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                            <div id="micLevelMeter" class="meter-bar bg-emerald-500 h-full w-0 rounded-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Details Summary -->
+                    <div class="space-y-2 text-xs bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
+                        {% if meeting.target_grade or meeting.target_section or meeting.target_subject %}
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span class="text-slate-500">Class:</span>
+                            <span class="font-bold text-slate-200">
+                                {{ meeting.target_grade.name|default:"" }}
+                                {% if meeting.target_section %}Sec {{ meeting.target_section.name }}{% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                        {% if meeting.target_subject %}
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span class="text-slate-500">Subject:</span>
+                            <span class="font-bold text-slate-200">{{ meeting.target_subject.name }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span class="text-slate-500">Duration:</span>
+                            <span class="font-bold text-slate-200">{{ meeting.duration_minutes }} Minutes</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons: 2 Joining Choices -->
+                    <div class="space-y-2.5 pt-2">
+                        <!-- Primary Choice: Dedicated Full Window (No Limits, No Warning) -->
+                        <button type="button" onclick="launchStandaloneWindow()" class="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm shadow-xl shadow-emerald-600/40 hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-up-right-from-square"></i>
+                            <span>Launch Live Room (Unlimited • Free)</span>
+                        </button>
+
+                        <!-- Secondary Choice: In-Page Embedded (May show 8x8 demo notice) -->
+                        <button type="button" onclick="enterMeetingRoom()" class="w-full py-2.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs border border-slate-700 hover:border-slate-600 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-table-cells"></i>
+                            <span>Join In-Page (Embedded View)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- ═══════════════ STAGE 2: LIVE VIDEO CALL CONFERENCE ROOM (EMBEDDED) ═══════════════ -->
+    <div id="meetingRoomContainer" class="hidden space-y-3">
+        <!-- Top Call Bar -->
+        <div class="bg-slate-900 text-white px-5 py-3 rounded-2xl border border-slate-800 shadow-lg flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500 text-white flex items-center gap-1.5 shadow-sm animate-pulse">
+                    <i class="fa-solid fa-circle text-[8px]"></i> LIVE
+                </span>
+                <div>
+                    <h2 class="text-sm sm:text-base font-black tracking-tight text-white truncate max-w-xs sm:max-w-md">{{ meeting.title }}</h2>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                        <span><i class="fa-solid fa-user-tie text-indigo-400"></i> Host: {{ meeting.host.get_full_name|default:meeting.host.username }}</span>
+                        <span>•</span>
+                        <span id="callDurationTimer" class="font-mono text-emerald-400 font-bold">00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Call Quick Actions -->
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="openPopoutWindow()" title="Popout to Dedicated Window" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-up-right-from-square text-indigo-400"></i>
+                    <span class="hidden sm:inline">Popout</span>
+                </button>
+                <button type="button" onclick="copyInviteLink('{{ meeting.id }}')" title="Copy Member Meeting Link" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-link"></i>
+                    <span class="hidden sm:inline">Member Link</span>
+                </button>
+                {% if meeting.allow_guest_access and meeting.guest_token %}
+                <button type="button" onclick="copyGuestLink('{{ meeting.guest_token }}')" title="Copy External Guest Invite Link" class="px-3 py-2 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-xs font-bold border border-purple-500/40 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-astronaut text-purple-300"></i>
+                    <span class="hidden sm:inline">Guest Link</span>
+                </button>
+                {% endif %}
+                <a href="{% url 'video_calls:detail' meeting.id %}" target="_blank" title="Attendance Log" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-clipboard-user"></i>
+                    <span class="hidden sm:inline">Attendance</span>
+                </a>
+                <button type="button" onclick="leaveMeetingRoom()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black shadow-md shadow-red-600/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-phone-slash"></i>
+                    <span>Leave Call</span>
+                </button>
+                {% if is_host %}
+                <a href="{% url 'video_calls:end' meeting.id %}" onclick="return confirm('End this live meeting for all participants?');" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-red-950 text-red-400 text-xs font-black border border-red-500/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-power-off"></i>
+                    <span class="hidden sm:inline">End For All</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Embedded Notice Bar -->
+        <div class="px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-[11px] text-indigo-300 flex flex-wrap items-center justify-between gap-3">
+            <span class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-indigo-400"></i>
+                <span>For <strong>unlimited class time without 5-minute popups</strong>, launch in full window.</span>
+            </span>
+            <button type="button" onclick="openPopoutWindow()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1.5 flex-shrink-0">
+                <i class="fa-solid fa-up-right-from-square"></i> Open Full Window (Unlimited)
+            </button>
+        </div>
+
+        <!-- WebRTC Jitsi Video Frame -->
+        <div class="video-room-container rounded-2xl shadow-2xl border border-slate-800/80">
+            <div id="jitsi-container"></div>
+        </div>
+    </div>
+
+
+
+    <!-- ═══════════════ STAGE 3: STANDALONE WINDOW ACTIVE SYNC CARD ═══════════════ -->
+    <div id="standaloneActiveContainer" class="hidden bg-slate-900 rounded-3xl p-8 sm:p-12 text-white shadow-2xl border border-slate-800 text-center max-w-2xl mx-auto space-y-6">
+        <div class="w-20 h-20 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto border border-emerald-500/30 animate-pulse">
+            <i class="fa-solid fa-video"></i>
+        </div>
+        <div>
+            <h2 class="text-2xl font-black text-white">Call Active in Dedicated Window</h2>
+            <p class="text-xs text-slate-400 mt-2 max-w-md mx-auto">
+                Your video session is running in a full standalone window with unlimited minutes. EthioSchool is logging your attendance in real-time.
+            </p>
+        </div>
+
+        <div class="flex items-center justify-center gap-6 py-4 px-6 bg-slate-950/80 rounded-2xl border border-slate-800 max-w-sm mx-auto">
+            <div class="text-left">
+                <span class="text-[10px] text-slate-500 uppercase tracking-wider font-bold block">Status</span>
+                <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Recording Attendance
+                </span>
+            </div>
+            <div class="h-8 w-px bg-slate-800"></div>
+            <div class="text-left">
+                <span class="text-[10px] text-slate-500 uppercase tracking-wider font-bold block">Duration</span>
+                <span id="standaloneDurationTimer" class="font-mono text-xs font-black text-slate-200">00:00</span>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button type="button" onclick="reopenStandaloneWindow()" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Bring Window to Front
+            </button>
+            <button type="button" onclick="leaveMeetingRoom()" class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-red-600/30">
+                <i class="fa-solid fa-phone-slash"></i> Leave & Save Attendance
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // State variables
+    let localStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let micLevelInterval = null;
+    let isMicMuted = false;
+    let isCamMuted = false;
+    let jitsiApi = null;
+    let timerInterval = null;
+    let startTime = null;
+    let attendanceHeartbeatInterval = null;
+    let popupWindowRef = null;
+
+    const meetingId = '{{ meeting.id }}';
+    const jitsiRoom = '{{ jitsi_room }}';
+    const jitsiDomain = '{{ jitsi_domain }}';
+    const standaloneUrl = '{{ standalone_meeting_url }}';
+    const userDisplayName = '{{ user_display_name|escapejs }}';
+    const userEmail = '{{ user_email|escapejs }}';
+    const isHost = {{ is_host|yesno:"true,false" }};
+    const csrfToken = '{{ csrf_token }}';
+
+    // 1. Initialize Pre-call Camera/Mic Preview
+    async function initPrecallDevices() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            const videoEl = document.getElementById('localPreviewVideo');
+            videoEl.srcObject = localStream;
+
+            // Audio level visualizer
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(localStream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            const micLevelMeter = document.getElementById('micLevelMeter');
+
+            micLevelInterval = setInterval(() => {
+                if (isMicMuted) {
+                    micLevelMeter.style.width = '0%';
+                    return;
+                }
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) {
+                    sum += dataArray[i];
+                }
+                let avg = sum / bufferLength;
+                let percent = Math.min(100, Math.round((avg / 128) * 100));
+                micLevelMeter.style.width = percent + '%';
+            }, 80);
+
+        } catch (err) {
+            console.warn('Media devices error:', err);
+            document.getElementById('cameraOffPlaceholder').classList.remove('hidden');
+            document.getElementById('micStatusText').innerText = 'Microphone not detected';
+            document.getElementById('micStatusText').className = 'text-amber-400';
+        }
+    }
+
+    function toggleLobbyMic() {
+        if (!localStream) return;
+        isMicMuted = !isMicMuted;
+        localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
+        const btn = document.getElementById('lobbyMicBtn');
+        if (isMicMuted) {
+            btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+            btn.className = 'w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-sm shadow-md transition';
+            document.getElementById('micStatusText').innerText = 'Microphone Muted';
+            document.getElementById('micStatusText').className = 'text-red-400';
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+            btn.className = 'w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-sm shadow-md transition';
+            document.getElementById('micStatusText').innerText = 'Detecting audio...';
+            document.getElementById('micStatusText').className = 'text-emerald-400';
+        }
+    }
+
+    function toggleLobbyCam() {
+        if (!localStream) return;
+        isCamMuted = !isCamMuted;
+        localStream.getVideoTracks().forEach(track => track.enabled = !isCamMuted);
+        const btn = document.getElementById('lobbyCamBtn');
+        const placeholder = document.getElementById('cameraOffPlaceholder');
+        if (isCamMuted) {
+            btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+            btn.className = 'w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center text-sm shadow-md transition';
+            placeholder.classList.remove('hidden');
+        } else {
+            btn.innerHTML = '<i class="fa-solid fa-video"></i>';
+            btn.className = 'w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-sm shadow-md transition';
+            placeholder.classList.add('hidden');
+        }
+    }
+
+    function cleanupLobbyMedia() {
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+        if (micLevelInterval) clearInterval(micLevelInterval);
+        if (audioContext) audioContext.close();
+    }
+
+    // 2. Enter Live Meeting Room (In-App Embedded)
+    function enterMeetingRoom() {
+        cleanupLobbyMedia();
+
+        document.getElementById('lobbyContainer').classList.add('hidden');
+        document.getElementById('standaloneActiveContainer').classList.add('hidden');
+        document.getElementById('meetingRoomContainer').classList.remove('hidden');
+
+        startCallTimer();
+        startAttendanceHeartbeat();
+        initJitsi();
+    }
+
+    // 3. Launch Standalone Window (Popout Mode - No Limits)
+    function launchStandaloneWindow() {
+        cleanupLobbyMedia();
+
+        document.getElementById('lobbyContainer').classList.add('hidden');
+        document.getElementById('meetingRoomContainer').classList.add('hidden');
+        document.getElementById('standaloneActiveContainer').classList.remove('hidden');
+
+        startCallTimer();
+        startAttendanceHeartbeat();
+        openPopoutWindow();
+    }
+
+    function openPopoutWindow() {
+        const width = 1200;
+        const height = 750;
+        const left = Math.max(0, (window.screen.width - width) / 2);
+        const top = Math.max(0, (window.screen.height - height) / 2);
+        popupWindowRef = window.open(
+            standaloneUrl,
+            'EthioSchool_VideoRoom',
+            `width=${width},height=${height},top=${top},left=${left},status=no,menubar=no,toolbar=no`
+        );
+    }
+
+    function reopenStandaloneWindow() {
+        if (popupWindowRef && !popupWindowRef.closed) {
+            popupWindowRef.focus();
+        } else {
+            openPopoutWindow();
+        }
+    }
+
+    // 4. Initialize Jitsi Meet WebRTC API
+    function initJitsi() {
+        const domain = jitsiDomain;
+        const options = {
+            roomName: jitsiRoom,
+            width: '100%',
+            height: '100%',
+            parentNode: document.querySelector('#jitsi-container'),
+            userInfo: {
+                displayName: userDisplayName,
+                email: userEmail
+            },
+            configOverwrite: {
+                startWithAudioMuted: isMicMuted,
+                startWithVideoMuted: isCamMuted,
+                prejoinPageEnabled: false,
+                disableDeepLinking: true,
+                enableWelcomePage: false,
+                enableClosePage: false,
+                defaultRemoteDisplayName: 'Student / Participant',
+            },
+            interfaceConfigOverwrite: {
+                TOOLBAR_BUTTONS: [
+                    'microphone', 'camera', 'desktop', 'chat', 'raisehand',
+                    'tileview', 'fullscreen', 'whiteboard', 'hangup', 'videoquality'
+                ],
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_WATERMARK_FOR_GUESTS: false,
+                SHOW_BRAND_WATERMARK: false,
+                DEFAULT_BACKGROUND: '#0f172a',
+            }
+        };
+
+        try {
+            jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+            jitsiApi.addEventListeners({
+                readyToClose: () => {
+                    leaveMeetingRoom();
+                },
+                videoConferenceJoined: (participant) => {
+                    console.log('Joined video conference:', participant);
+                },
+                videoConferenceLeft: () => {
+                    leaveMeetingRoom();
+                }
+            });
+        } catch (e) {
+            console.error('Failed to init Jitsi iframe API:', e);
+        }
+    }
+
+    // 5. Timer
+    function startCallTimer() {
+        startTime = Date.now();
+        timerInterval = setInterval(() => {
+            const diffSec = Math.floor((Date.now() - startTime) / 1000);
+            const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+            const secs = String(diffSec % 60).padStart(2, '0');
+            const el1 = document.getElementById('callDurationTimer');
+            const el2 = document.getElementById('standaloneDurationTimer');
+            if (el1) el1.innerText = `${mins}:${secs}`;
+            if (el2) el2.innerText = `${mins}:${secs}`;
+        }, 1000);
+    }
+
+    // 6. Attendance Heartbeat
+    function startAttendanceHeartbeat() {
+        // Send immediate join ping
+        sendAttendancePing('join');
+        // Ping every 30 seconds
+        attendanceHeartbeatInterval = setInterval(() => {
+            sendAttendancePing('heartbeat');
+        }, 30000);
+    }
+
+    function sendAttendancePing(action) {
+        fetch(`/video-calls/room/${meetingId}/api/attendance/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ action: action })
+        }).catch(err => console.error('Attendance ping error:', err));
+    }
+
+    function leaveMeetingRoom() {
+        if (attendanceHeartbeatInterval) clearInterval(attendanceHeartbeatInterval);
+        if (timerInterval) clearInterval(timerInterval);
+
+        // Send final leave ping
+        sendAttendancePing('leave');
+
+        if (jitsiApi) {
+            jitsiApi.dispose();
+            jitsiApi = null;
+        }
+
+        if (popupWindowRef && !popupWindowRef.closed) {
+            popupWindowRef.close();
+        }
+
+        window.location.href = `/video-calls/room/${meetingId}/detail/`;
+    }
+
+    window.addEventListener('beforeunload', () => {
+        sendAttendancePing('leave');
+    });
+
+    // Start preview on load
+    window.addEventListener('DOMContentLoaded', () => {
+        initPrecallDevices();
+    });
+
+    function copyInviteLink(id) {
+        const fullUrl = window.location.origin + '/video-calls/room/' + id + '/';
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            alert('Member meeting link copied to clipboard!\n' + fullUrl);
+        }).catch(() => {
+            prompt('Copy this meeting link:', fullUrl);
+        });
+    }
+
+    function copyGuestLink(guestToken) {
+        const fullUrl = window.location.origin + '/video-calls/guest/' + guestToken + '/';
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            alert('Guest Video Call Invitation link copied to clipboard!\nShare this link with your external guest (VIP, parent, or inspector):\n' + fullUrl);
+        }).catch(() => {
+            prompt('Copy this Guest Invitation link:', fullUrl);
+        });
+    }
+</script>
+{% endblock %}

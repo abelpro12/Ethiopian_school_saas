@@ -110,12 +110,11 @@ def management_dashboard(request):
                 messages.error(request, "Employee ID, First Name, and Last Name are required.")
                 return redirect('teachers:management')
 
-            if User.objects.filter(username=emp_id.lower()).exists():
-                messages.error(request, f"User with ID/Username '{emp_id}' already exists.")
-                return redirect('teachers:management')
+            from apps.accounts.utils import generate_unique_username
+            teacher_username = generate_unique_username(fname, lname, school=school)
 
             user = User.objects.create_user(
-                username=emp_id.lower(),
+                username=teacher_username,
                 school=school,
                 role=UserRole.TEACHER,
                 first_name=fname,
@@ -124,6 +123,7 @@ def management_dashboard(request):
             user.set_password("teacher123")
             user.must_change_password = True
             user.save()
+
 
             teacher_profile = TeacherProfile.objects.create(
                 school=school,

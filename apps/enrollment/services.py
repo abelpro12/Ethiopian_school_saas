@@ -51,7 +51,22 @@ class PromotionEvaluationEngine:
                 failed_subjects.append({'subject': subj_code, 'average': subj_avg})
 
         failed_count = len(failed_subjects)
-        attendance_pct = 100.00  # Default full attendance
+        # 2b. Real Attendance Calculation
+        try:
+            from apps.attendance.models import AttendanceRecord, AttendanceStatus
+            att_qs = AttendanceRecord.objects.filter(
+                school=school,
+                student=enrollment.student,
+                date__gte=academic_year.gregorian_start_date,
+                date__lte=academic_year.gregorian_end_date
+            )
+            total_att = att_qs.count()
+            present_att = att_qs.filter(
+                status__in=[AttendanceStatus.PRESENT, AttendanceStatus.LATE]
+            ).count()
+            attendance_pct = round((present_att / total_att * 100), 2) if total_att > 0 else 100.0
+        except Exception:
+            attendance_pct = 100.0  # Fallback: no records means no absences logged yet
 
         # 3. Recommendation Pipeline
         grade_level = enrollment.grade.level

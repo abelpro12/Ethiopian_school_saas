@@ -11,14 +11,14 @@
         <div>
             <span class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-bold text-xs">Public Website Management</span>
             <h1 class="font-heading font-black text-2xl sm:text-3xl text-slate-900 mt-2">Manage School News & Events</h1>
-            <p class="text-slate-500 text-xs mt-1">Post updates, achievement announcements, and press releases to the official school website.</p>
+            <p class="text-slate-500 text-xs mt-1">Post updates, drag to reorder article sequences, and select which news items appear on the main school landing page.</p>
         </div>
         <div class="flex items-center gap-3">
-            <a href="{% if school.code == 'SEA' or school.code == 'SEATTLE' %}{% url 'seattle_academy_home' %}{% else %}{% url 'index' %}{% endif %}" target="_blank" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-2">
+            <a href="{% if school.code == 'SEA' or school.code == 'SEATTLE' %}{% url 'seattle_academy_home' %}#news{% else %}{% url 'index' %}{% endif %}" target="_blank" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-2">
                 <i class="fa-solid fa-arrow-up-right-from-square"></i> View Live Website
             </a>
 
-            <a href="{% url 'manage_gallery' %}" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
+            <a href="{% url 'manage_gallery' %}" class="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2">
                 <i class="fa-solid fa-images"></i> Manage Gallery
             </a>
         </div>
@@ -75,51 +75,187 @@
                     class="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
             </div>
 
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Upload Photo / Image</label>
-                <input type="file" name="image" accept="image/*" 
-                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-700">
+            <div class="grid md:grid-cols-2 gap-4 items-center">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Upload Photo / Image</label>
+                    <input type="file" name="image" accept="image/*" 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-700">
+                </div>
+
+                <!-- Show on Home Page Option -->
+                <div class="pt-4 sm:pt-0">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Homepage Visibility</label>
+                    <div class="flex items-center gap-3 p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl">
+                        <input type="checkbox" id="is_featured" name="is_featured" checked 
+                            class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">
+                        <label for="is_featured" class="text-xs font-bold text-slate-800 cursor-pointer select-none flex items-center gap-1.5">
+                            <i class="fa-solid fa-star text-amber-500"></i> Show on Main / Home Page News Showcase
+                        </label>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
-                <i class="fa-solid fa-paper-plane"></i> Publish to School Website
-            </button>
+            <div class="pt-2">
+                <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i> Publish to School Website
+                </button>
+            </div>
         </form>
     </div>
 
-    <!-- Published News List -->
+    <!-- Published News List & Reorder Section -->
     <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-        <h2 class="font-heading font-bold text-xl text-slate-900 mb-6">Published News Articles</h2>
+        
+        <!-- Header & Stats Bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+            <div>
+                <h2 class="font-heading font-bold text-xl text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-down-1-9 text-blue-600"></i> Published News Articles ({{ total_count }})
+                </h2>
+                <p class="text-slate-500 text-xs mt-1">
+                    Drag and drop cards or click the <span class="font-bold text-slate-700">🔼 / 🔽 arrows</span> to rearrange display order. Toggle <span class="font-bold text-emerald-600">"Home Page"</span> to choose which articles appear on the main landing page.
+                </p>
+            </div>
 
-        <div class="grid md:grid-cols-2 gap-6">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-emerald-500"></i> <span id="stat-featured-count">{{ featured_count }}</span> on Main Home Page
+                </span>
+                <span class="px-3 py-1 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye-slash text-slate-400"></i> <span id="stat-hidden-count">{{ hidden_count }}</span> Full News Only
+                </span>
+            </div>
+        </div>
+
+        <!-- Draggable News Cards Grid -->
+        <div id="news-grid" class="grid md:grid-cols-2 gap-6">
             {% for item in news_items %}
-            <div class="border border-slate-200 rounded-2xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition">
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold">{{ item.category }}</span>
-                        <span class="text-slate-400">{{ item.created_at|date:"M d, Y" }}</span>
+            <div class="news-card border border-slate-200 rounded-2xl p-6 flex flex-col justify-between space-y-4 hover:shadow-md transition relative group select-none bg-white"
+                 draggable="true"
+                 data-id="{{ item.id }}"
+                 data-title="{{ item.title|escape }}"
+                 data-category="{{ item.category|escape }}"
+                 data-badge="{{ item.badge_text|default:''|escape }}"
+                 data-location="{{ item.location|default:''|escape }}"
+                 data-featured="{% if item.is_featured %}true{% else %}false{% endif %}"
+                 data-image="{% if item.image %}{{ item.image.url }}{% elif item.image_url %}{% static item.image_url %}{% endif %}"
+                 id="news-item-{{ item.id }}">
+                <textarea class="hidden news-raw-content">{{ item.content }}</textarea>
+                
+                <div class="space-y-3">
+                    
+                    <!-- Top Info Bar with Sequence Handle & Visibility Toggle -->
+                    <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+                        <div class="flex items-center gap-2">
+                            <span class="order-badge px-2.5 py-1 bg-slate-900 text-white rounded-lg font-black text-xs flex items-center gap-1.5 cursor-grab active:cursor-grabbing" title="Drag to reorder sequence">
+                                <i class="fa-solid fa-grip-vertical text-slate-400"></i>
+                                <span class="order-label">#{{ forloop.counter }}</span>
+                            </span>
+                            <span class="px-2.5 py-0.5 bg-blue-50 text-blue-600 rounded-full font-bold text-[11px]">{{ item.category }}</span>
+                        </div>
+
+                        <!-- 1-Click Visibility Toggle Button -->
+                        <div>
+                            <button type="button" 
+                                    onclick="toggleFeatured({{ item.id }})" 
+                                    id="badge-featured-{{ item.id }}"
+                                    data-featured="{% if item.is_featured %}true{% else %}false{% endif %}"
+                                    class="px-2.5 py-1 rounded-lg text-[11px] font-black shadow transition flex items-center gap-1.5 cursor-pointer {% if item.is_featured %}bg-emerald-600 text-white hover:bg-emerald-700{% else %}bg-slate-200 text-slate-600 hover:bg-slate-300{% endif %}"
+                                    title="Click to toggle whether this article appears on the main landing page">
+                                {% if item.is_featured %}
+                                <i class="fa-solid fa-check"></i> <span>On Home Page</span>
+                                {% else %}
+                                <i class="fa-solid fa-eye-slash"></i> <span>Hidden from Home</span>
+                                {% endif %}
+                            </button>
+                        </div>
                     </div>
-                    <h3 class="font-heading font-bold text-lg text-slate-900">{{ item.title }}</h3>
-                    {% if item.badge_text %}
-                    <span class="inline-block px-2.5 py-0.5 bg-orange-100 text-orange-700 font-bold text-[11px] rounded-lg">
-                        {{ item.badge_text }}
-                    </span>
+
+                    <!-- Article Headline & Badge -->
+                    <div>
+                        <h3 class="font-heading font-bold text-lg text-slate-900 leading-snug">{{ item.title }}</h3>
+                        {% if item.badge_text %}
+                        <span class="inline-block px-2.5 py-0.5 bg-orange-100 text-orange-700 font-bold text-[11px] rounded-lg mt-1.5">
+                            {{ item.badge_text }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Optional Image Preview -->
+                    {% if item.image or item.image_url %}
+                    <div class="h-40 bg-slate-100 rounded-xl overflow-hidden relative">
+                        {% if item.image %}
+                        <img src="{{ item.image.url }}" alt="{{ item.title }}" class="w-full h-full object-cover pointer-events-none">
+                        {% elif item.image_url %}
+                        <img src="{% static item.image_url %}" alt="{{ item.title }}" class="w-full h-full object-cover pointer-events-none">
+                        {% endif %}
+                    </div>
                     {% endif %}
+
+                    <!-- Content Excerpt -->
                     <p class="text-xs text-slate-600 line-clamp-3 leading-relaxed">{{ item.content }}</p>
                 </div>
 
+                <!-- Footer Action Toolbar (Reorder Arrows + Quick Toggle + Edit + Delete) -->
                 <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span class="text-slate-400">
-                        <i class="fa-solid fa-location-dot text-orange-500 mr-1"></i> {{ item.location|default:"Addis Ababa" }}
-                    </span>
-                    <form method="POST" onsubmit="return confirm('Delete this news post?');">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="delete_news">
-                        <input type="hidden" name="news_id" value="{{ item.id }}">
-                        <button type="submit" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg transition">
-                            <i class="fa-solid fa-trash-can mr-1"></i> Delete
+                    
+                    <!-- Move Up / Down Buttons -->
+                    <div class="flex items-center gap-1">
+                        <form method="POST" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="move_up">
+                            <input type="hidden" name="news_id" value="{{ item.id }}">
+                            <button type="submit" 
+                                    title="Move earlier (#{{ forloop.counter|add:'-1' }})" 
+                                    class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition disabled:opacity-30 disabled:pointer-events-none"
+                                    {% if forloop.first %}disabled{% endif %}>
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                        </form>
+
+                        <form method="POST" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="move_down">
+                            <input type="hidden" name="news_id" value="{{ item.id }}">
+                            <button type="submit" 
+                                    title="Move later (#{{ forloop.counter|add:'1' }})" 
+                                    class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition disabled:opacity-30 disabled:pointer-events-none"
+                                    {% if forloop.last %}disabled{% endif %}>
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                        </form>
+
+                        <!-- Quick Toggle Link -->
+                        <button type="button" 
+                                onclick="toggleFeatured({{ item.id }})" 
+                                id="link-featured-{{ item.id }}"
+                                class="text-[11px] font-bold ml-1.5 transition {% if item.is_featured %}text-slate-500 hover:text-slate-800{% else %}text-blue-600 hover:text-blue-700{% endif %}">
+                            {% if item.is_featured %}Hide from Home{% else %}Show on Home{% endif %}
                         </button>
-                    </form>
+                    </div>
+
+                    <!-- Meta info, Edit & Delete -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400 text-[11px] hidden sm:inline mr-1">
+                            <i class="fa-solid fa-location-dot text-orange-500 mr-1"></i> {{ item.location|default:"Addis Ababa" }}
+                        </span>
+
+                        <button type="button" 
+                                onclick="openEditNewsModal({{ item.id }})" 
+                                class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200/70 font-bold rounded-lg transition flex items-center gap-1 text-[11px] shadow-xs cursor-pointer"
+                                title="Edit news headline, content, category, badge, or photo">
+                            <i class="fa-solid fa-pen-to-square text-[11px]"></i> Edit
+                        </button>
+
+                        <form method="POST" onsubmit="return confirm('Delete this news post?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_news">
+                            <input type="hidden" name="news_id" value="{{ item.id }}">
+                            <button type="submit" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg transition flex items-center gap-1 text-[11px] cursor-pointer">
+                                <i class="fa-solid fa-trash-can text-[11px]"></i> Delete
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% empty %}
@@ -128,5 +264,357 @@
         </div>
     </div>
 
+</div>
+
+<!-- Floating Toast Notification -->
+<div id="news-toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 transform translate-y-24 opacity-0 transition duration-300 pointer-events-none">
+    <i id="news-toast-icon" class="fa-solid fa-check text-emerald-400 text-sm"></i>
+    <span id="news-toast-msg">Order updated</span>
+</div>
+
+<script>
+// CSRF Token Helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+// Toast Notification Function
+let toastTimer = null;
+function showToast(msg, isSuccess = true) {
+    const toast = document.getElementById('news-toast');
+    const toastMsg = document.getElementById('news-toast-msg');
+    const toastIcon = document.getElementById('news-toast-icon');
+    if (!toast || !toastMsg) return;
+
+    toastMsg.textContent = msg;
+    if (isSuccess) {
+        toastIcon.className = 'fa-solid fa-check text-emerald-400 text-sm';
+    } else {
+        toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400 text-sm';
+    }
+
+    toast.classList.remove('translate-y-24', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 2800);
+}
+
+// 1-Click Toggle Main Page Visibility
+function toggleFeatured(newsId) {
+    const badge = document.getElementById(`badge-featured-${newsId}`);
+    const link = document.getElementById(`link-featured-${newsId}`);
+
+    fetch("{% url 'manage_news' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken,
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+            action: "toggle_featured",
+            news_id: newsId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            const isFeatured = data.is_featured;
+            if (badge) {
+                badge.setAttribute('data-featured', isFeatured ? 'true' : 'false');
+                if (isFeatured) {
+                    badge.className = 'px-2.5 py-1 rounded-lg text-[11px] font-black shadow transition flex items-center gap-1.5 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700';
+                    badge.innerHTML = '<i class="fa-solid fa-check"></i> <span>On Home Page</span>';
+                } else {
+                    badge.className = 'px-2.5 py-1 rounded-lg text-[11px] font-black shadow transition flex items-center gap-1.5 cursor-pointer bg-slate-200 text-slate-600 hover:bg-slate-300';
+                    badge.innerHTML = '<i class="fa-solid fa-eye-slash"></i> <span>Hidden from Home</span>';
+                }
+            }
+            if (link) {
+                if (isFeatured) {
+                    link.className = 'text-[11px] font-bold ml-1.5 transition text-slate-500 hover:text-slate-800';
+                    link.textContent = 'Hide from Home';
+                } else {
+                    link.className = 'text-[11px] font-bold ml-1.5 transition text-blue-600 hover:text-blue-700';
+                    link.textContent = 'Show on Home';
+                }
+            }
+
+            updateStatsCounts();
+            showToast(data.message || (isFeatured ? 'Article added to main home page' : 'Article hidden from home page'));
+        }
+    })
+    .catch(err => {
+        console.error("Error toggling featured status:", err);
+        showToast("Failed to update status. Please try again.", false);
+    });
+}
+
+function updateStatsCounts() {
+    const badges = document.querySelectorAll('[id^="badge-featured-"]');
+    let featured = 0;
+    badges.forEach(b => {
+        if (b.getAttribute('data-featured') === 'true') featured++;
+    });
+    const total = badges.length;
+    const hidden = total - featured;
+
+    const featElem = document.getElementById('stat-featured-count');
+    const hidElem = document.getElementById('stat-hidden-count');
+    if (featElem) featElem.textContent = featured;
+    if (hidElem) hidElem.textContent = hidden;
+}
+
+// Drag & Drop Reordering Functionality
+const grid = document.getElementById('news-grid');
+let draggedItem = null;
+
+if (grid) {
+    const cards = grid.querySelectorAll('.news-card');
+
+    cards.forEach(card => {
+        card.addEventListener('dragstart', function(e) {
+            draggedItem = this;
+            this.classList.add('opacity-40', 'scale-95');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+        });
+
+        card.addEventListener('dragend', function() {
+            this.classList.remove('opacity-40', 'scale-95');
+            draggedItem = null;
+            document.querySelectorAll('.news-card').forEach(c => {
+                c.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/20');
+            });
+        });
+
+        card.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (draggedItem && draggedItem !== this) {
+                this.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50/20');
+            }
+        });
+
+        card.addEventListener('dragleave', function() {
+            this.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/20');
+        });
+
+        card.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50/20');
+
+            if (draggedItem && draggedItem !== this) {
+                const allCards = Array.from(grid.querySelectorAll('.news-card'));
+                const draggedIndex = allCards.indexOf(draggedItem);
+                const targetIndex = allCards.indexOf(this);
+
+                if (draggedIndex < targetIndex) {
+                    this.after(draggedItem);
+                } else {
+                    this.before(draggedItem);
+                }
+
+                refreshOrderNumbers();
+                saveNewOrderSequence();
+            }
+        });
+    });
+}
+
+function refreshOrderNumbers() {
+    const currentCards = grid.querySelectorAll('.news-card');
+    currentCards.forEach((card, idx) => {
+        const pos = idx + 1;
+        const label = card.querySelector('.order-label');
+        if (label) label.textContent = `#${pos}`;
+    });
+}
+
+function saveNewOrderSequence() {
+    const currentCards = Array.from(grid.querySelectorAll('.news-card'));
+    const orderIds = currentCards.map(c => c.dataset.id);
+
+    fetch("{% url 'manage_news' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken,
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+            action: "reorder_news",
+            order_ids: orderIds
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            showToast("News display sequence saved successfully!");
+        }
+    })
+    .catch(err => {
+        console.error("Error saving news order:", err);
+        showToast("Error updating order sequence.", false);
+    });
+}
+
+// Edit News Modal Logic
+function openEditNewsModal(id) {
+    const card = document.getElementById(`news-item-${id}`);
+    if (!card) return;
+
+    document.getElementById('edit-news-id').value = id;
+    document.getElementById('edit-news-title').value = card.getAttribute('data-title') || '';
+    document.getElementById('edit-news-category').value = card.getAttribute('data-category') || 'General';
+    document.getElementById('edit-news-badge').value = card.getAttribute('data-badge') || '';
+    document.getElementById('edit-news-location').value = card.getAttribute('data-location') || '';
+    document.getElementById('edit-news-featured').checked = card.getAttribute('data-featured') === 'true';
+
+    const rawContent = card.querySelector('.news-raw-content');
+    document.getElementById('edit-news-content').value = rawContent ? rawContent.value : '';
+
+    const imgUrl = card.getAttribute('data-image');
+    const previewBox = document.getElementById('edit-news-img-preview-box');
+    const previewImg = document.getElementById('edit-news-img-preview');
+    if (imgUrl) {
+        previewImg.src = imgUrl;
+        previewBox.classList.remove('hidden');
+    } else {
+        previewBox.classList.add('hidden');
+    }
+
+    const modal = document.getElementById('edit-news-modal');
+    modal.classList.remove('hidden');
+}
+
+function closeEditNewsModal() {
+    const modal = document.getElementById('edit-news-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// Close modal on Escape or clicking backdrop
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeEditNewsModal();
+});
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('edit-news-modal');
+    if (modal && e.target === modal) closeEditNewsModal();
+});
+</script>
+
+<!-- Edit News Modal -->
+<div id="edit-news-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-y-auto space-y-6 animate-in fade-in zoom-in-95 duration-200">
+        
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-base shadow-xs">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </div>
+                <div>
+                    <h3 class="font-heading font-bold text-lg text-slate-900">Edit News Article or Event</h3>
+                    <p class="text-xs text-slate-500">Update headline, article content, badges, location or replace image</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeEditNewsModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Edit Form -->
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_news">
+            <input type="hidden" name="news_id" id="edit-news-id">
+
+            <!-- Current Image Preview -->
+            <div id="edit-news-img-preview-box" class="h-44 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative hidden">
+                <img id="edit-news-img-preview" src="" alt="Preview" class="w-full h-full object-cover">
+                <span class="absolute top-2 left-2 px-2.5 py-0.5 bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold rounded-lg">
+                    Current Image
+                </span>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Headline / Title *</label>
+                    <input type="text" name="title" id="edit-news-title" required 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Category *</label>
+                    <input type="text" name="category" id="edit-news-category" required 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Badge Text (Optional)</label>
+                    <input type="text" name="badge_text" id="edit-news-badge" placeholder="e.g. 🏆 1st Place Winner" 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Location / Venue (Optional)</label>
+                    <input type="text" name="location" id="edit-news-location" placeholder="e.g. Addis Ababa, Ethiopia" 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Full Article Description *</label>
+                <textarea name="content" id="edit-news-content" rows="4" required 
+                    class="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 items-center">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Replace Photo (Optional)</label>
+                    <input type="file" name="image" accept="image/*" 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-700 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-blue-50 file:text-blue-700">
+                </div>
+
+                <div class="pt-4 sm:pt-0">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Homepage Visibility</label>
+                    <div class="flex items-center gap-3 p-2.5 bg-blue-50/60 border border-blue-200 rounded-xl">
+                        <input type="checkbox" id="edit-news-featured" name="is_featured" 
+                            class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">
+                        <label for="edit-news-featured" class="text-xs font-bold text-slate-800 cursor-pointer select-none flex items-center gap-1.5">
+                            <i class="fa-solid fa-star text-amber-500"></i> Show on Main School Home Page
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeEditNewsModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-check"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

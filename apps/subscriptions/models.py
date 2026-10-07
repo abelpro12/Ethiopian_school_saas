@@ -120,31 +120,54 @@ class SchoolSubscription(models.Model):
     def sync_status(self):
         """Automatically checks and updates subscription status based on current date."""
         today = datetime.date.today()
+        if not self.end_date:
+            if self.status != SubscriptionStatus.EXPIRED:
+                self.status = SubscriptionStatus.EXPIRED
+                self.save(update_fields=['status'])
+            return self.status
+
         if self.end_date < today:
             if self.grace_period_end_date and today <= self.grace_period_end_date:
                 if self.status != SubscriptionStatus.GRACE_PERIOD:
                     self.status = SubscriptionStatus.GRACE_PERIOD
                     self.save(update_fields=['status'])
             else:
-                if self.status not in [SubscriptionStatus.EXPIRED, SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED]:
+                if self.status != SubscriptionStatus.EXPIRED and self.status not in [SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED]:
                     self.status = SubscriptionStatus.EXPIRED
                     self.save(update_fields=['status'])
-        elif self.status == SubscriptionStatus.EXPIRED and self.end_date > today:
+        elif self.status == SubscriptionStatus.EXPIRED and self.end_date >= today:
             self.status = SubscriptionStatus.ACTIVE
             self.save(update_fields=['status'])
         return self.status
 
     def is_usable(self):
+        """Returns True if the subscription is currently active and within valid dates."""
         today = datetime.date.today()
-        if self.status in [SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED, SubscriptionStatus.EXPIRED]:
-            if self.status == SubscriptionStatus.GRACE_PERIOD and self.grace_period_end_date and today <= self.grace_period_end_date:
+        if not self.end_date:
+            return False
+
+        if self.status in [SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED]:
+            return False
+
+        # In grace period: allowed until grace period ends
+        if self.status == SubscriptionStatus.GRACE_PERIOD:
+            if self.grace_period_end_date and today <= self.grace_period_end_date:
                 return True
             return False
+
+        # Explicitly expired status
+        if self.status == SubscriptionStatus.EXPIRED:
+            if self.grace_period_end_date and today <= self.grace_period_end_date:
+                return True
+            return False
+
+        # If end_date has passed, cannot be used unless in a valid grace period
         if self.end_date < today:
-            if self.status == SubscriptionStatus.GRACE_PERIOD and self.grace_period_end_date and today <= self.grace_period_end_date:
+            if self.grace_period_end_date and today <= self.grace_period_end_date:
                 return True
             return False
-        return self.status in [SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE_PERIOD]
+
+        return self.status in [SubscriptionStatus.TRIAL, SubscriptionStatus.ACTIVE]
 
     @property
     def days_remaining(self):

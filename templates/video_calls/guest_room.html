@@ -1,0 +1,399 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guest Video Call — {{ meeting.title }} | {{ school.name|default:"EthioSchool" }}</title>
+    
+    <!-- Google Fonts & Tailwind -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Jitsi Meet WebRTC External API -->
+    <script src="https://meet.jit.si/external_api.js"></script>
+
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-heading { font-family: 'Outfit', sans-serif; }
+        .video-room-container {
+            height: calc(100vh - 100px);
+            min-height: 520px;
+        }
+        #jitsi-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            background: #0f172a;
+        }
+        #jitsi-container iframe {
+            border-radius: 1.5rem;
+        }
+        .meter-bar { transition: width 0.1s ease; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
+
+    <!-- Top Guest Header -->
+    <header class="bg-slate-900/90 border-b border-slate-800 backdrop-blur-md px-6 py-3 flex items-center justify-between z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg border border-slate-700 overflow-hidden flex-shrink-0">
+                {% if school and school.logo %}
+                <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="w-full h-full object-contain">
+                {% else %}
+                <i class="fa-solid fa-graduation-cap text-blue-600 text-lg"></i>
+                {% endif %}
+            </div>
+            <div>
+                <h1 class="text-sm font-heading font-black text-white leading-tight">
+                    {{ school.name|default:"EthioSchool SaaS" }}
+                </h1>
+                <p class="text-[11px] text-indigo-400 font-semibold flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Guest Video Portal</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i> Encrypted Room
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
+
+        {% if not guest_name %}
+        <!-- ═══════════════ GUEST SIGN-IN & DEVICE CHECK ═══════════════ -->
+        <div class="bg-slate-900 rounded-3xl p-6 sm:p-10 shadow-2xl border border-slate-800 relative overflow-hidden">
+            <div class="absolute -right-20 -top-20 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-20 -bottom-20 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="relative z-10 max-w-4xl mx-auto space-y-6">
+                <!-- Title -->
+                <div class="text-center space-y-2">
+                    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-extrabold border border-indigo-500/30">
+                        <i class="fa-solid fa-user-astronaut"></i> External Guest Invitation
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-heading font-black text-white tracking-tight">{{ meeting.title }}</h2>
+                    <p class="text-xs sm:text-sm text-slate-400">
+                        Invited by <strong class="text-slate-200">{{ meeting.host.get_full_name|default:meeting.host.username }}</strong>
+                        {% if meeting.target_subject %}• {{ meeting.target_subject.name }}{% endif %}
+                    </p>
+                </div>
+
+                {% if error_msg %}
+                <div class="p-4 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-2.5">
+                    <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                    <span>{{ error_msg }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Device Preview & Form Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                    <!-- Local Camera Box -->
+                    <div class="md:col-span-6 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden relative aspect-video flex items-center justify-center shadow-inner">
+                        <video id="localPreviewVideo" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+                        <div id="cameraOffPlaceholder" class="hidden absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-500 space-y-2">
+                            <div class="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center text-xl text-slate-400">
+                                <i class="fa-solid fa-video-slash"></i>
+                            </div>
+                            <p class="text-xs font-bold text-slate-400">Camera preview off</p>
+                        </div>
+                        <div class="absolute bottom-2 inset-x-2 flex items-center justify-center gap-2 bg-slate-900/80 backdrop-blur-md py-1.5 px-3 rounded-xl border border-slate-700/50">
+                            <button type="button" id="lobbyMicBtn" onclick="toggleLobbyMic()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-xs transition" title="Toggle Mic">
+                                <i class="fa-solid fa-microphone"></i>
+                            </button>
+                            <button type="button" id="lobbyCamBtn" onclick="toggleLobbyCam()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-xs transition" title="Toggle Cam">
+                                <i class="fa-solid fa-video"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Join Form -->
+                    <div class="md:col-span-6 space-y-4 bg-slate-950/70 p-6 rounded-2xl border border-slate-800">
+                        <form method="POST" class="space-y-4">
+                            {% csrf_token %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                                    Your Full Name or Title <span class="text-red-400">*</span>
+                                </label>
+                                <input type="text" name="guest_name" required placeholder="e.g. Dr. Abebe Kebede (Inspector / Guest)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-medium text-white placeholder-slate-500 focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+
+                            {% if requires_passcode %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                                    Room Passcode <span class="text-red-400">*</span>
+                                </label>
+                                <input type="text" name="passcode" required placeholder="Enter passcode provided by host" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-xs font-mono text-white placeholder-slate-500 focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            </div>
+                            {% endif %}
+
+                            <!-- Mic Visualizer -->
+                            <div class="space-y-1 pt-1">
+                                <div class="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                                    <span><i class="fa-solid fa-volume-high text-indigo-400"></i> Mic Audio Level</span>
+                                    <span id="micStatusText" class="text-emerald-400">Ready</span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                    <div id="micLevelMeter" class="meter-bar bg-emerald-500 h-full w-0 rounded-full"></div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs sm:text-sm shadow-xl shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-door-open"></i>
+                                <span>Enter Live Video Room</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- ═══════════════ LIVE GUEST IN-MEETING ROOM ═══════════════ -->
+        <div class="space-y-3">
+            <!-- In-Call Status Bar -->
+            <div class="bg-slate-900 text-white px-5 py-3 rounded-2xl border border-slate-800 shadow-lg flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500 text-white flex items-center gap-1.5 shadow-sm animate-pulse">
+                        <i class="fa-solid fa-circle text-[8px]"></i> LIVE
+                    </span>
+                    <div>
+                        <h2 class="text-sm font-black text-white truncate max-w-sm">{{ meeting.title }}</h2>
+                        <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                            <span>Guest: <strong class="text-indigo-300">{{ guest_name }}</strong></span>
+                            <span>•</span>
+                            <span id="callDurationTimer" class="font-mono text-emerald-400 font-bold">00:00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a href="{{ standalone_meeting_url }}" target="_blank" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-up-right-from-square text-indigo-400"></i>
+                        <span class="hidden sm:inline">Popout Window</span>
+                    </a>
+                    <button type="button" onclick="leaveGuestRoom()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black shadow-md shadow-red-600/30 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-phone-slash"></i>
+                        <span>Leave Room</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Embedded Notice Bar -->
+            <div class="px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 rounded-xl text-[11px] text-indigo-300 flex flex-wrap items-center justify-between gap-3">
+                <span class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-indigo-400"></i>
+                    <span>For <strong>unlimited meeting time without 5-minute popups</strong>, launch in full window.</span>
+                </span>
+                <a href="{{ standalone_meeting_url }}" target="_blank" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1.5 flex-shrink-0">
+                    <i class="fa-solid fa-up-right-from-square"></i> Open Full Window (Unlimited)
+                </a>
+            </div>
+
+            <!-- Jitsi Video Frame -->
+            <div class="video-room-container rounded-2xl shadow-2xl border border-slate-800/80">
+                <div id="jitsi-container"></div>
+            </div>
+
+        </div>
+        {% endif %}
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-xs text-slate-500 border-t border-slate-900">
+        Powered by <strong>{{ school.name|default:"EthioSchool SaaS" }}</strong> • Secure Video Conferencing
+    </footer>
+
+    <script>
+        let localStream = null;
+        let audioContext = null;
+        let analyser = null;
+        let micLevelInterval = null;
+        let isMicMuted = false;
+        let isCamMuted = false;
+        let jitsiApi = null;
+        let timerInterval = null;
+        let startTime = null;
+        let attendanceHeartbeatInterval = null;
+
+        const meetingId = '{{ meeting.id }}';
+        const attendanceId = '{{ attendance_id|default:"" }}';
+        const jitsiRoom = '{{ jitsi_room }}';
+        const jitsiDomain = '{{ jitsi_domain }}';
+        const guestName = '{{ guest_name|escapejs }}';
+
+        {% if not guest_name %}
+        // Pre-call preview
+        async function initPrecall() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const videoEl = document.getElementById('localPreviewVideo');
+                if (videoEl) videoEl.srcObject = localStream;
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(localStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                const micLevelMeter = document.getElementById('micLevelMeter');
+
+                micLevelInterval = setInterval(() => {
+                    if (isMicMuted) {
+                        if (micLevelMeter) micLevelMeter.style.width = '0%';
+                        return;
+                    }
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                    let avg = sum / bufferLength;
+                    let percent = Math.min(100, Math.round((avg / 128) * 100));
+                    if (micLevelMeter) micLevelMeter.style.width = percent + '%';
+                }, 80);
+            } catch (err) {
+                console.warn('Device preview error:', err);
+                const place = document.getElementById('cameraOffPlaceholder');
+                if (place) place.classList.remove('hidden');
+            }
+        }
+
+        function toggleLobbyMic() {
+            if (!localStream) return;
+            isMicMuted = !isMicMuted;
+            localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
+            const btn = document.getElementById('lobbyMicBtn');
+            if (isMicMuted) {
+                btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+                btn.className = 'w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center text-xs transition';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                btn.className = 'w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-xs transition';
+            }
+        }
+
+        function toggleLobbyCam() {
+            if (!localStream) return;
+            isCamMuted = !isCamMuted;
+            localStream.getVideoTracks().forEach(track => track.enabled = !isCamMuted);
+            const btn = document.getElementById('lobbyCamBtn');
+            const placeholder = document.getElementById('cameraOffPlaceholder');
+            if (isCamMuted) {
+                btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+                btn.className = 'w-8 h-8 rounded-lg bg-red-600 text-white flex items-center justify-center text-xs transition';
+                if (placeholder) placeholder.classList.remove('hidden');
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-video"></i>';
+                btn.className = 'w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 flex items-center justify-center text-xs transition';
+                if (placeholder) placeholder.classList.add('hidden');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', initPrecall);
+
+        {% else %}
+        // In-room guest initialization
+        function initGuestJitsi() {
+            const domain = jitsiDomain;
+            const options = {
+                roomName: jitsiRoom,
+                width: '100%',
+                height: '100%',
+                parentNode: document.querySelector('#jitsi-container'),
+                userInfo: {
+                    displayName: guestName + ' (Guest)',
+                    email: 'guest@ethioschool.external'
+                },
+                configOverwrite: {
+                    startWithAudioMuted: false,
+                    startWithVideoMuted: false,
+                    prejoinPageEnabled: false,
+                    disableDeepLinking: true,
+                    enableWelcomePage: false,
+                    enableClosePage: false,
+                },
+                interfaceConfigOverwrite: {
+                    TOOLBAR_BUTTONS: [
+                        'microphone', 'camera', 'desktop', 'chat', 'raisehand',
+                        'tileview', 'fullscreen', 'whiteboard', 'hangup'
+                    ],
+                    SHOW_JITSI_WATERMARK: false,
+                    DEFAULT_BACKGROUND: '#0f172a',
+                }
+            };
+
+            try {
+                jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+                jitsiApi.addEventListeners({
+                    readyToClose: () => leaveGuestRoom(),
+                    videoConferenceLeft: () => leaveGuestRoom()
+                });
+            } catch (e) {
+                console.error('Failed to init guest Jitsi API:', e);
+            }
+
+            startCallTimer();
+            startAttendanceHeartbeat();
+        }
+
+        function startCallTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const diffSec = Math.floor((Date.now() - startTime) / 1000);
+                const mins = String(Math.floor(diffSec / 60)).padStart(2, '0');
+                const secs = String(diffSec % 60).padStart(2, '0');
+                const el = document.getElementById('callDurationTimer');
+                if (el) el.innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function startAttendanceHeartbeat() {
+            sendGuestAttendancePing('join');
+            attendanceHeartbeatInterval = setInterval(() => {
+                sendGuestAttendancePing('heartbeat');
+            }, 30000);
+        }
+
+        function sendGuestAttendancePing(action) {
+            fetch(`/video-calls/room/${meetingId}/api/attendance/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: action,
+                    attendance_id: attendanceId,
+                    guest_name: guestName
+                })
+            }).catch(err => console.error('Guest ping error:', err));
+        }
+
+        function leaveGuestRoom() {
+            if (attendanceHeartbeatInterval) clearInterval(attendanceHeartbeatInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            sendGuestAttendancePing('leave');
+            if (jitsiApi) jitsiApi.dispose();
+            alert('You have left the meeting. Thank you for attending!');
+            window.location.reload();
+        }
+
+        window.addEventListener('beforeunload', () => {
+            sendGuestAttendancePing('leave');
+        });
+
+        window.addEventListener('DOMContentLoaded', initGuestJitsi);
+        {% endif %}
+    </script>
+</body>
+</html>

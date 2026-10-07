@@ -8,6 +8,7 @@ from apps.academics.models import AcademicYear, AcademicPeriod, Grade, Section, 
 from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
 from apps.assessments.models import AcademicPeriodResult, AnnualResult, PromotionStatus
 from apps.attendance.models import AttendanceRecord, AttendanceStatus
+from apps.audit.services import AuditService
 
 import json
 
@@ -27,22 +28,28 @@ def get_active_year(request, school):
 def annual_dashboard(request):
     """
     Dashboard for Annual Promotion Engine.
-    Lists sections to perform calculation or rollover.
+    Lists sections to perform calculation or rollover scoped to the active academic year.
     """
     school = get_school(request)
     active_year = get_active_year(request, school)
     
     locked_results = AnnualResult.objects.filter(
         enrollment__section=OuterRef('pk'),
+        academic_year=active_year,
         is_locked=True
     )
     
-    sections = Section.objects.filter(school=school).select_related('grade').annotate(
-        is_rolled_over=Exists(locked_results)
-    ).order_by('grade__level', 'name')
-
+    calculated_results = AnnualResult.objects.filter(
+        enrollment__section=OuterRef('pk'),
+        academic_year=active_year
+    )
     
-    # Quick stats
+    sections = Section.objects.filter(school=school).select_related('grade').annotate(
+        is_rolled_over=Exists(locked_results),
+        is_calculated=Exists(calculated_results)
+    ).order_by('grade__level', 'name')
+    
+    # Quick stats for active year only
     total_annual_results = AnnualResult.objects.filter(school=school, academic_year=active_year).count()
     promoted = AnnualResult.objects.filter(school=school, academic_year=active_year, promotion_status=PromotionStatus.PROMOTED).count()
     repeated = AnnualResult.objects.filter(school=school, academic_year=active_year, promotion_status=PromotionStatus.REPEATED).count()
@@ -61,12 +68,34 @@ def annual_dashboard(request):
     return render(request, 'assessments/annual_dashboard.html', context)
 
 
+@login_required
+def calculate_all_annual_results(request):
+    """Calculates/refreshes annual results for all sections in the active academic year."""
+    school = get_school(request)
+    active_year = get_active_year(request, school)
+    if not active_year:
+        messages.error(request, "No active academic year found.")
+        return redirect('assessments:annual_dashboard')
+        
+    sections = Section.objects.filter(school=school)
+    count = 0
+    for sec in sections:
+        perform_section_annual_calculation(school, sec, active_year)
+        count += 1
+    messages.success(request, f"Successfully calculated and refreshed annual results for all {count} sections in {active_year.display_name}.")
+    return redirect('assessments:annual_dashboard')
+
+
+
 def perform_section_annual_calculation(school, section, active_year):
     """Internal helper to calculate annual results for a section."""
 
-    enrollments = StudentEnrollment.objects.filter(section=section)
-    if active_year and enrollments.filter(academic_year=active_year).exists():
+    enrollments = StudentEnrollment.objects.filter(school=school, section=section)
+    if active_year:
         enrollments = enrollments.filter(academic_year=active_year)
+    enrollments = enrollments.exclude(status__in=[EnrollmentStatus.WITHDRAWN, EnrollmentStatus.TRANSFERRED])
+
+
 
     with transaction.atomic():
         for enrollment in enrollments:
@@ -126,8 +155,8 @@ def perform_section_annual_calculation(school, section, active_year):
             # Calculate annual averages per subject
             annual_subject_results = []
             total_sum = 0
-            math_score = 100
-            english_score = 100
+            math_score = 0   # Default 0: student must have a real mark to pass
+            english_score = 0  # Default 0: student must have a real mark to pass
             
             for code, data in subject_scores.items():
                 if data['scores']:
@@ -357,10 +386,10 @@ def annual_review(request, section_id):
         
     results = AnnualResult.objects.filter(
         school=school, 
+        academic_year=active_year,
         enrollment__section=section
     ).order_by('-average_score')
-    if active_year and results.filter(academic_year=active_year).exists():
-        results = results.filter(academic_year=active_year)
+
 
     
     context = {
@@ -400,6 +429,10 @@ def execute_rollover(request, section_id):
                     curr_enrollment = result.enrollment
                     curr_enrollment.status = EnrollmentStatus.GRADUATED
                     curr_enrollment.save(update_fields=['status'])
+                    # Also update the StudentProfile.status to GRADUATED
+                    student_profile = curr_enrollment.student
+                    student_profile.status = 'GRADUATED'
+                    student_profile.save(update_fields=['status'])
                     graduated_count += 1
             messages.success(request, f"Successfully graduated {graduated_count} Grade 12 students.")
             return redirect('assessments:annual_dashboard')
@@ -426,40 +459,69 @@ def execute_rollover(request, section_id):
             messages.success(request, f"Successfully processed promotion status for {processed_count} Grade 10 students. Students can now be enrolled in Grade 11 with their chosen stream during registration.")
             return redirect('assessments:annual_dashboard')
 
+        # Block rollover if any PENDING_REVIEW students remain in this section
+        pending_count = AnnualResult.objects.filter(
+            school=school, academic_year=active_year,
+            enrollment__section=section,
+            promotion_status=PromotionStatus.PENDING_REVIEW
+        ).count()
+        if pending_count > 0:
+            messages.error(request, f"Cannot rollover: {pending_count} student(s) still have PENDING REVIEW status. Go to Annual Review and resolve all students before rolling over.")
+            return redirect('assessments:annual_review', section_id=section_id)
+
+        next_year_mode = request.POST.get('next_year_mode', 'auto')
         next_year_id = request.POST.get('next_year_id')
-        if not next_year_id:
-            messages.error(request, "Please select the target academic year for rollover.")
-            return redirect('assessments:annual_dashboard')
-            
+        clone_schemes = request.POST.get('clone_schemes', 'on') == 'on'
+        clone_teachers = request.POST.get('clone_teachers', 'on') == 'on'
+        auto_enroll_subjects = request.POST.get('auto_enroll_subjects', 'on') == 'on'
+
+        from apps.academics.services import AcademicConfigCloningService
+
+        if next_year_mode == 'auto' or next_year_id == 'AUTO' or not next_year_id:
+            next_year, year_created, clone_summary = AcademicConfigCloningService.auto_provision_next_academic_year(
+                school=school,
+                source_year=active_year,
+                clone_periods=True,
+                clone_assessment_schemes=clone_schemes,
+                clone_teacher_assignments=clone_teachers,
+                activate_new_year=False,
+            )
+        else:
+            next_year = get_object_or_404(AcademicYear, id=next_year_id, school=school)
+            if clone_schemes:
+                AcademicConfigCloningService.auto_provision_next_academic_year(
+                    school=school,
+                    source_year=active_year,
+                    clone_periods=True,
+                    clone_assessment_schemes=True,
+                    clone_teacher_assignments=clone_teachers,
+                )
+
         try:
             target_section_count = int(request.POST.get('target_section_count', 1))
             if target_section_count < 1:
                 target_section_count = 1
         except (ValueError, TypeError):
             target_section_count = 1
-            
-        next_year = get_object_or_404(AcademicYear, id=next_year_id, school=school)
+
         results = AnnualResult.objects.filter(
             school=school, 
+            academic_year=active_year,
             enrollment__section=section,
             promotion_status__in=[PromotionStatus.PROMOTED, PromotionStatus.REPEATED]
         )
-        if active_year and results.filter(academic_year=active_year).exists():
-            results = results.filter(academic_year=active_year)
 
         if not results.exists():
             perform_section_annual_calculation(school, section, active_year)
             results = AnnualResult.objects.filter(
                 school=school, 
+                academic_year=active_year,
                 enrollment__section=section,
                 promotion_status__in=[PromotionStatus.PROMOTED, PromotionStatus.REPEATED]
             )
-            if active_year and results.filter(academic_year=active_year).exists():
-                results = results.filter(academic_year=active_year)
 
-
-        
         created_count = 0
+        subject_enr_count = 0
         with transaction.atomic():
             # Phase 1: Collect and group by target grade and stream
             placements = {}
@@ -473,7 +535,6 @@ def execute_rollover(request, section_id):
                     
                     if current_grade.level == 10:
                         # Grade 10s moving to Grade 11 need a stream choice.
-                        # Do NOT auto-enroll. Just lock the result.
                         result.is_locked = True
                         result.save(update_fields=['is_locked'])
                         continue
@@ -492,7 +553,7 @@ def execute_rollover(request, section_id):
 
                 else:
                     if current_grade.level >= 12:
-                        continue # Grade 12s cannot repeat, skip creating next year enrollment
+                        continue # Grade 12s cannot repeat
                     
                     curr_enrollment.status = EnrollmentStatus.RETAINED
                     curr_enrollment.save(update_fields=['status'])
@@ -509,17 +570,13 @@ def execute_rollover(request, section_id):
             letters = list(string.ascii_uppercase)
             
             for (next_grade, next_stream), group_results in placements.items():
-                # Sort alphabetically by student first name
                 group_results.sort(key=lambda r: (r.enrollment.student.user.first_name, r.enrollment.student.user.last_name))
                 
-                # Get existing sections for this grade and stream
-                existing_sections = list(Section.objects.filter(grade=next_grade, stream=next_stream).order_by('name'))
+                existing_sections = list(Section.objects.filter(school=school, grade=next_grade, stream=next_stream).order_by('name'))
                 sections = existing_sections[:target_section_count]
                 
-                # If we don't have enough sections, create them
                 current_names = [s.name for s in existing_sections]
                 while len(sections) < target_section_count:
-                    # Find next available letter
                     new_name = None
                     for letter in letters:
                         if letter not in current_names:
@@ -534,12 +591,10 @@ def execute_rollover(request, section_id):
                     sections.append(new_sec)
                     current_names.append(new_name)
                 
-                # Distribute students
                 for i, result in enumerate(group_results):
                     next_section = sections[i % len(sections)]
                     
-                    # Create next year enrollment
-                    StudentEnrollment.objects.get_or_create(
+                    new_enrollment, _ = StudentEnrollment.objects.get_or_create(
                         school=school,
                         student=result.enrollment.student,
                         academic_year=next_year,
@@ -551,17 +606,198 @@ def execute_rollover(request, section_id):
                         }
                     )
                     created_count += 1
+
+                    if auto_enroll_subjects:
+                        sub_count = AcademicConfigCloningService.auto_enroll_student_in_subjects(
+                            school=school,
+                            enrollment=new_enrollment,
+                            academic_year=next_year
+                        )
+                        subject_enr_count += sub_count
                     
-                    # Mark result as locked/rolled over
                     result.is_locked = True
                     result.save(update_fields=['is_locked'])
             
-            # Ensure all results for this section are locked so the dashboard badge updates
-            AnnualResult.objects.filter(school=school, enrollment__section=section).update(is_locked=True)
+            AnnualResult.objects.filter(school=school, academic_year=active_year, enrollment__section=section).update(is_locked=True)
 
-                    
-        messages.success(request, f"Rollover completed: Generated {created_count} enrollments for {next_year.display_name}. Students were automatically distributed across available sections.")
+        messages.success(
+            request, 
+            f"Rollover completed for {section.name}! Generated {created_count} enrollments in {next_year.display_name} "
+            f"({subject_enr_count} curriculum subject enrollments automatically provisioned)."
+        )
         return redirect('assessments:annual_dashboard')
 
-    next_years = AcademicYear.objects.filter(school=school).exclude(id=active_year.id)
-    return render(request, 'assessments/annual_rollover_modal.html', {'section': section, 'next_years': next_years})
+    next_years = AcademicYear.objects.filter(school=school).exclude(id=active_year.id).order_by('-ethiopian_year')
+    projected_eth_year = (active_year.ethiopian_year or 2018) + 1
+    start_y = active_year.ethiopian_year + 8
+    end_y = start_y + 1
+    projected_name = f"{projected_eth_year} E.C. ({start_y}/{end_y} G.C)"
+
+    return render(request, 'assessments/annual_rollover_modal.html', {
+        'section': section, 
+        'next_years': next_years,
+        'projected_name': projected_name,
+        'projected_eth_year': projected_eth_year,
+        'active_year': active_year,
+    })
+
+
+@login_required
+def execute_all_rollovers(request):
+    """
+    One-click Full School Rollover:
+    1. Auto-provisions next academic year (e.g. 2019 E.C.) and clones semesters, 100% assessment schemes, and teacher assignments.
+    2. Calculates and verifies all section promotion results.
+    3. Promotes Grade 9 to Grade 10, flags Grade 10 for Stream Selection, promotes Grade 11 to Grade 12, graduates Grade 12.
+    4. Auto-enrolls all promoted and retained students into their respective grade curriculum subjects.
+    """
+    if request.method != 'POST':
+        return redirect('assessments:annual_dashboard')
+
+    school = get_school(request)
+    active_year = get_active_year(request, school)
+
+    from apps.academics.services import AcademicConfigCloningService
+
+    target_year, year_created, clone_summary = AcademicConfigCloningService.auto_provision_next_academic_year(
+        school=school,
+        source_year=active_year,
+        clone_periods=True,
+        clone_assessment_schemes=True,
+        clone_teacher_assignments=True,
+        activate_new_year=False,
+    )
+
+    sections = Section.objects.filter(school=school).order_by('grade__level', 'name')
+    total_promoted = 0
+    total_graduated = 0
+    total_retained = 0
+    total_subjects_enrolled = 0
+    sections_processed = 0
+
+    with transaction.atomic():
+        for section in sections:
+            perform_section_annual_calculation(school, section, active_year)
+            
+            if section.grade.level >= 12:
+                g12_results = AnnualResult.objects.filter(
+                    school=school, academic_year=active_year, enrollment__section=section
+                )
+                for res in g12_results:
+                    res.is_locked = True
+                    res.save(update_fields=['is_locked'])
+                    curr_enr = res.enrollment
+                    curr_enr.status = EnrollmentStatus.GRADUATED
+                    curr_enr.save(update_fields=['status'])
+                    stu = curr_enr.student
+                    stu.status = 'GRADUATED'
+                    stu.save(update_fields=['status'])
+                    total_graduated += 1
+                sections_processed += 1
+                continue
+
+            if section.grade.level == 10:
+                g10_results = AnnualResult.objects.filter(
+                    school=school, academic_year=active_year, enrollment__section=section
+                )
+                for res in g10_results:
+                    res.is_locked = True
+                    res.save(update_fields=['is_locked'])
+                    curr_enr = res.enrollment
+                    if res.promotion_status == PromotionStatus.PROMOTED:
+                        curr_enr.status = EnrollmentStatus.PROMOTED
+                        total_promoted += 1
+                    elif res.promotion_status == PromotionStatus.REPEATED:
+                        curr_enr.status = EnrollmentStatus.RETAINED
+                        total_retained += 1
+                    curr_enr.save(update_fields=['status'])
+                sections_processed += 1
+                continue
+
+            results = AnnualResult.objects.filter(
+                school=school, academic_year=active_year, enrollment__section=section
+            )
+            for res in results:
+                curr_enr = res.enrollment
+                if res.promotion_status == PromotionStatus.PROMOTED:
+                    curr_enr.status = EnrollmentStatus.PROMOTED
+                    curr_enr.save(update_fields=['status'])
+                    
+                    next_level = section.grade.level + 1
+                    next_grade = Grade.objects.filter(school=school, level=next_level).order_by('level').first()
+                    next_stream = curr_enr.stream
+                    
+                    target_sec = Section.objects.filter(school=school, grade=next_grade, name=section.name).first()
+                    if not target_sec:
+                        target_sec = Section.objects.filter(school=school, grade=next_grade, stream=next_stream).first()
+                    if not target_sec:
+                        target_sec = Section.objects.filter(school=school, grade=next_grade).first()
+
+                    if target_sec:
+                        new_enr, _ = StudentEnrollment.objects.get_or_create(
+                            school=school,
+                            student=curr_enr.student,
+                            academic_year=target_year,
+                            defaults={
+                                'grade': next_grade,
+                                'stream': next_stream,
+                                'section': target_sec,
+                                'status': EnrollmentStatus.ACTIVE
+                            }
+                        )
+                        s_count = AcademicConfigCloningService.auto_enroll_student_in_subjects(
+                            school=school, enrollment=new_enr, academic_year=target_year
+                        )
+                        total_subjects_enrolled += s_count
+                        total_promoted += 1
+
+                elif res.promotion_status == PromotionStatus.REPEATED:
+                    curr_enr.status = EnrollmentStatus.RETAINED
+                    curr_enr.save(update_fields=['status'])
+                    new_enr, _ = StudentEnrollment.objects.get_or_create(
+                        school=school,
+                        student=curr_enr.student,
+                        academic_year=target_year,
+                        defaults={
+                            'grade': curr_enr.grade,
+                            'stream': curr_enr.stream,
+                            'section': curr_enr.section,
+                            'status': EnrollmentStatus.ACTIVE
+                        }
+                    )
+                    s_count = AcademicConfigCloningService.auto_enroll_student_in_subjects(
+                        school=school, enrollment=new_enr, academic_year=target_year
+                    )
+                    total_subjects_enrolled += s_count
+                    total_retained += 1
+
+                res.is_locked = True
+                res.save(update_fields=['is_locked'])
+            
+            sections_processed += 1
+
+    client_ip = AuditService.get_client_ip(request)
+    AuditService.log_action(
+        school=school,
+        user=request.user,
+        action="ANNUAL_ROLLOVER_ALL",
+        object_type="AcademicYear",
+        object_id=str(target_year.id),
+        after_val={
+            'target_year': target_year.display_name,
+            'total_promoted': total_promoted,
+            'total_retained': total_retained,
+            'total_graduated': total_graduated,
+            'sections_processed': sections_processed
+        },
+        ip_address=client_ip
+    )
+
+    messages.success(
+        request,
+        f"School-Wide Rollover Executed Successfully! "
+        f"Auto-provisioned {target_year.display_name} ({clone_summary['components_created']} assessment components & {clone_summary['periods_created']} periods cloned). "
+        f"Promoted: {total_promoted}, Retained: {total_retained}, Graduated: {total_graduated}, "
+        f"Subject Enrollments: {total_subjects_enrolled} across {sections_processed} sections."
+    )
+    return redirect('assessments:annual_dashboard')

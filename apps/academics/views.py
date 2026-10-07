@@ -148,10 +148,20 @@ def academics_config_view(request):
             return redirect('academics:config')
 
         elif action == 'add_grade':
-            level = int(request.POST.get('level'))
-            name = request.POST.get('name')
+            try:
+                level = int(request.POST.get('level', '').strip())
+            except (ValueError, TypeError):
+                messages.error(request, "Grade level must be a valid integer (e.g. 9, 10, 11).")
+                return redirect('academics:config')
+            name = request.POST.get('name', '').strip()
+            if not name:
+                messages.error(request, "Grade name is required.")
+                return redirect('academics:config')
             stream_type = request.POST.get('stream_type', 'GEN')
-            Grade.objects.create(school=school, level=level, name=name, stream_type=stream_type)
+            Grade.objects.get_or_create(
+                school=school, level=level, stream_type=stream_type,
+                defaults={'name': name}
+            )
             messages.success(request, f"Grade '{name}' added successfully!")
             return redirect('academics:config')
             
@@ -280,6 +290,12 @@ def academics_config_view(request):
         elif action == 'delete_academic_year':
             year_id = request.POST.get('year_id')
             ay = get_object_or_404(AcademicYear, id=year_id, school=school)
+            if ay.is_active:
+                messages.error(request, f"Cannot delete '{ay.name}' because it is the currently ACTIVE academic year. Set another year as active first.")
+                return redirect('academics:config')
+            if ay.academic_periods.count() > 0 or ay.academic_results_agg.count() > 0:
+                messages.error(request, f"Cannot delete '{ay.name}': it has linked periods or student results. Archive it instead.")
+                return redirect('academics:config')
             name = ay.name
             ay.delete()
             messages.success(request, f"Academic Year '{name}' deleted successfully.")

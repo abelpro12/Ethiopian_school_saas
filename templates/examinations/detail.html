@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ exam.title }} | Online Exam Details{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Breadcrumb & Top Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold truncate">{{ exam.title }}</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-laptop-code text-cyan-600"></i>
+                {{ exam.title }}
+            </h1>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'examinations:toggle_publish' exam.id %}" class="btn-secondary text-xs flex items-center gap-1.5 {% if exam.status == 'PUBLISHED' %}border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100{% else %}border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100{% endif %}">
+                {% if exam.status == 'PUBLISHED' %}
+                <i class="fa-solid fa-arrow-rotate-left"></i> Move to Draft
+                {% else %}
+                <i class="fa-solid fa-upload"></i> Publish Exam
+                {% endif %}
+            </a>
+
+            <a href="{% url 'examinations:monitor' exam.id %}" class="btn-primary text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30">
+                <i class="fa-solid fa-display"></i> Live Monitor
+            </a>
+
+            <a href="{% url 'examinations:questions_builder' exam.id %}" class="btn-secondary text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-layer-group"></i> Question Builder
+            </a>
+
+            <a href="{% url 'examinations:grading_list' exam.id %}" class="btn-secondary text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-marker"></i> Grading
+            </a>
+
+            <a href="{% url 'examinations:analytics' exam.id %}" class="btn-secondary text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-pie"></i> Analytics
+            </a>
+
+            <a href="{% url 'examinations:edit' exam.id %}" class="btn-secondary text-xs" title="Edit Settings">
+                <i class="fa-solid fa-gear"></i>
+            </a>
+
+            <a href="{% url 'examinations:delete' exam.id %}" onclick="return confirm('Are you sure you want to delete this online exam? All questions and student attempts will be permanently removed.')" class="btn-secondary text-xs text-red-600 hover:bg-red-50 hover:border-red-200" title="Delete Exam">
+                <i class="fa-solid fa-trash-can"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Exam Status & Info Banner -->
+    <div class="glass rounded-2xl p-6 shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="space-y-1 md:border-r border-slate-100 md:pr-4">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Status & Availability</p>
+            <div class="flex items-center gap-2 pt-1">
+                {% if exam.status == 'DRAFT' %}
+                <span class="badge badge-gray text-xs"><i class="fa-solid fa-file-dashed mr-1"></i> Draft</span>
+                {% elif exam.status == 'PUBLISHED' %}
+                    {% if exam.is_active_now %}
+                    <span class="badge badge-green text-xs animate-pulse"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> Live Active</span>
+                    {% elif exam.is_upcoming %}
+                    <span class="badge badge-blue text-xs"><i class="fa-solid fa-clock mr-1"></i> Scheduled</span>
+                    {% else %}
+                    <span class="badge badge-purple text-xs">Published</span>
+                    {% endif %}
+                {% elif exam.status == 'COMPLETED' %}
+                <span class="badge badge-orange text-xs"><i class="fa-solid fa-flag-checkered mr-1"></i> Closed</span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-slate-500 mt-2 font-mono">
+                {{ exam.start_time|date:"M d, H:i" }} — {{ exam.end_time|date:"M d, H:i" }}
+            </p>
+        </div>
+
+        <div class="space-y-1 md:border-r border-slate-100 md:pr-4">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Subject & Scope</p>
+            <p class="text-sm font-bold text-slate-800 pt-1">{{ exam.subject.name }} ({{ exam.subject.code }})</p>
+            <div class="text-xs text-slate-500 mt-1">
+                <span class="inline-flex items-center gap-1 font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/70">
+                    <i class="fa-solid fa-graduation-cap text-[11px]"></i>
+                    {% if exam.section %}{{ exam.section.name }} • {{ exam.grade.name }}{% elif exam.grade %}{{ exam.grade.name }}{% if exam.subject.stream %} ({{ exam.subject.stream.name }}){% endif %}{% else %}All Grades{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="space-y-1 md:border-r border-slate-100 md:pr-4">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Duration & Marks</p>
+            <p class="text-sm font-bold text-slate-800 pt-1">{{ exam.duration_minutes }} Minutes</p>
+            <p class="text-xs text-slate-500">Total: <strong>{{ exam.total_marks }}</strong> pts (Pass: {{ exam.pass_mark }}%)</p>
+        </div>
+
+        <div class="space-y-1">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Security & Gradebook</p>
+            <div class="flex flex-wrap gap-1.5 pt-1">
+                {% if exam.enable_proctoring %}
+                <span class="badge bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px]"><i class="fa-solid fa-shield-halved mr-1"></i> Proctored</span>
+                {% endif %}
+                {% if exam.assessment_component %}
+                <span class="badge bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px]"><i class="fa-solid fa-link mr-1"></i> {{ exam.assessment_component.name }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate Participation Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Candidates</span>
+                <i class="fa-solid fa-users text-slate-400 text-lg"></i>
+            </div>
+            <p class="text-2xl font-black text-slate-900 mt-2">{{ total_attempts }}</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">In Progress</span>
+                <i class="fa-solid fa-spinner fa-spin text-emerald-500 text-lg"></i>
+            </div>
+            <p class="text-2xl font-black text-emerald-600 mt-2">{{ in_progress_count }}</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-indigo-600 uppercase tracking-wider">Completed / Graded</span>
+                <i class="fa-solid fa-circle-check text-indigo-500 text-lg"></i>
+            </div>
+            <p class="text-2xl font-black text-indigo-600 mt-2">{{ completed_count }}</p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-red-600 uppercase tracking-wider">Flagged Violations</span>
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-lg"></i>
+            </div>
+            <p class="text-2xl font-black text-red-600 mt-2">{{ flagged_count }}</p>
+        </div>
+    </div>
+
+    <!-- Questions Preview & Submissions Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Questions Summary (2 Columns) -->
+        <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Exam Questions</h3>
+                    <span class="badge bg-slate-100 text-slate-700 font-mono">{{ questions|length }} items</span>
+                </div>
+                <a href="{% url 'examinations:questions_builder' exam.id %}" class="text-xs font-bold text-cyan-600 hover:text-cyan-700 flex items-center gap-1">
+                    <i class="fa-solid fa-pen-to-square"></i> Open Builder Studio
+                </a>
+            </div>
+
+            {% if questions %}
+            <div class="divide-y divide-slate-100 max-h-[480px] overflow-y-auto pr-2 space-y-2">
+                {% for q in questions %}
+                <div class="pt-3 pb-3 flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                            {{ forloop.counter }}
+                        </span>
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="badge badge-blue text-[10px]">{{ q.get_question_type_display }}</span>
+                                <span class="text-xs font-bold text-slate-500">{{ q.points }} pts</span>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-800 line-clamp-2">{{ q.question_text }}</p>
+                            
+                            {% if q.options.all %}
+                            <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-600">
+                                {% for opt in q.options.all %}
+                                <div class="flex items-center gap-1.5 {% if opt.is_correct %}text-emerald-700 font-bold{% endif %}">
+                                    <i class="fa-solid {% if opt.is_correct %}fa-circle-check text-emerald-500{% else %}fa-circle-dot text-slate-300{% endif %} text-[10px]"></i>
+                                    <span class="truncate">{{ opt.option_text }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <i class="fa-solid fa-file-circle-question text-3xl text-slate-300 mb-2"></i>
+                <p class="text-sm font-bold text-slate-700">No Questions Added Yet</p>
+                <p class="text-xs text-slate-400 mt-1">Add multiple choice, true/false, fill-in, or essay questions.</p>
+                <div class="mt-4">
+                    <a href="{% url 'examinations:questions_builder' exam.id %}" class="btn-primary text-xs inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Add Questions
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Submissions Sidebar -->
+        <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Recent Attempts</h3>
+                    <a href="{% url 'examinations:grading_list' exam.id %}" class="text-xs font-bold text-cyan-600 hover:text-cyan-700">View All</a>
+                </div>
+
+                {% if attempts %}
+                <div class="divide-y divide-slate-100 max-h-[420px] overflow-y-auto space-y-1">
+                    {% for a in attempts %}
+                    <div class="py-3 flex items-center justify-between gap-3 text-xs">
+                        <div>
+                            <p class="font-bold text-slate-800 truncate max-w-[140px]">{{ a.student.get_full_name|default:a.student.username }}</p>
+                            <p class="text-[10px] text-slate-400">{{ a.student.username }}</p>
+                        </div>
+
+                        <div class="text-right">
+                            {% if a.status == 'GRADED' %}
+                            <span class="font-bold text-slate-900 font-mono">{{ a.total_score }} pts</span>
+                            <span class="block text-[10px] font-bold {% if a.is_passed %}text-emerald-600{% else %}text-red-600{% endif %}">
+                                {{ a.percentage }}% {% if a.is_passed %}PASS{% else %}FAIL{% endif %}
+                            </span>
+                            {% elif a.status == 'IN_PROGRESS' %}
+                            <span class="badge badge-yellow text-[10px]"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Active</span>
+                            {% elif a.status == 'SUBMITTED' or a.status == 'AUTO_SUBMITTED' %}
+                            <span class="badge badge-purple text-[10px]">Submitted</span>
+                            {% elif a.status == 'DISQUALIFIED' %}
+                            <span class="badge badge-red text-[10px]">Disqualified</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl mt-4">
+                    <i class="fa-solid fa-user-clock text-2xl text-slate-300 mb-2"></i>
+                    <p>No student attempts recorded yet.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if exam.assessment_component %}
+            <div class="pt-4 border-t border-slate-100">
+                <a href="{% url 'examinations:sync_grades' exam.id %}" onclick="return confirm('Sync all graded online examination marks to the official report card gradebook?')" class="btn-secondary w-full text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-rotate mr-1"></i> Sync Marks to Gradebook
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

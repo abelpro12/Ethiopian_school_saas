@@ -1,4 +1,5 @@
 import django.utils.timezone as tz
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -98,3 +99,37 @@ def archive_conversation_view(request, conv_id):
     conv.save()
     messages.success(request, "Conversation archived.")
     return redirect('messaging:inbox')
+
+
+@login_required
+def unread_count_api(request):
+    """
+    Real-time push/polling endpoint returning unread message count and latest unread snippet.
+    """
+    school = getattr(request, 'school', None) or getattr(request.user, 'school', None)
+    if not school:
+        return JsonResponse({'unread_count': 0, 'latest_message': None})
+
+    unread_qs = Message.objects.filter(
+        conversation__school=school,
+        conversation__participants=request.user,
+        is_read=False
+    ).exclude(sender=request.user).select_related('sender', 'conversation').order_by('-sent_at')
+
+    count = unread_qs.count()
+    latest = unread_qs.first()
+    latest_data = None
+    if latest:
+        sender_name = latest.sender.get_full_name() or latest.sender.username
+        latest_data = {
+            'sender': sender_name,
+            'body': latest.body[:80] + ('...' if len(latest.body) > 80 else ''),
+            'conv_id': latest.conversation.id,
+            'subject': latest.conversation.subject,
+            'sent_at': latest.sent_at.strftime('%H:%M'),
+        }
+
+    return JsonResponse({
+        'unread_count': count,
+        'latest_message': latest_data
+    })

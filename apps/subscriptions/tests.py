@@ -109,6 +109,48 @@ class UnifiedSubscriptionTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertContains(response, "Subscription Expired", status_code=403)
 
+    def test_admin_can_access_billing_when_expired(self):
+        # Even when expired, admin must be able to access billing to renew
+        self.subscription.end_date = datetime.date.today() - datetime.timedelta(days=5)
+        self.subscription.status = SubscriptionStatus.EXPIRED
+        self.subscription.save()
+
+        self.client.login(username='school_admin_billing', password='password')
+        response = self.client.get(reverse('subscriptions:billing'))
+        self.assertEqual(response.status_code, 200)
+
+        # But admin is blocked from operational dashboard
+        dash_response = self.client.get(reverse('admin_dashboard'))
+        self.assertEqual(dash_response.status_code, 403)
+
+    def test_dynamic_sync_locks_when_trial_reaches_zero_days(self):
+        # Subscription is in TRIAL status in DB, but end_date has passed
+        self.subscription.status = SubscriptionStatus.TRIAL
+        self.subscription.end_date = datetime.date.today() - datetime.timedelta(days=1)
+        self.subscription.save()
+
+        # sync_status should dynamically transition it to EXPIRED
+        self.subscription.sync_status()
+        self.assertEqual(self.subscription.status, SubscriptionStatus.EXPIRED)
+        self.assertFalse(self.subscription.is_usable())
+
+    def test_super_admin_bypasses_expiration_lock(self):
+        self.subscription.end_date = datetime.date.today() - datetime.timedelta(days=10)
+        self.subscription.status = SubscriptionStatus.EXPIRED
+        self.subscription.save()
+
+        super_admin = User.objects.create_user(
+            username='superadmin_test',
+            email='sa@ams.edu.et',
+            password='password',
+            role=UserRole.SUPER_ADMIN,
+            is_superuser=True,
+            is_staff=True
+        )
+        self.client.login(username='superadmin_test', password='password')
+        response = self.client.get(reverse('platform:dashboard'))
+        self.assertEqual(response.status_code, 200)
+
     def test_per_seat_price_calculation(self):
         price = self.subscription.calculate_annual_price(student_count=100, staff_count=10)
         self.assertEqual(price, Decimal('8000.00'))

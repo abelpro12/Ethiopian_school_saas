@@ -6,7 +6,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
-from django.db.models import Sum, Count, Avg
+from django.db.models import Sum, Count, Avg, Q, Max
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.tenants.models import School, SchoolStatus
@@ -69,7 +69,7 @@ def get_user_dashboard_redirect(user):
 def index_view(request):
     """Routing landing page based on authentication and user role."""
     if not request.user.is_authenticated:
-        return render(request, 'public/seattle_academy_home.html')
+        return seattle_academy_website_view(request)
     return get_user_dashboard_redirect(request.user)
 
 
@@ -106,6 +106,13 @@ def seattle_academy_website_view(request):
         if not SchoolGallery.objects.filter(school=school).exists():
             SchoolGallery.objects.create(
                 school=school,
+                title="Students at Science Museum Showcase 2024",
+                caption="Seattle Academy students presenting mind-blowing innovative STEM projects at the Ethiopian Science Museum (Addis Ababa, 2024)",
+                category="Science Museum & Innovations",
+                image_url="images/science_museum_innovators_2024.png"
+            )
+            SchoolGallery.objects.create(
+                school=school,
                 title="ITU AI for Good Global Summit 2025",
                 caption="Geneva Robotics Team 2025 — 5th Place Globally",
                 category="Global Competitions",
@@ -119,8 +126,11 @@ def seattle_academy_website_view(request):
                 image_url="images/news_science_fair_2024.png"
             )
 
-        news_list = SchoolNews.objects.filter(school=school, is_published=True).order_by('-created_at')[:6]
-        gallery_list = SchoolGallery.objects.filter(school=school).order_by('-created_at')[:6]
+
+        # Only show news items selected for main/home page display, respecting custom order sequence
+        news_list = SchoolNews.objects.filter(school=school, is_published=True, is_featured=True).order_by('order', '-created_at')
+        # Only show gallery items selected for main/home page display, respecting custom order sequence
+        gallery_list = SchoolGallery.objects.filter(school=school, is_featured=True).order_by('order', '-created_at')
     else:
         news_list = []
         gallery_list = []
@@ -137,8 +147,10 @@ def seattle_academy_news_gallery_view(request):
     school = School.objects.filter(Q(code='SEA') | Q(code='SEATTLE') | Q(name__icontains='SEATTLE')).first()
     
     if school:
-        news_list = SchoolNews.objects.filter(school=school, is_published=True).order_by('-created_at')
-        gallery_list = SchoolGallery.objects.filter(school=school).order_by('-created_at')
+        # Full news page shows all published articles in custom order sequence
+        news_list = SchoolNews.objects.filter(school=school, is_published=True).order_by('order', '-created_at')
+        # Full gallery page shows all uploaded items in custom order sequence
+        gallery_list = SchoolGallery.objects.filter(school=school).order_by('order', '-created_at')
     else:
         news_list = []
         gallery_list = []
@@ -151,7 +163,16 @@ def seattle_academy_news_gallery_view(request):
     })
 
 
+def seattle_academy_about_view(request):
+    """Dedicated About Us page for Seattle Academy."""
+    school = School.objects.filter(Q(code='SEA') | Q(code='SEATTLE') | Q(name__icontains='SEATTLE')).first()
+    return render(request, 'public/seattle_academy_about.html', {
+        'school': school
+    })
+
+
 @csrf_exempt
+
 def seattle_academy_contact_api(request):
     """API endpoint to receive and store public website contact form messages."""
     if request.method == 'POST':
@@ -229,7 +250,7 @@ def manage_contact_messages_view(request):
 @login_required
 @school_context_required
 def manage_news_view(request):
-    """Admin dashboard page to post, edit, and manage school news & announcements."""
+    """Admin dashboard page to post, reorder, and manage school news & announcements."""
     if request.user.role not in [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.REGISTRAR]:
         messages.error(request, "Permission denied.")
         return redirect('admin_dashboard')
@@ -237,7 +258,16 @@ def manage_news_view(request):
     school = getattr(request, 'school', None) or request.user.school
 
     if request.method == 'POST':
-        action = request.POST.get('action')
+        is_json = request.content_type == 'application/json'
+        payload = {}
+        if is_json:
+            try:
+                payload = json.loads(request.body)
+            except Exception:
+                payload = {}
+
+        action = payload.get('action') if is_json else request.POST.get('action')
+
         if action == 'create_news':
             title = request.POST.get('title')
             category = request.POST.get('category', 'General')
@@ -245,6 +275,9 @@ def manage_news_view(request):
             location = request.POST.get('location', '')
             content = request.POST.get('content', '')
             image = request.FILES.get('image')
+            is_featured = request.POST.get('is_featured') in ['on', 'true', '1', True]
+
+            max_order = SchoolNews.objects.filter(school=school).aggregate(Max('order'))['order__max'] or 0
 
             SchoolNews.objects.create(
                 school=school,
@@ -254,26 +287,117 @@ def manage_news_view(request):
                 location=location,
                 content=content,
                 image=image,
-                is_published=True
+                is_published=True,
+                is_featured=is_featured,
+                order=max_order + 1
             )
-            messages.success(request, "News article published successfully!")
+            messages.success(request, f"News article '{title}' published successfully!")
+            return redirect('manage_news')
+
+        elif action == 'edit_news':
+            item_id = request.POST.get('news_id')
+            item = get_object_or_404(SchoolNews, id=item_id, school=school)
+            item.title = request.POST.get('title', item.title).strip()
+            item.category = request.POST.get('category', item.category).strip()
+            item.badge_text = request.POST.get('badge_text', '').strip()
+            item.location = request.POST.get('location', '').strip()
+            item.content = request.POST.get('content', item.content).strip()
+            item.is_featured = request.POST.get('is_featured') in ['on', 'true', '1', True]
+            if 'image' in request.FILES and request.FILES['image']:
+                item.image = request.FILES['image']
+            item.save()
+            messages.success(request, f"News article '{item.title}' updated successfully!")
+            return redirect('manage_news')
+
+        elif action == 'toggle_featured':
+            item_id = payload.get('news_id') if is_json else request.POST.get('news_id')
+            item = get_object_or_404(SchoolNews, id=item_id, school=school)
+            item.is_featured = not item.is_featured
+            item.save(update_fields=['is_featured'])
+
+            if is_json or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'ok',
+                    'is_featured': item.is_featured,
+                    'title': item.title,
+                    'news_id': item.id,
+                    'message': f"'{item.title}' is now {'shown on' if item.is_featured else 'hidden from'} the main home page."
+                })
+
+            messages.success(request, f"'{item.title}' is now {'shown on' if item.is_featured else 'hidden from'} the main home page.")
+            return redirect('manage_news')
+
+        elif action == 'reorder_news':
+            order_ids = payload.get('order_ids') if is_json else request.POST.get('order_ids', '').split(',')
+            if not order_ids:
+                order_ids = request.POST.getlist('order_ids')
+
+            if order_ids:
+                for idx, nid in enumerate(order_ids, start=1):
+                    try:
+                        nid_int = int(str(nid).strip())
+                        SchoolNews.objects.filter(id=nid_int, school=school).update(order=idx)
+                    except (ValueError, TypeError):
+                        continue
+
+            if is_json or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'ok', 'message': 'News order updated successfully.'})
+
+            messages.success(request, "News article display order updated successfully.")
+            return redirect('manage_news')
+
+        elif action in ['move_up', 'move_down']:
+            item_id = request.POST.get('news_id')
+            item = get_object_or_404(SchoolNews, id=item_id, school=school)
+            all_items = list(SchoolNews.objects.filter(school=school).order_by('order', '-created_at'))
+
+            try:
+                curr_idx = next(i for i, n in enumerate(all_items) if n.id == item.id)
+                target_idx = curr_idx - 1 if action == 'move_up' else curr_idx + 1
+                if 0 <= target_idx < len(all_items):
+                    all_items[curr_idx], all_items[target_idx] = all_items[target_idx], all_items[curr_idx]
+                    for idx, n in enumerate(all_items, start=1):
+                        n.order = idx
+                        n.save(update_fields=['order'])
+                    messages.success(request, f"Moved '{item.title}' {'up' if action == 'move_up' else 'down'} in order.")
+            except Exception:
+                pass
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'ok'})
             return redirect('manage_news')
 
         elif action == 'delete_news':
-            news_id = request.POST.get('news_id')
-            news_item = get_object_or_404(SchoolNews, id=news_id, school=school)
-            news_item.delete()
-            messages.success(request, "News article deleted.")
+            item_id = request.POST.get('news_id')
+            item = get_object_or_404(SchoolNews, id=item_id, school=school)
+            title = item.title
+            item.delete()
+
+            for idx, n in enumerate(SchoolNews.objects.filter(school=school).order_by('order', '-created_at'), start=1):
+                n.order = idx
+                n.save(update_fields=['order'])
+
+            messages.success(request, f"News article '{title}' deleted.")
             return redirect('manage_news')
 
-    news_items = SchoolNews.objects.filter(school=school)
-    return render(request, 'schools/manage_news.html', {'news_items': news_items, 'school': school})
+    news_items = SchoolNews.objects.filter(school=school).order_by('order', '-created_at')
+    total_count = news_items.count()
+    featured_count = news_items.filter(is_featured=True).count()
+    hidden_count = total_count - featured_count
+
+    return render(request, 'schools/manage_news.html', {
+        'news_items': news_items,
+        'total_count': total_count,
+        'featured_count': featured_count,
+        'hidden_count': hidden_count,
+        'school': school
+    })
 
 
 @login_required
 @school_context_required
 def manage_gallery_view(request):
-    """Admin dashboard page to upload and manage school photo gallery."""
+    """Admin dashboard page to upload, reorder, and manage school photo gallery."""
     if request.user.role not in [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.REGISTRAR]:
         messages.error(request, "Permission denied.")
         return redirect('admin_dashboard')
@@ -281,32 +405,138 @@ def manage_gallery_view(request):
     school = getattr(request, 'school', None) or request.user.school
 
     if request.method == 'POST':
-        action = request.POST.get('action')
+        # Detect JSON payload from AJAX requests
+        is_json = request.content_type == 'application/json'
+        payload = {}
+        if is_json:
+            try:
+                payload = json.loads(request.body)
+            except Exception:
+                payload = {}
+
+        action = payload.get('action') if is_json else request.POST.get('action')
+
         if action == 'create_gallery':
             title = request.POST.get('title')
             caption = request.POST.get('caption', '')
             category = request.POST.get('category', 'Campus Life')
             image = request.FILES.get('image')
+            # Checkbox: on if checked, False if unchecked
+            is_featured = request.POST.get('is_featured') in ['on', 'true', '1', True]
+
+            # Place newly uploaded item at the end of custom sequence
+            max_order = SchoolGallery.objects.filter(school=school).aggregate(Max('order'))['order__max'] or 0
 
             SchoolGallery.objects.create(
                 school=school,
                 title=title,
                 caption=caption,
                 category=category,
-                image=image
+                image=image,
+                is_featured=is_featured,
+                order=max_order + 1
             )
-            messages.success(request, "Gallery photo added successfully!")
+            messages.success(request, f"Gallery photo '{title}' uploaded successfully!")
+            return redirect('manage_gallery')
+
+        elif action == 'edit_gallery':
+            item_id = request.POST.get('gallery_id')
+            item = get_object_or_404(SchoolGallery, id=item_id, school=school)
+            item.title = request.POST.get('title', item.title).strip()
+            item.caption = request.POST.get('caption', '').strip()
+            item.category = request.POST.get('category', item.category).strip()
+            item.is_featured = request.POST.get('is_featured') in ['on', 'true', '1', True]
+            if 'image' in request.FILES and request.FILES['image']:
+                item.image = request.FILES['image']
+            item.save()
+            messages.success(request, f"Gallery item '{item.title}' updated successfully!")
+            return redirect('manage_gallery')
+
+        elif action == 'toggle_featured':
+            item_id = payload.get('gallery_id') if is_json else request.POST.get('gallery_id')
+            item = get_object_or_404(SchoolGallery, id=item_id, school=school)
+            item.is_featured = not item.is_featured
+            item.save(update_fields=['is_featured'])
+
+            if is_json or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'ok',
+                    'is_featured': item.is_featured,
+                    'title': item.title,
+                    'gallery_id': item.id,
+                    'message': f"'{item.title}' is now {'shown on' if item.is_featured else 'hidden from'} the main home page."
+                })
+
+            messages.success(request, f"'{item.title}' is now {'shown on' if item.is_featured else 'hidden from'} the main home page.")
+            return redirect('manage_gallery')
+
+        elif action == 'reorder_gallery':
+            order_ids = payload.get('order_ids') if is_json else request.POST.get('order_ids', '').split(',')
+            if not order_ids:
+                order_ids = request.POST.getlist('order_ids')
+
+            if order_ids:
+                for idx, gid in enumerate(order_ids, start=1):
+                    try:
+                        gid_int = int(str(gid).strip())
+                        SchoolGallery.objects.filter(id=gid_int, school=school).update(order=idx)
+                    except (ValueError, TypeError):
+                        continue
+
+            if is_json or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'ok', 'message': 'Gallery order updated successfully.'})
+
+            messages.success(request, "Gallery photo order updated successfully.")
+            return redirect('manage_gallery')
+
+        elif action in ['move_up', 'move_down']:
+            item_id = request.POST.get('gallery_id')
+            item = get_object_or_404(SchoolGallery, id=item_id, school=school)
+            all_items = list(SchoolGallery.objects.filter(school=school).order_by('order', '-created_at'))
+
+            try:
+                curr_idx = next(i for i, g in enumerate(all_items) if g.id == item.id)
+                target_idx = curr_idx - 1 if action == 'move_up' else curr_idx + 1
+                if 0 <= target_idx < len(all_items):
+                    # Swap positions in list and save new orders
+                    all_items[curr_idx], all_items[target_idx] = all_items[target_idx], all_items[curr_idx]
+                    for idx, g in enumerate(all_items, start=1):
+                        g.order = idx
+                        g.save(update_fields=['order'])
+                    messages.success(request, f"Moved '{item.title}' {'up' if action == 'move_up' else 'down'} in order.")
+            except Exception:
+                pass
+
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'ok'})
             return redirect('manage_gallery')
 
         elif action == 'delete_gallery':
             item_id = request.POST.get('gallery_id')
             item = get_object_or_404(SchoolGallery, id=item_id, school=school)
+            title = item.title
             item.delete()
-            messages.success(request, "Gallery photo deleted.")
+
+            # Re-normalize remaining orders 1..N
+            for idx, g in enumerate(SchoolGallery.objects.filter(school=school).order_by('order', '-created_at'), start=1):
+                g.order = idx
+                g.save(update_fields=['order'])
+
+            messages.success(request, f"Gallery photo '{title}' deleted.")
             return redirect('manage_gallery')
 
-    gallery_items = SchoolGallery.objects.filter(school=school)
-    return render(request, 'schools/manage_gallery.html', {'gallery_items': gallery_items, 'school': school})
+    gallery_items = SchoolGallery.objects.filter(school=school).order_by('order', '-created_at')
+    total_count = gallery_items.count()
+    featured_count = gallery_items.filter(is_featured=True).count()
+    hidden_count = total_count - featured_count
+
+    return render(request, 'schools/manage_gallery.html', {
+        'gallery_items': gallery_items,
+        'total_count': total_count,
+        'featured_count': featured_count,
+        'hidden_count': hidden_count,
+        'school': school
+    })
 
 
 
@@ -322,7 +552,6 @@ def seattle_academy_login_view(request):
 
 
 @login_required
-@csrf_exempt
 @school_context_required
 def admin_dashboard(request):
     """
@@ -349,21 +578,20 @@ def admin_dashboard(request):
             parent_relationship = request.POST.get('parent_relationship', 'Father')
             parent_name = request.POST.get('parent_name', '')
 
-            # 1. Student User Account — generate a secure random initial password
-            import secrets
-            student_initial_pwd = secrets.token_urlsafe(10)
+            # 1. Student User Account — generate username based on first name
+            from apps.accounts.utils import generate_unique_username, get_default_role_password
+            student_initial_pwd = get_default_role_password(UserRole.STUDENT)
+            student_username = generate_unique_username(fname, lname, school=school)
 
-            student_user, student_user_created = User.objects.get_or_create(
-                username=st_id.lower(),
-                defaults={'school': school, 'role': UserRole.STUDENT, 'first_name': fname, 'last_name': lname}
+            student_user = User.objects.create_user(
+                username=student_username,
+                school=school,
+                role=UserRole.STUDENT,
+                first_name=fname,
+                last_name=lname
             )
-            student_user.school = school
-            student_user.role = UserRole.STUDENT
-            student_user.first_name = fname
-            student_user.last_name = lname
-            if student_user_created:
-                student_user.set_password(student_initial_pwd)
-                student_user.must_change_password = True
+            student_user.set_password(student_initial_pwd)
+            student_user.must_change_password = True
             student_user.save()
 
             # 2. Student Profile
@@ -407,45 +635,40 @@ def admin_dashboard(request):
                 )
                 parent_msg = f"Linked to existing parent family '{parent_profile.user.get_full_name() or parent_profile.user.username}' (Login Username: {parent_profile.user.username}). Both children are now under 1 login!"
             else:
-                parent_username = f"p_{st_id.lower()}"
                 parent_first = parent_name or lname
                 parent_last = "Guardian" if parent_name else "Parent"
+                parent_username = generate_unique_username(parent_first, parent_last, school=school, prefix="p_")
 
-                parent_user, parent_created = User.objects.get_or_create(
+                parent_user = User.objects.create_user(
                     username=parent_username,
-                    defaults={'school': school, 'role': UserRole.PARENT, 'first_name': parent_first, 'last_name': parent_last}
+                    school=school,
+                    role=UserRole.PARENT,
+                    first_name=parent_first,
+                    last_name=parent_last
                 )
-                parent_user.school = school
-                parent_user.role = UserRole.PARENT
-                if parent_created:
-                    parent_initial_pwd = secrets.token_urlsafe(10)
-                    parent_user.set_password(parent_initial_pwd)
-                    parent_user.must_change_password = True
+                parent_initial_pwd = get_default_role_password(UserRole.PARENT)
+                parent_user.set_password(parent_initial_pwd)
+                parent_user.must_change_password = True
                 parent_user.save()
+
 
                 parent_profile, _ = ParentProfile.objects.get_or_create(
                     user=parent_user,
-                    defaults={'school': school, 'phone': parent_phone or f"+251911000000", 'relationship': parent_relationship}
+                    defaults={
+                        'school': school,
+                        'phone': parent_phone or '+251911000000',
+                        'relationship': parent_relationship
+                    }
                 )
-                parent_profile.school = school
-                if parent_phone:
-                    parent_profile.phone = parent_phone
-                if parent_relationship:
-                    parent_profile.relationship = parent_relationship
-                parent_profile.save()
-
                 GuardianRelationship.objects.get_or_create(
                     school=school,
                     parent=parent_profile,
                     student=student,
                     defaults={'is_primary': True}
                 )
-                parent_msg = f"Parent Credentials → Username: {parent_user.username} | Password: {parent_initial_pwd if parent_created else '(existing — unchanged)'}. User must change password on first login."
+                parent_msg = f"Parent login username: {parent_user.username} | Password: {parent_initial_pwd} (must change on login)."
 
-            # Handle optional photo upload
-            if request.FILES.get('photo'):
-                PhotoProcessingService.update_student_photo(student, request.FILES['photo'], uploaded_by=request.user)
-
+            # 4. Initial Enrollment
             if sec_id:
                 sec = Section.objects.get(id=sec_id, school=school)
                 active_ay = getattr(request, 'academic_year', None) or AcademicYear.objects.filter(school=school, is_active=True).first()
@@ -453,15 +676,17 @@ def admin_dashboard(request):
                     school=school,
                     academic_year=active_ay,
                     student=student,
-                    defaults={'grade': sec.grade, 'stream': sec.stream, 'section': sec}
+                    defaults={
+                        'grade': sec.grade,
+                        'stream': sec.stream,
+                        'section': sec,
+                        'status': EnrollmentStatus.ACTIVE
+                    }
                 )
 
             messages.success(
-                request,
-                f"Student '{student.full_name}' successfully added! "
-                f"Student Credentials → Username: {student_user.username} | Password: {student_initial_pwd if student_user_created else '(existing — unchanged)'}. "
-                f"Student must change password on first login. "
-                f"{parent_msg}"
+                request, 
+                f"Successfully registered student {fname} {lname}! (Student Login Username: {student_user.username} | Initial Password: {student_initial_pwd}). {parent_msg}"
             )
             return redirect('admin_dashboard')
 
@@ -472,8 +697,11 @@ def admin_dashboard(request):
             lname = request.POST.get('last_name')
             spec = request.POST.get('specialization')
 
+            from apps.accounts.utils import generate_unique_username
+            teacher_username = generate_unique_username(fname, lname, school=school)
+
             user = User.objects.create_user(
-                username=emp_id.lower(),
+                username=teacher_username,
                 school=school,
                 role=UserRole.TEACHER,
                 first_name=fname,
@@ -489,7 +717,7 @@ def admin_dashboard(request):
                 employee_id=emp_id,
                 specialization=spec
             )
-            messages.success(request, f"Teacher '{fname} {lname}' created successfully! (Default password: 'teacher123')")
+            messages.success(request, f"Teacher '{fname} {lname}' created successfully! (Username: '{teacher_username}', Default password: 'teacher123')")
             return redirect('admin_dashboard')
 
         elif action == 'add_staff':
@@ -508,8 +736,11 @@ def admin_dashboard(request):
             }
             assigned_role = role_map.get(pos, UserRole.SCHOOL_ADMIN)
 
+            from apps.accounts.utils import generate_unique_username
+            staff_username = generate_unique_username(fname, lname, school=school)
+
             user = User.objects.create_user(
-                username=emp_id.lower(),
+                username=staff_username,
                 school=school,
                 role=assigned_role,
                 first_name=fname,
@@ -759,7 +990,6 @@ def admin_dashboard(request):
 
 
 @login_required
-@csrf_exempt
 def teacher_portal(request):
     """
     Teacher Portal with Homeroom Teacher Dashboard, Attendance, Mark Entry, and Leave Submission.
@@ -825,9 +1055,11 @@ def teacher_portal(request):
                 return redirect(f"/teacher/?section_id={selected_section.id}")
 
             sem = AcademicPeriod.objects.filter(school=school, is_current=True).first() or AcademicPeriod.objects.filter(school=school).first()
+            # Use the resolved current_ay (Section has no academic_year field)
+            mark_ay = current_ay or AcademicYear.objects.filter(school=school, is_active=True).first()
             comp, _ = AssessmentComponent.objects.get_or_create(
                 school=school,
-                academic_year=selected_section.academic_year,
+                academic_year=mark_ay,
                 period=sem,
                 subject=subject,
                 name="Final Assessment",
@@ -1080,12 +1312,23 @@ def login_view(request):
         if request.user.is_authenticated:
             logout(request)
 
+        client_ip = AuditService.get_client_ip(request)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
             # Block login for non-superadmin users if their school is suspended or inactive
             if user.role != UserRole.SUPER_ADMIN and not user.is_superuser:
                 if user.school and (user.school.status == SchoolStatus.SUSPENDED or not user.school.is_active):
+                    AuditService.log_login(
+                        school=user.school,
+                        username_attempted=username,
+                        user=user,
+                        status='BLOCKED',
+                        ip_address=client_ip,
+                        user_agent=user_agent,
+                        failure_reason="School suspended or inactive"
+                    )
                     messages.error(
                         request,
                         f"Access to '{user.school.name}' has been suspended. Please contact your school administrator or platform support."
@@ -1097,6 +1340,14 @@ def login_view(request):
                         res.delete_cookie('last_tenant')
                     return res
 
+            AuditService.log_login(
+                school=user.school,
+                username_attempted=username,
+                user=user,
+                status='SUCCESS',
+                ip_address=client_ip,
+                user_agent=user_agent
+            )
             login(request, user)
             user_school_code = str(getattr(getattr(user, 'school', None), 'code', '')).upper()
             if is_seattle or user_school_code in ['SEA', 'SEATTLE']:
@@ -1110,6 +1361,15 @@ def login_view(request):
             return res
 
         else:
+            AuditService.log_login(
+                school=getattr(request, 'school', None),
+                username_attempted=username or 'unknown',
+                user=None,
+                status='FAILED',
+                ip_address=client_ip,
+                user_agent=user_agent,
+                failure_reason='Invalid username or password credentials'
+            )
             messages.error(request, "Invalid username or password.")
             res = render(request, template_name)
             if is_seattle:
@@ -1168,12 +1428,13 @@ def initiate_chapa_payment_view(request, invoice_id):
     invoice = get_object_or_404(StudentInvoice, id=invoice_id, school=school)
 
     try:
+        callback_url = request.build_absolute_uri('/payments/verify/')
         response_data = ChapaService.initialize_payment(
             school=school,
             invoice=invoice,
             user=request.user,
             amount=invoice.remaining_balance,
-            callback_url="http://127.0.0.1:8000/payments/verify/"
+            callback_url=callback_url
         )
         checkout_url = response_data.get('checkout_url')
         if checkout_url:
@@ -1298,6 +1559,8 @@ def user_management_view(request):
                 to_attr='current_enrollment_list'
             )
         )
+    elif current_role == 'PARENT':
+        users = users.prefetch_related('parent_profile__guardianships__student')
 
     # Fetch Grades and Sections for dropdowns
     grades = Grade.objects.filter(school=school).order_by('level')
@@ -1468,7 +1731,7 @@ def portal_selectors_api(request):
         for p in p_profiles:
             parents.append({
                 'id': p.id,
-                'name': f"{p.user.get_full_name() or p.user.username} ({p.phone_number or 'No phone'})"
+                'name': f"{p.user.get_full_name() or p.user.username} ({p.phone or 'No phone'})"
             })
 
     return JsonResponse({

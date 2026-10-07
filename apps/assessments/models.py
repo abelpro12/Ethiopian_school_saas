@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.tenants.models import TenantAwareModel
 from apps.accounts.models import User
-from apps.academics.models import AcademicYear, AcademicPeriod, Subject
+from apps.academics.models import AcademicYear, AcademicPeriod, Subject, Grade, Section
 from apps.enrollment.models import StudentEnrollment
 
 class MarkStatus(models.TextChoices):
@@ -248,3 +248,119 @@ class AnnualResult(TenantAwareModel):
 
     def __str__(self):
         return f"{self.enrollment.student.full_name} - {self.academic_year.name}: {self.promotion_status}"
+
+
+class MarkEntryLock(TenantAwareModel):
+    """
+    Granular mark entry locking mechanism.
+    Supports locking mark entry by:
+    - Grade (all sections and subjects within the grade)
+    - Subject (all grades or specific grade/section)
+    - Teacher (specific teacher account)
+    - Section (specific class section)
+    - Academic Year and Period (scoping lock to active term)
+    """
+    LOCK_TYPES = [
+        ('GRADE', 'By Grade'),
+        ('SUBJECT', 'By Subject'),
+        ('TEACHER', 'By Teacher'),
+        ('SECTION', 'By Section'),
+        ('CUSTOM', 'Custom / Targeted'),
+    ]
+
+    lock_type = models.CharField(max_length=20, choices=LOCK_TYPES, default='CUSTOM')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, null=True, blank=True, related_name='mark_locks')
+    period = models.ForeignKey(AcademicPeriod, on_delete=models.CASCADE, null=True, blank=True, related_name='mark_locks')
+
+    grade = models.ForeignKey(Grade, on_delete=models.CASCADE, null=True, blank=True, related_name='mark_entry_locks')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True, related_name='mark_entry_locks')
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='mark_entry_locks')
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, null=True, blank=True, related_name='mark_entry_locks')
+
+    is_active = models.BooleanField(default=True)
+    reason = models.CharField(max_length=255, blank=True, null=True, help_text="e.g. Grading deadline closed, Administrative review, etc.")
+    locked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_mark_locks')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        desc = []
+        if self.grade:
+            desc.append(f"Grade: {self.grade.name}")
+        if self.subject:
+            desc.append(f"Subject: {self.subject.name}")
+        if self.teacher:
+            desc.append(f"Teacher: {self.teacher.get_full_name() or self.teacher.username}")
+        if self.section:
+            desc.append(f"Section: {self.section.name}")
+        scope = ", ".join(desc) if desc else "General"
+        status = "Locked" if self.is_active else "Unlocked"
+        return f"[{self.school.code}] {scope} - {status}"
+
+    @classmethod
+    def check_lock(cls, school, academic_year=None, period=None, grade=None, subject=None, teacher=None, section=None):
+        """
+        Evaluates whether mark entry is locked for the given context.
+        Returns a tuple: (is_locked: bool, reason: str, lock_rule: MarkEntryLock or None)
+        """
+        from apps.academics.models import PeriodStatus
+        if period and getattr(period, 'status', None) == PeriodStatus.LOCKED:
+            return True, f"Academic term '{period.name}' is globally locked by School Administration.", None
+
+        if not school:
+            return False, "", None
+
+        locks_qs = cls.objects.filter(school=school, is_active=True)
+        if academic_year:
+            locks_qs = locks_qs.filter(models.Q(academic_year__isnull=True) | models.Q(academic_year=academic_year))
+        if period:
+            locks_qs = locks_qs.filter(models.Q(period__isnull=True) | models.Q(period=period))
+
+        for lock in locks_qs:
+            # Check Grade match
+            if lock.grade and grade and lock.grade_id != getattr(grade, 'id', grade):
+                continue
+            if lock.grade and not grade:
+                continue
+
+            # Check Subject match
+            if lock.subject and subject and lock.subject_id != getattr(subject, 'id', subject):
+                continue
+            if lock.subject and not subject:
+                continue
+
+            # Check Teacher match
+            if lock.teacher and teacher and lock.teacher_id != getattr(teacher, 'id', teacher):
+                continue
+            if lock.teacher and not teacher:
+                continue
+
+            # Check Section match
+            if lock.section and section and lock.section_id != getattr(section, 'id', section):
+                continue
+            if lock.section and not section:
+                continue
+
+            # Rule matched!
+            if lock.grade or lock.subject or lock.teacher or lock.section or lock.period:
+                scope_parts = []
+                if lock.grade:
+                    scope_parts.append(f"Grade {lock.grade.name}")
+                if lock.subject:
+                    scope_parts.append(f"Subject '{lock.subject.name}'")
+                if lock.teacher:
+                    scope_parts.append(f"Teacher {lock.teacher.get_full_name() or lock.teacher.username}")
+                if lock.section:
+                    scope_parts.append(f"Section {lock.section.name}")
+
+                scope_str = " & ".join(scope_parts)
+                reason_str = f"Mark entry is LOCKED for {scope_str}."
+                if lock.reason:
+                    reason_str += f" (Reason: {lock.reason})"
+                return True, reason_str, lock
+
+        return False, "", None
+

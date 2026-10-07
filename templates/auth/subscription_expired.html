@@ -95,11 +95,18 @@
                 </div>
             </div>
 
+            <!-- Action Buttons for Admins -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-6">
+                <a href="{% url 'subscriptions:billing' %}" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg shadow-amber-500/25 transition-all text-sm sm:text-base w-full sm:w-auto">
+                    <i class="fa-solid fa-credit-card"></i> Pay &amp; Renew Online Now
+                </a>
+            </div>
+
             <!-- Contact Box for Admins -->
             <div class="bg-slate-900 dark:bg-black rounded-2xl p-4 sm:p-6 shadow-inner relative overflow-hidden group mb-8 w-full box-border">
                 <div class="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                 <p class="text-slate-400 dark:text-slate-500 text-xs sm:text-sm font-semibold uppercase tracking-widest mb-2">
-                    Contact Super Admin To Pay &amp; Restore Access
+                    Or Contact Super Admin To Pay &amp; Restore Access
                 </p>
                 <a href="tel:+251937381801" class="text-2xl sm:text-3xl lg:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200 hover:from-amber-300 hover:to-amber-100 transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 break-all sm:break-normal">
                     <i class="fa-solid fa-phone-volume text-amber-400 text-2xl sm:text-3xl animate-pulse"></i>

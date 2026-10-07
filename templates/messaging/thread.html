@@ -16,6 +16,16 @@
         {% endfor %}
       </div>
     </div>
+    {% for p in conv.participants.all %}
+      {% if p != request.user %}
+        <a href="{% url 'video_calls:instant' %}?user_id={{ p.id }}&conversation_id={{ conv.id }}" 
+           class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold transition flex items-center gap-1.5 shadow-sm border border-indigo-200/60" 
+           title="Start Instant Video Call with {{ p.get_full_name|default:p.username }}">
+          <i class="fa-solid fa-video text-indigo-500"></i>
+          <span class="hidden sm:inline">Video Call</span>
+        </a>
+      {% endif %}
+    {% endfor %}
     <a href="{% url 'messaging:archive' conv.id %}" class="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 flex items-center justify-center transition" title="Archive conversation"
        onclick="return confirm('Archive this conversation?')">
       <i class="fa-solid fa-archive text-sm"></i>

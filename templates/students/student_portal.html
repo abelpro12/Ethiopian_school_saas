@@ -10,8 +10,8 @@
         <p class="text-sm text-slate-500">Student ID: <span class="font-mono text-slate-700 font-medium">{{ student.student_id }}</span> | Grade: <span class="font-medium text-slate-700">{% if enrollment %}{{ enrollment.grade.name }} ({{ enrollment.section.name }}){% else %}Unenrolled{% endif %}</span></p>
     </div>
     <div class="flex items-center space-x-2 flex-wrap gap-y-2">
-        <a href="{% url 'download_transcript_pdf' student.id %}" target="_blank" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-xl px-3 py-2 text-xs transition shadow-sm flex items-center">
-            <i class="fa-solid fa-file-pdf mr-1.5 text-red-500"></i>Transcript
+        <a href="{% url 'official_transcript_html_view' student.id %}" target="_blank" class="bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-xl px-3 py-2 text-xs transition shadow-sm flex items-center">
+            <i class="fa-solid fa-graduation-cap mr-1.5"></i>Official Transcript
         </a>
         <a href="{% url 'download_enrollment_certificate_pdf' student.id %}" target="_blank" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-xl px-3 py-2 text-xs transition shadow-sm flex items-center">
             <i class="fa-solid fa-certificate mr-1.5 text-emerald-600"></i>Enrollment Cert
@@ -26,6 +26,47 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Active Live Video Class / Tutoring Banner for Student -->
+{% if active_video_calls %}
+<div class="mb-6 space-y-3">
+    {% for meeting in active_video_calls %}
+    <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 rounded-2xl p-5 sm:p-6 text-white shadow-xl border-2 border-cyan-400/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="flex items-start sm:items-center gap-4 relative z-10">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-xl shrink-0 shadow-inner">
+                <i class="fa-solid fa-chalkboard-user animate-pulse"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-cyan-300 text-slate-900 uppercase tracking-wider shadow-sm">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-900 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
+                        </span>
+                        Live Class Session
+                    </span>
+                    <span class="text-xs text-cyan-100 font-medium">Virtual Classroom</span>
+                </div>
+                <h3 class="text-lg sm:text-xl font-extrabold text-white leading-tight">
+                    {{ meeting.title }}
+                </h3>
+                <p class="text-xs text-cyan-100 mt-0.5">
+                    Teacher: <strong>{{ meeting.host.get_full_name|default:meeting.host.username }}</strong>
+                    {% if meeting.target_subject %}• {{ meeting.target_subject.name }}{% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 shrink-0 relative z-10">
+            <a href="{% url 'video_calls:room' meeting.id %}" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-indigo-800 hover:bg-cyan-50 rounded-xl font-black text-sm shadow-lg transition transform hover:-translate-y-0.5">
+                <i class="fa-solid fa-video"></i> Join Live Class Now
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <!-- Stats Grid -->
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">

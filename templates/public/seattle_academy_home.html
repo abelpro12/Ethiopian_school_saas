@@ -208,8 +208,8 @@
 
     <!-- Top Announcement Bar -->
     <div class="bg-slate-950 text-white text-xs py-2.5 px-4 border-b border-slate-800">
-        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-            <div class="flex items-center gap-3">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-1.5">
+            <div class="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
                 <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> 2018 E.C. Admissions Open
                 </span>
@@ -217,12 +217,12 @@
                     🎓 Seattle Academy — Empowering 3,000+ students from Kindergarten to High School (Grade 12).
                 </span>
             </div>
-            <div class="flex items-center gap-5 text-[11px] text-slate-300 font-medium">
+            <div class="flex items-center gap-3 text-[11px] text-slate-300 font-medium">
                 <a href="tel:+251937381801" class="hover:text-saOrange-500 transition flex items-center gap-1.5">
                     <i class="fa-solid fa-phone text-saOrange-500"></i> +251 937 381 801
                 </a>
-                <span class="text-slate-700">|</span>
-                <span class="flex items-center gap-1 text-slate-300">
+                <span class="text-slate-700 hidden sm:inline">|</span>
+                <span class="hidden sm:flex items-center gap-1 text-slate-300">
                     <i class="fa-solid fa-location-dot text-saOrange-500"></i> Addis Ababa, Ethiopia
                 </span>
             </div>
@@ -230,7 +230,7 @@
     </div>
 
     <!-- MAIN HEADER & NAVIGATION -->
-    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md header-shadow transition-all duration-300">
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md header-shadow transition-all duration-300" id="main-header">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
                 
@@ -240,39 +240,105 @@
                         <img src="{% static 'images/seattle_academy_logo.png' %}" alt="Seattle Academy Emblem" class="w-full h-full object-contain">
                     </div>
                     <div>
-                        <span class="font-heading font-extrabold text-2xl tracking-tight text-saBlue-600 group-hover:text-saBlue-700 transition">Seattle Academy</span>
-                        <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Kindergarten to High School • 3,000+ Students</p>
+                        <span class="font-heading font-extrabold text-xl sm:text-2xl tracking-tight text-saBlue-600 group-hover:text-saBlue-700 transition">Seattle Academy</span>
+                        <p class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase hidden sm:block">Kindergarten to High School • 3,000+ Students</p>
                     </div>
                 </a>
 
-                <!-- Nav Items -->
+                <!-- Desktop Nav Items -->
                 <nav class="hidden md:flex items-center gap-8 lg:gap-10 text-[15px] font-bold text-slate-800">
                     <a href="#home" id="nav-home" class="nav-link active">Home</a>
-                    <a href="#about" id="nav-about" class="nav-link">About</a>
+                    <a href="{% url 'seattle_academy_about' %}" id="nav-about" class="nav-link">About Us</a>
                     <a href="#academics" id="nav-academics" class="nav-link">Academics</a>
-                    <a href="{% url 'seattle_academy_news_gallery' %}" id="nav-news" class="nav-link">News & Events</a>
+                    <a href="{% url 'seattle_academy_news_gallery' %}" id="nav-news" class="nav-link">News &amp; Events</a>
                     <a href="{% url 'seattle_academy_news_gallery' %}#gallery" id="nav-gallery" class="nav-link">Gallery</a>
                     <a href="#contact" id="nav-contact" class="nav-link">Contact</a>
                 </nav>
 
-                <!-- Action Button -->
+                <!-- Desktop Action Button + Mobile Menu Toggle -->
                 <div class="flex items-center gap-3">
+                    <!-- Desktop Portal Button -->
                     <a href="{% url 'seattle_academy_login' %}" 
-                       class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 hover:from-saBlue-700 hover:to-saBlue-800 text-white font-bold text-xs shadow-lg shadow-saBlue-600/30 transition hover:scale-105 active:scale-95">
+                       class="hidden md:inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 hover:from-saBlue-700 hover:to-saBlue-800 text-white font-bold text-xs shadow-lg shadow-saBlue-600/30 transition hover:scale-105 active:scale-95">
                         <i class="fa-solid fa-lock text-saOrange-400"></i>
                         Portal Sign In
                     </a>
+                    <!-- Mobile: compact sign in icon -->
+                    <a href="{% url 'seattle_academy_login' %}" 
+                       class="md:hidden inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 text-white font-bold text-xs shadow-lg shadow-saBlue-600/30 transition active:scale-95">
+                        <i class="fa-solid fa-lock text-saOrange-400"></i> Sign In
+                    </a>
+                    <!-- Hamburger Button -->
+                    <button id="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Open navigation menu"
+                        class="md:hidden flex flex-col justify-center items-center w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 transition gap-1.5">
+                        <span id="burger-line-1" class="w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 origin-center"></span>
+                        <span id="burger-line-2" class="w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300"></span>
+                        <span id="burger-line-3" class="w-5 h-0.5 bg-slate-700 rounded-full transition-all duration-300 origin-center"></span>
+                    </button>
                 </div>
             </div>
         </div>
         <div class="eth-stripe"></div>
+
+        <!-- Mobile Nav Drawer -->
+        <div id="mobile-nav" class="md:hidden overflow-hidden max-h-0 transition-all duration-500 ease-in-out bg-white border-t border-slate-100">
+            <nav class="px-4 py-4 space-y-1">
+                <a href="#home" onclick="toggleMobileMenu()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-house text-saBlue-400 w-4 text-center"></i> Home
+                </a>
+                <a href="{% url 'seattle_academy_about' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-circle-info text-saBlue-400 w-4 text-center"></i> About Us
+                </a>
+                <a href="#academics" onclick="toggleMobileMenu()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-graduation-cap text-saBlue-400 w-4 text-center"></i> Academics
+                </a>
+                <a href="{% url 'seattle_academy_news_gallery' %}" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-newspaper text-saBlue-400 w-4 text-center"></i> News &amp; Events
+                </a>
+                <a href="{% url 'seattle_academy_news_gallery' %}#gallery" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-images text-saBlue-400 w-4 text-center"></i> Gallery
+                </a>
+                <a href="#contact" onclick="toggleMobileMenu()" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 font-bold text-sm hover:bg-saBlue-50 hover:text-saBlue-600 transition">
+                    <i class="fa-solid fa-phone text-saBlue-400 w-4 text-center"></i> Contact
+                </a>
+
+                <div class="pt-3 pb-1">
+                    <a href="{% url 'seattle_academy_login' %}" 
+                       class="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl bg-gradient-to-r from-saBlue-600 to-saBlue-700 text-white font-extrabold text-sm shadow-lg shadow-saBlue-600/25 transition active:scale-95">
+                        <i class="fa-solid fa-right-to-bracket text-saOrange-400"></i> Student &amp; Parent Portal
+                    </a>
+                </div>
+            </nav>
+        </div>
     </header>
+
+    <script>
+        let mobileMenuOpen = false;
+        function toggleMobileMenu() {
+            const nav = document.getElementById('mobile-nav');
+            const l1 = document.getElementById('burger-line-1');
+            const l2 = document.getElementById('burger-line-2');
+            const l3 = document.getElementById('burger-line-3');
+            mobileMenuOpen = !mobileMenuOpen;
+            if (mobileMenuOpen) {
+                nav.style.maxHeight = nav.scrollHeight + 'px';
+                l1.style.transform = 'translateY(8px) rotate(45deg)';
+                l2.style.opacity = '0';
+                l3.style.transform = 'translateY(-8px) rotate(-45deg)';
+            } else {
+                nav.style.maxHeight = '0';
+                l1.style.transform = 'none';
+                l2.style.opacity = '1';
+                l3.style.transform = 'none';
+            }
+        }
+    </script>
 
     <!-- SECTION 1: HERO SECTION WITH ROBOTICS BACKGROUND & PARTICLES -->
     <section id="home" class="relative py-24 lg:py-32 overflow-hidden">
         <!-- Official Seattle Academy Crest Badge Robotics STEM Hero Background -->
         <div class="absolute inset-0 z-0 bg-cover bg-center opacity-30 filter brightness-105 contrast-110 transform scale-105 transition-transform duration-10000" 
-             style="background-image: url('{% static 'images/seattle_official_logo_badge_robotics_hero_bg.jpg' %}?v=1.1');"></div>
+             style="background-image: url({% static 'images/seattle_official_logo_badge_robotics_hero_bg.jpg' %}?v=1.1);"></div>
         <div class="absolute inset-0 z-0 bg-gradient-to-b from-slate-50/85 via-white/70 to-slate-50/90"></div>
 
 
@@ -298,8 +364,9 @@
 
             <!-- Hero Main Heading -->
             <h1 class="font-heading font-black text-4xl sm:text-6xl lg:text-7xl text-slate-900 tracking-tight leading-[1.12] max-w-5xl mx-auto">
-                Shaping 3,000+ Future Leaders From <span class="bg-gradient-to-r from-saBlue-600 via-saBlue-700 to-saOrange-500 bg-clip-text text-transparent">Kindergarten to High School</span>
+                Where Your Child <span class="bg-gradient-to-r from-saBlue-600 via-saBlue-700 to-saOrange-500 bg-clip-text text-transparent">Succeeds In Life</span>
             </h1>
+
 
             <p class="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto font-normal leading-relaxed">
                 Seattle Academy is a premier educational institution in Addis Ababa offering world-class STEM education, bilingual instruction, and national exam excellence.
@@ -464,7 +531,7 @@
             <div class="bg-white rounded-3xl p-8 sm:p-12 shadow-2xl border border-slate-200/90 reveal-on-scroll overflow-hidden">
                 
                 <!-- KG Content -->
-                <div id="content-kg" class="acad-content animate-tab-slide grid md:grid-cols-2 gap-10 items-center">
+                <div id="content-kg" class="acad-content animate-tab-slide grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
                     <div class="space-y-5">
                         <div class="flex items-center gap-3">
                             <span class="px-3.5 py-1 bg-orange-100 text-saOrange-600 rounded-full font-extrabold text-xs shadow-sm border border-orange-200">Ages 3 – 6</span>
@@ -509,7 +576,7 @@
                 </div>
 
                 <!-- Primary Content -->
-                <div id="content-primary" class="acad-content hidden grid md:grid-cols-2 gap-10 items-center">
+                <div id="content-primary" class="acad-content hidden grid-cols-1 md:grid-cols-2 gap-10 items-center">
                     <div class="space-y-5">
                         <div class="flex items-center gap-3">
                             <span class="px-3.5 py-1 bg-blue-100 text-saBlue-600 rounded-full font-extrabold text-xs shadow-sm border border-blue-200">Grades 1 – 6</span>
@@ -552,7 +619,7 @@
                 </div>
 
                 <!-- Middle Content -->
-                <div id="content-middle" class="acad-content hidden grid md:grid-cols-2 gap-10 items-center">
+                <div id="content-middle" class="acad-content hidden grid-cols-1 md:grid-cols-2 gap-10 items-center">
                     <div class="space-y-5">
                         <div class="flex items-center gap-3">
                             <span class="px-3.5 py-1 bg-indigo-100 text-indigo-600 rounded-full font-extrabold text-xs shadow-sm border border-indigo-200">Grades 7 – 8</span>
@@ -595,7 +662,7 @@
                 </div>
 
                 <!-- High School Content -->
-                <div id="content-prep" class="acad-content hidden grid md:grid-cols-2 gap-10 items-center">
+                <div id="content-prep" class="acad-content hidden grid-cols-1 md:grid-cols-2 gap-10 items-center">
                     <div class="space-y-5">
                         <div class="flex items-center gap-3">
                             <span class="px-3.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-extrabold text-xs shadow-sm border border-emerald-200">Grades 9 – 12</span>
@@ -1003,11 +1070,12 @@
                 <div>
                     <h4 class="font-bold text-white text-xs uppercase tracking-wider mb-4">Quick Links</h4>
                     <ul class="space-y-2 text-xs text-slate-400">
-                        <li><a href="#home" class="hover:text-white transition">Home</a></li>
-                        <li><a href="#about" class="hover:text-white transition">About Us</a></li>
+                        <li><a href="{% url 'seattle_academy_home' %}" class="hover:text-white transition">Home</a></li>
+                        <li><a href="{% url 'seattle_academy_about' %}" class="hover:text-white transition">About Us</a></li>
                         <li><a href="#academics" class="hover:text-white transition">Academics</a></li>
                         <li><a href="{% url 'seattle_academy_news_gallery' %}" class="hover:text-white transition">News & Events</a></li>
                         <li><a href="{% url 'seattle_academy_news_gallery' %}#gallery" class="hover:text-white transition">Gallery</a></li>
+
                     </ul>
                 </div>
                 <div>
@@ -1166,12 +1234,19 @@
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 const content = document.getElementById(`content-${t}`);
+                if (!btn || !content) return;
                 if (t === tabKey) {
-                    btn.className = 'acad-tab px-6 py-3 rounded-2xl font-extrabold text-xs transition bg-saBlue-600 text-white shadow-md flex items-center gap-2 transform scale-105';
+                    btn.className = 'acad-tab acad-tab-active px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 flex items-center gap-2.5';
                     content.classList.remove('hidden');
+                    content.classList.add('grid');
+                    content.classList.remove('animate-tab-slide');
+                    void content.offsetWidth;
+                    content.classList.add('animate-tab-slide');
                 } else {
-                    btn.className = 'acad-tab px-6 py-3 rounded-2xl font-extrabold text-xs transition bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2 border border-slate-200';
+                    btn.className = 'acad-tab px-6 py-3.5 rounded-2xl font-extrabold text-xs transition-all duration-300 bg-white text-slate-700 hover:bg-slate-100 shadow-sm flex items-center gap-2.5 border border-slate-200';
                     content.classList.add('hidden');
+                    content.classList.remove('grid');
+                    content.classList.remove('animate-tab-slide');
                 }
             });
         }

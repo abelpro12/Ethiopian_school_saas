@@ -8,4 +8,5 @@ urlpatterns = [
     path('compose/', views.compose_view, name='compose'),
     path('thread/<int:conv_id>/', views.thread_view, name='thread'),
     path('archive/<int:conv_id>/', views.archive_conversation_view, name='archive'),
+    path('api/unread-count/', views.unread_count_api, name='unread_count_api'),
 ]

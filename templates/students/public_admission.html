@@ -69,9 +69,22 @@
           <div class="col-md-6">
             <label class="form-label fw-semibold">Applying for Grade <span class="text-danger">*</span></label>
             <select name="grade_level" class="form-select" required>
-              {% for g in "9,10,11,12"|split:"," %}
-              <option value="{{ g }}" {% if form_data.grade_level == g %}selected{% endif %}>Grade {{ g }}</option>
-              {% endfor %}
+              <optgroup label="High School & Preparatory (Grades 9–12)">
+                <option value="9" {% if form_data.grade_level == '9' or form_data.grade_level == 9 or not form_data.grade_level %}selected{% endif %}>Grade 9</option>
+                <option value="10" {% if form_data.grade_level == '10' or form_data.grade_level == 10 %}selected{% endif %}>Grade 10</option>
+                <option value="11" {% if form_data.grade_level == '11' or form_data.grade_level == 11 %}selected{% endif %}>Grade 11</option>
+                <option value="12" {% if form_data.grade_level == '12' or form_data.grade_level == 12 %}selected{% endif %}>Grade 12</option>
+              </optgroup>
+              <optgroup label="Primary & Middle School (Grades 1–8)">
+                <option value="8" {% if form_data.grade_level == '8' or form_data.grade_level == 8 %}selected{% endif %}>Grade 8</option>
+                <option value="7" {% if form_data.grade_level == '7' or form_data.grade_level == 7 %}selected{% endif %}>Grade 7</option>
+                <option value="6" {% if form_data.grade_level == '6' or form_data.grade_level == 6 %}selected{% endif %}>Grade 6</option>
+                <option value="5" {% if form_data.grade_level == '5' or form_data.grade_level == 5 %}selected{% endif %}>Grade 5</option>
+                <option value="4" {% if form_data.grade_level == '4' or form_data.grade_level == 4 %}selected{% endif %}>Grade 4</option>
+                <option value="3" {% if form_data.grade_level == '3' or form_data.grade_level == 3 %}selected{% endif %}>Grade 3</option>
+                <option value="2" {% if form_data.grade_level == '2' or form_data.grade_level == 2 %}selected{% endif %}>Grade 2</option>
+                <option value="1" {% if form_data.grade_level == '1' or form_data.grade_level == 1 %}selected{% endif %}>Grade 1</option>
+              </optgroup>
             </select>
           </div>
           <div class="col-12">

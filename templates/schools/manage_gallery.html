@@ -11,7 +11,7 @@
         <div>
             <span class="px-3 py-1 bg-orange-50 text-orange-600 rounded-full font-bold text-xs">Public Website Management</span>
             <h1 class="font-heading font-black text-2xl sm:text-3xl text-slate-900 mt-2">Manage School Photo Gallery</h1>
-            <p class="text-slate-500 text-xs mt-1">Upload campus, event, and student achievement photos to the official school website gallery.</p>
+            <p class="text-slate-500 text-xs mt-1">Upload photos, drag to rearrange the display sequence, and choose which photos appear on the main school landing page.</p>
         </div>
         <div class="flex items-center gap-3">
             <a href="{% if school.code == 'SEA' or school.code == 'SEATTLE' %}{% url 'seattle_academy_home' %}#gallery{% else %}{% url 'index' %}{% endif %}" target="_blank" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-2">
@@ -39,7 +39,7 @@
             <i class="fa-solid fa-images text-orange-500"></i> Upload New Gallery Photo
         </h2>
 
-        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+        <form method="POST" enctype="multipart/form-data" class="space-y-5">
             {% csrf_token %}
             <input type="hidden" name="action" value="create_gallery">
 
@@ -61,53 +61,174 @@
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Upload Photo Image *</label>
-                <input type="file" name="image" required accept="image/*" 
-                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-700">
+            <div class="grid md:grid-cols-2 gap-4 items-center">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Upload Photo Image *</label>
+                    <input type="file" name="image" required accept="image/*" 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2 text-xs text-slate-700">
+                </div>
+
+                <!-- Show on Home Page Option -->
+                <div class="pt-4 sm:pt-0">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Homepage Visibility</label>
+                    <div class="flex items-center gap-3 p-2.5 bg-orange-50/60 border border-orange-200 rounded-xl">
+                        <input type="checkbox" id="is_featured" name="is_featured" checked 
+                            class="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer">
+                        <label for="is_featured" class="text-xs font-bold text-slate-800 cursor-pointer select-none flex items-center gap-1.5">
+                            <i class="fa-solid fa-star text-orange-500"></i> Show on Main / Home Page Visual Showcase
+                        </label>
+                    </div>
+                </div>
             </div>
 
-            <button type="submit" class="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo to School Gallery
-            </button>
+            <div class="pt-2">
+                <button type="submit" class="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo to School Gallery
+                </button>
+            </div>
         </form>
     </div>
 
-    <!-- Gallery List -->
+    <!-- Gallery List & Reorder Section -->
     <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-        <h2 class="font-heading font-bold text-xl text-slate-900 mb-6">Uploaded Gallery Items</h2>
+        
+        <!-- Header & Stats Bar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+            <div>
+                <h2 class="font-heading font-bold text-xl text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-down-1-9 text-orange-500"></i> Uploaded Gallery Items ({{ total_count }})
+                </h2>
+                <p class="text-slate-500 text-xs mt-1">
+                    Drag and drop cards or click the <span class="font-bold text-slate-700">🔼 / 🔽 arrows</span> to rearrange display order. Toggle <span class="font-bold text-emerald-600">"Home Page"</span> to select which items appear on the main landing page.
+                </p>
+            </div>
+            
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-emerald-500"></i> <span id="stat-featured-count">{{ featured_count }}</span> on Main Home Page
+                </span>
+                <span class="px-3 py-1 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye-slash text-slate-400"></i> <span id="stat-hidden-count">{{ hidden_count }}</span> Full Gallery Only
+                </span>
+            </div>
+        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Draggable Gallery Cards Grid -->
+        <div id="gallery-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
             {% for item in gallery_items %}
-            <div class="border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition">
+            <div class="gallery-card border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition relative group select-none bg-white"
+                 draggable="true" 
+                 data-id="{{ item.id }}"
+                 data-title="{{ item.title|escape }}"
+                 data-category="{{ item.category|escape }}"
+                 data-caption="{{ item.caption|default:''|escape }}"
+                 data-featured="{% if item.is_featured %}true{% else %}false{% endif %}"
+                 data-image="{% if item.image %}{{ item.image.url }}{% elif item.image_url %}{% static item.image_url %}{% endif %}"
+                 id="gallery-item-{{ item.id }}">
+                
                 <div>
+                    <!-- Photo Display Container with Floating Badges -->
                     <div class="h-48 bg-slate-100 relative overflow-hidden flex items-center justify-center">
                         {% if item.image %}
-                        <img src="{{ item.image.url }}" alt="{{ item.title }}" class="w-full h-full object-cover">
+                        <img src="{{ item.image.url }}" alt="{{ item.title }}" class="w-full h-full object-cover pointer-events-none">
                         {% elif item.image_url %}
-                        <img src="{% static item.image_url %}" alt="{{ item.title }}" class="w-full h-full object-cover">
+                        <img src="{% static item.image_url %}" alt="{{ item.title }}" class="w-full h-full object-cover pointer-events-none">
                         {% else %}
                         <i class="fa-solid fa-image text-4xl text-slate-300"></i>
                         {% endif %}
+
+                        <!-- Floating Sequence Order Badge (Drag Handle) -->
+                        <div class="absolute top-3 left-3 px-2.5 py-1 bg-slate-900/85 backdrop-blur text-white text-xs font-black rounded-lg shadow flex items-center gap-1.5 cursor-grab active:cursor-grabbing" title="Drag to rearrange sequence">
+                            <i class="fa-solid fa-grip-vertical text-slate-400"></i>
+                            <span class="order-label">#{{ forloop.counter }}</span>
+                        </div>
+
+                        <!-- Floating Main Page Visibility Toggle Pill -->
+                        <div class="absolute top-3 right-3">
+                            <button type="button" 
+                                    onclick="toggleFeatured({{ item.id }})" 
+                                    id="badge-featured-{{ item.id }}"
+                                    data-featured="{% if item.is_featured %}true{% else %}false{% endif %}"
+                                    class="px-2.5 py-1 rounded-lg text-[11px] font-black shadow backdrop-blur transition flex items-center gap-1.5 cursor-pointer {% if item.is_featured %}bg-emerald-600 text-white hover:bg-emerald-700{% else %}bg-slate-900/80 text-slate-300 hover:bg-slate-900{% endif %}" 
+                                    title="Click to toggle whether this photo is shown on the public home page">
+                                {% if item.is_featured %}
+                                <i class="fa-solid fa-check"></i> <span>On Home Page</span>
+                                {% else %}
+                                <i class="fa-solid fa-eye-slash"></i> <span>Hidden from Home</span>
+                                {% endif %}
+                            </button>
+                        </div>
                     </div>
-                    <div class="p-4 space-y-1">
-                        <span class="px-2.5 py-0.5 bg-orange-50 text-orange-600 rounded-full font-bold text-[10px] uppercase">{{ item.category }}</span>
-                        <h3 class="font-bold text-sm text-slate-900 mt-1">{{ item.title }}</h3>
+
+                    <!-- Meta & Caption -->
+                    <div class="p-4 space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <span class="px-2.5 py-0.5 bg-orange-50 text-orange-600 rounded-full font-bold text-[10px] uppercase">{{ item.category }}</span>
+                            <span class="text-[11px] text-slate-400 font-mono">Pos: <strong class="order-pos-text text-slate-700">#{{ forloop.counter }}</strong></span>
+                        </div>
+                        <h3 class="font-bold text-sm text-slate-900 mt-1 leading-snug">{{ item.title }}</h3>
                         {% if item.caption %}
-                        <p class="text-xs text-slate-500">{{ item.caption }}</p>
+                        <p class="text-xs text-slate-500 leading-relaxed">{{ item.caption }}</p>
                         {% endif %}
                     </div>
                 </div>
 
-                <div class="p-4 pt-2 border-t border-slate-100 flex justify-end">
-                    <form method="POST" onsubmit="return confirm('Delete this gallery item?');">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="delete_gallery">
-                        <input type="hidden" name="gallery_id" value="{{ item.id }}">
-                        <button type="submit" class="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-lg transition">
-                            <i class="fa-solid fa-trash-can mr-1"></i> Delete
+                <!-- Footer Action Toolbar (Reorder Arrows + Edit + Delete) -->
+                <div class="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                    
+                    <!-- Move Up / Down Buttons -->
+                    <div class="flex items-center gap-1">
+                        <form method="POST" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="move_up">
+                            <input type="hidden" name="gallery_id" value="{{ item.id }}">
+                            <button type="submit" 
+                                    title="Move earlier (#{{ forloop.counter|add:'-1' }})" 
+                                    class="w-7 h-7 rounded-lg bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition disabled:opacity-30 disabled:pointer-events-none"
+                                    {% if forloop.first %}disabled{% endif %}>
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                        </form>
+
+                        <form method="POST" class="inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="move_down">
+                            <input type="hidden" name="gallery_id" value="{{ item.id }}">
+                            <button type="submit" 
+                                    title="Move later (#{{ forloop.counter|add:'1' }})" 
+                                    class="w-7 h-7 rounded-lg bg-white hover:bg-slate-200 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs transition disabled:opacity-30 disabled:pointer-events-none"
+                                    {% if forloop.last %}disabled{% endif %}>
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                        </form>
+
+                        <!-- Quick Toggle Link -->
+                        <button type="button" 
+                                onclick="toggleFeatured({{ item.id }})" 
+                                id="link-featured-{{ item.id }}"
+                                class="text-[11px] font-bold ml-1.5 transition {% if item.is_featured %}text-slate-500 hover:text-slate-800{% else %}text-orange-600 hover:text-orange-700{% endif %}">
+                            {% if item.is_featured %}Hide from Home{% else %}Show on Home{% endif %}
                         </button>
-                    </form>
+                    </div>
+
+                    <!-- Right Side: Edit & Delete Buttons -->
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" 
+                                onclick="openEditGalleryModal({{ item.id }})" 
+                                class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/70 font-bold text-xs rounded-lg transition flex items-center gap-1 shadow-xs cursor-pointer"
+                                title="Edit gallery title, caption, category, or photo">
+                            <i class="fa-solid fa-pen-to-square text-[11px]"></i> Edit
+                        </button>
+
+                        <form method="POST" onsubmit="return confirm('Delete this gallery item?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_gallery">
+                            <input type="hidden" name="gallery_id" value="{{ item.id }}">
+                            <button type="submit" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-lg transition flex items-center gap-1 cursor-pointer">
+                                <i class="fa-solid fa-trash-can text-[11px]"></i> Delete
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
             {% empty %}
@@ -116,5 +237,342 @@
         </div>
     </div>
 
+</div>
+
+<!-- Floating Toast Notification -->
+<div id="gallery-toast" class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 transform translate-y-24 opacity-0 transition duration-300 pointer-events-none">
+    <i id="gallery-toast-icon" class="fa-solid fa-check text-emerald-400 text-sm"></i>
+    <span id="gallery-toast-msg">Order updated</span>
+</div>
+
+<script>
+// CSRF Token Helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+// Toast Notification Function
+let toastTimer = null;
+function showToast(msg, isSuccess = true) {
+    const toast = document.getElementById('gallery-toast');
+    const toastMsg = document.getElementById('gallery-toast-msg');
+    const toastIcon = document.getElementById('gallery-toast-icon');
+    if (!toast || !toastMsg) return;
+
+    toastMsg.textContent = msg;
+    if (isSuccess) {
+        toastIcon.className = 'fa-solid fa-check text-emerald-400 text-sm';
+    } else {
+        toastIcon.className = 'fa-solid fa-triangle-exclamation text-amber-400 text-sm';
+    }
+
+    toast.classList.remove('translate-y-24', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 2800);
+}
+
+// 1-Click Toggle Main Page Visibility
+function toggleFeatured(galleryId) {
+    const badge = document.getElementById(`badge-featured-${galleryId}`);
+    const link = document.getElementById(`link-featured-${galleryId}`);
+    
+    fetch("{% url 'manage_gallery' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken,
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+            action: "toggle_featured",
+            gallery_id: galleryId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            const isFeatured = data.is_featured;
+            if (badge) {
+                badge.setAttribute('data-featured', isFeatured ? 'true' : 'false');
+                if (isFeatured) {
+                    badge.className = 'px-2.5 py-1 rounded-lg text-[11px] font-black shadow backdrop-blur transition flex items-center gap-1.5 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700';
+                    badge.innerHTML = '<i class="fa-solid fa-check"></i> <span>On Home Page</span>';
+                } else {
+                    badge.className = 'px-2.5 py-1 rounded-lg text-[11px] font-black shadow backdrop-blur transition flex items-center gap-1.5 cursor-pointer bg-slate-900/80 text-slate-300 hover:bg-slate-900';
+                    badge.innerHTML = '<i class="fa-solid fa-eye-slash"></i> <span>Hidden from Home</span>';
+                }
+            }
+            if (link) {
+                if (isFeatured) {
+                    link.className = 'text-[11px] font-bold ml-1.5 transition text-slate-500 hover:text-slate-800';
+                    link.textContent = 'Hide from Home';
+                } else {
+                    link.className = 'text-[11px] font-bold ml-1.5 transition text-orange-600 hover:text-orange-700';
+                    link.textContent = 'Show on Home';
+                }
+            }
+
+            // Recalculate stats counters
+            updateStatsCounts();
+            showToast(data.message || (isFeatured ? 'Photo added to main home page' : 'Photo hidden from home page'));
+        }
+    })
+    .catch(err => {
+        console.error("Error toggling featured status:", err);
+        showToast("Failed to update status. Please try again.", false);
+    });
+}
+
+function updateStatsCounts() {
+    const badges = document.querySelectorAll('[id^="badge-featured-"]');
+    let featured = 0;
+    badges.forEach(b => {
+        if (b.getAttribute('data-featured') === 'true') featured++;
+    });
+    const total = badges.length;
+    const hidden = total - featured;
+
+    const featElem = document.getElementById('stat-featured-count');
+    const hidElem = document.getElementById('stat-hidden-count');
+    if (featElem) featElem.textContent = featured;
+    if (hidElem) hidElem.textContent = hidden;
+}
+
+// Drag & Drop Reordering Functionality
+const grid = document.getElementById('gallery-grid');
+let draggedItem = null;
+
+if (grid) {
+    const cards = grid.querySelectorAll('.gallery-card');
+
+    cards.forEach(card => {
+        card.addEventListener('dragstart', function(e) {
+            draggedItem = this;
+            this.classList.add('opacity-40', 'scale-95');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+        });
+
+        card.addEventListener('dragend', function() {
+            this.classList.remove('opacity-40', 'scale-95');
+            draggedItem = null;
+            document.querySelectorAll('.gallery-card').forEach(c => {
+                c.classList.remove('ring-2', 'ring-orange-500', 'bg-orange-50/20');
+            });
+        });
+
+        card.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (draggedItem && draggedItem !== this) {
+                this.classList.add('ring-2', 'ring-orange-500', 'bg-orange-50/20');
+            }
+        });
+
+        card.addEventListener('dragleave', function() {
+            this.classList.remove('ring-2', 'ring-orange-500', 'bg-orange-50/20');
+        });
+
+        card.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('ring-2', 'ring-orange-500', 'bg-orange-50/20');
+
+            if (draggedItem && draggedItem !== this) {
+                const allCards = Array.from(grid.querySelectorAll('.gallery-card'));
+                const draggedIndex = allCards.indexOf(draggedItem);
+                const targetIndex = allCards.indexOf(this);
+
+                if (draggedIndex < targetIndex) {
+                    this.after(draggedItem);
+                } else {
+                    this.before(draggedItem);
+                }
+
+                // Update visual numbers immediately
+                refreshOrderNumbers();
+
+                // Persist new sequence order via AJAX
+                saveNewOrderSequence();
+            }
+        });
+    });
+}
+
+function refreshOrderNumbers() {
+    const currentCards = grid.querySelectorAll('.gallery-card');
+    currentCards.forEach((card, idx) => {
+        const pos = idx + 1;
+        const label = card.querySelector('.order-label');
+        const posText = card.querySelector('.order-pos-text');
+        if (label) label.textContent = `#${pos}`;
+        if (posText) posText.textContent = `#${pos}`;
+    });
+}
+
+function saveNewOrderSequence() {
+    const currentCards = Array.from(grid.querySelectorAll('.gallery-card'));
+    const orderIds = currentCards.map(c => c.dataset.id);
+
+    fetch("{% url 'manage_gallery' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken,
+            "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+            action: "reorder_gallery",
+            order_ids: orderIds
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            showToast("Gallery display sequence saved successfully!");
+        }
+    })
+    .catch(err => {
+        console.error("Error saving gallery order:", err);
+        showToast("Error updating order sequence.", false);
+    });
+}
+
+// Edit Gallery Modal Logic
+function openEditGalleryModal(id) {
+    const card = document.getElementById(`gallery-item-${id}`);
+    if (!card) return;
+
+    document.getElementById('edit-gallery-id').value = id;
+    document.getElementById('edit-gallery-title').value = card.getAttribute('data-title') || '';
+    document.getElementById('edit-gallery-category').value = card.getAttribute('data-category') || 'Campus Life';
+    document.getElementById('edit-gallery-caption').value = card.getAttribute('data-caption') || '';
+    document.getElementById('edit-gallery-featured').checked = card.getAttribute('data-featured') === 'true';
+
+    const imgUrl = card.getAttribute('data-image');
+    const previewBox = document.getElementById('edit-gallery-img-preview-box');
+    const previewImg = document.getElementById('edit-gallery-img-preview');
+    if (imgUrl) {
+        previewImg.src = imgUrl;
+        previewBox.classList.remove('hidden');
+    } else {
+        previewBox.classList.add('hidden');
+    }
+
+    const modal = document.getElementById('edit-gallery-modal');
+    modal.classList.remove('hidden');
+}
+
+function closeEditGalleryModal() {
+    const modal = document.getElementById('edit-gallery-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// Close modal on Escape or clicking backdrop
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeEditGalleryModal();
+});
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('edit-gallery-modal');
+    if (modal && e.target === modal) closeEditGalleryModal();
+});
+</script>
+
+<!-- Edit Gallery Item Modal -->
+<div id="edit-gallery-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-y-auto space-y-6 animate-in fade-in zoom-in-95 duration-200">
+        
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold text-base shadow-xs">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                </div>
+                <div>
+                    <h3 class="font-heading font-bold text-lg text-slate-900">Edit Gallery Photo & Details</h3>
+                    <p class="text-xs text-slate-500">Update photo title, category, caption, or replace image</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeEditGalleryModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Edit Form -->
+        <form method="POST" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_gallery">
+            <input type="hidden" name="gallery_id" id="edit-gallery-id">
+
+            <!-- Current Image Preview -->
+            <div id="edit-gallery-img-preview-box" class="h-44 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative hidden">
+                <img id="edit-gallery-img-preview" src="" alt="Preview" class="w-full h-full object-cover">
+                <span class="absolute top-2 left-2 px-2.5 py-0.5 bg-slate-900/80 backdrop-blur text-white text-[10px] font-bold rounded-lg">
+                    Current Image
+                </span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Photo Title *</label>
+                <input type="text" name="title" id="edit-gallery-title" required 
+                    class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Category *</label>
+                    <input type="text" name="category" id="edit-gallery-category" required 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Replace Image (Optional)</label>
+                    <input type="file" name="image" accept="image/*" 
+                        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-700 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-orange-50 file:text-orange-700">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Caption / Description (Optional)</label>
+                <textarea name="caption" id="edit-gallery-caption" rows="3" placeholder="Brief description of this photo or event..." 
+                    class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 focus:ring-2 focus:ring-orange-500 focus:outline-none"></textarea>
+            </div>
+
+            <!-- Homepage Visibility Option -->
+            <div class="p-3 bg-orange-50/60 border border-orange-200 rounded-xl flex items-center gap-3">
+                <input type="checkbox" id="edit-gallery-featured" name="is_featured" 
+                    class="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500 cursor-pointer">
+                <label for="edit-gallery-featured" class="text-xs font-bold text-slate-800 cursor-pointer select-none flex items-center gap-1.5">
+                    <i class="fa-solid fa-star text-amber-500"></i> Show on Main School Home Page Gallery
+                </label>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeEditGalleryModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-check"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

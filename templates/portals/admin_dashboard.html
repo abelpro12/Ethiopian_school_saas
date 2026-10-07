@@ -172,9 +172,12 @@
             <span class="text-[10px] font-bold text-brand-600 uppercase tracking-widest bg-brand-50 px-2.5 py-1 rounded-full border border-brand-200/60 flex-shrink-0">New Features Active</span>
         </div>
         <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3">
-            <a href="/messaging/inbox/" class="group p-3.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition text-center flex flex-col items-center">
-                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition mb-2">
+            <a href="/messaging/inbox/" class="group p-3.5 bg-slate-50 hover:bg-emerald-50/60 border border-slate-200/80 hover:border-emerald-300 rounded-xl transition text-center flex flex-col items-center relative">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center text-sm shadow-md shadow-emerald-500/20 group-hover:scale-110 transition mb-2 relative">
                     <i class="fa-solid fa-comments"></i>
+                    <span class="portal-unread-badge {% if unread_messages_count and unread_messages_count > 0 %}inline-flex{% else %}hidden{% endif %} absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black items-center justify-center ring-2 ring-white shadow-xs">
+                        {{ unread_messages_count|default:"0" }}
+                    </span>
                 </div>
                 <span class="text-xs font-bold text-slate-800 group-hover:text-emerald-700">Messages</span>
                 <span class="text-[10px] text-slate-400 mt-0.5">Inbox & Chat</span>
@@ -234,6 +237,13 @@
                 </div>
                 <span class="text-xs font-bold text-slate-800 group-hover:text-teal-700">Public Apply</span>
                 <span class="text-[10px] text-slate-400 mt-0.5">Online Form</span>
+            </a>
+            <a href="{% url 'audit:activity_log' %}" class="group p-3.5 bg-slate-50 hover:bg-rose-50/60 border border-slate-200/80 hover:border-rose-300 rounded-xl transition text-center flex flex-col items-center">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center text-sm shadow-md shadow-rose-500/20 group-hover:scale-110 transition mb-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <span class="text-xs font-bold text-slate-800 group-hover:text-rose-700">Activity Log</span>
+                <span class="text-[10px] text-slate-400 mt-0.5">Audit Trail</span>
             </a>
         </div>
     </div>

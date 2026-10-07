@@ -6,16 +6,26 @@ from django.http import HttpResponse, JsonResponse
 from django.db.models import Sum, Avg, F, Count, Q
 from django.db import transaction
 
-from apps.accounts.models import UserRole
+from apps.accounts.models import User, UserRole
 from apps.academics.models import Subject, Section, AcademicYear, AcademicPeriod, Grade, Stream
 from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
-from apps.assessments.models import AssessmentComponent, StudentMark, MarkStatus, AcademicPeriodResult
+from apps.assessments.models import AssessmentComponent, StudentMark, MarkStatus, AcademicPeriodResult, MarkEntryLock
 from apps.teachers.models import TeacherAssignment
 from apps.platform_management.decorators import school_context_required
 from apps.attendance.models import AttendanceRecord, AttendanceStatus
+from apps.audit.services import AuditService
 
 def get_school(request):
-    return getattr(request, 'school', None) or getattr(request.user, 'school', None)
+    school = getattr(request, 'school', None) or getattr(request.user, 'school', None) or getattr(request, 'active_school', None)
+    if not school:
+        school_id = request.session.get('school_id') if hasattr(request, 'session') else None
+        if school_id:
+            from apps.schools.models import School
+            school = School.objects.filter(id=school_id).first()
+    if not school:
+        from apps.schools.models import School
+        school = School.objects.filter(code='SEA').first() or School.objects.first()
+    return school
 
 def get_active_term(request):
     school = get_school(request)
@@ -169,6 +179,8 @@ def manage_components(request):
             target_stream_id = request.POST.get('target_stream_id')
             target_section_id = request.POST.get('target_section_id')
             target_period_id = request.POST.get('target_period_id')
+            source_period_name = request.POST.get('source_period_name', '').strip()
+            source_period_id = request.POST.get('source_period_id')
             overwrite_existing = request.POST.get('overwrite_existing') == 'true'
 
             if not source_year_id:
@@ -176,10 +188,28 @@ def manage_components(request):
             else:
                 try:
                     source_year = AcademicYear.objects.get(id=source_year_id, school=school)
-                    source_sem = AcademicPeriod.objects.filter(
-                        school=school, academic_year=source_year, period_type=sem.period_type
-                    ).first() or AcademicPeriod.objects.filter(school=school, academic_year=source_year).first()
+                    
+                    # 1. Resolve source evaluation period
+                    source_sem = None
+                    if source_period_id:
+                        source_sem = AcademicPeriod.objects.filter(id=source_period_id, school=school, academic_year=source_year).first()
+                    elif source_period_name:
+                        source_sem = AcademicPeriod.objects.filter(school=school, academic_year=source_year, name__iexact=source_period_name).first()
+                    
+                    if not source_sem:
+                        # Auto-match by current period name (e.g. "Semester 1" -> "Semester 1")
+                        source_sem = AcademicPeriod.objects.filter(
+                            school=school, academic_year=source_year, name__iexact=sem.name
+                        ).first()
+                    if not source_sem:
+                        # Fallback by period_type (e.g. SEMESTER)
+                        source_sem = AcademicPeriod.objects.filter(
+                            school=school, academic_year=source_year, period_type=sem.period_type
+                        ).first()
+                    if not source_sem:
+                        source_sem = AcademicPeriod.objects.filter(school=school, academic_year=source_year).first()
 
+                    # 2. Resolve target evaluation period
                     target_period = sem
                     if target_period_id:
                         p_obj = AcademicPeriod.objects.filter(id=target_period_id, school=school).first()
@@ -198,107 +228,137 @@ def manage_components(request):
                             source_comps = source_comps.filter(subject__stream_id=source_stream_id)
 
                         if not source_comps.exists():
-                            messages.warning(request, f"No assessment components found in {source_year.name} for the selected criteria.")
+                            messages.warning(request, f"No assessment components found in {source_year.name} ({source_sem.name}) for the selected criteria.")
                         else:
-                            # Map unique schemes per (grade level/stream_type) and a flat list of definitions
-                            grade_stream_schemes = {}
-                            flat_defs = []
+                            from collections import defaultdict
+                            subject_comps_grouped = defaultdict(list)
                             for sc in source_comps:
-                                if sc.subject and sc.subject.grade:
-                                    g_key = (sc.subject.grade.level, sc.subject.grade.stream_type)
-                                    if g_key not in grade_stream_schemes:
-                                        grade_stream_schemes[g_key] = []
-                                    if not any(d['name'] == sc.name for d in grade_stream_schemes[g_key]):
-                                        grade_stream_schemes[g_key].append({
-                                            'name': sc.name,
-                                            'weight': sc.weight,
-                                            'max_marks': sc.max_marks
-                                        })
-                                if not any(d['name'] == sc.name for d in flat_defs):
-                                    flat_defs.append({
-                                        'name': sc.name,
-                                        'weight': sc.weight,
-                                        'max_marks': sc.max_marks
-                                    })
+                                if sc.subject:
+                                    subject_comps_grouped[sc.subject].append(sc)
+
+                            subject_map = {}
+                            subject_name_map = {}
+                            grade_stream_schemes = {}
+                            global_clean_scheme = []
+
+                            for s_subj, s_comps in subject_comps_grouped.items():
+                                g_level = s_subj.grade.level if s_subj.grade else None
+                                str_code = s_subj.stream.code if s_subj.stream else 'GEN'
+                                comp_list = [
+                                    {'name': c.name, 'weight': c.weight, 'max_marks': c.max_marks}
+                                    for c in s_comps
+                                ]
+                                total_w = sum(float(c['weight']) for c in comp_list)
+
+                                key_code = (s_subj.code.upper().strip(), g_level, str_code)
+                                key_name = (s_subj.name.lower().strip(), g_level, str_code)
+                                subject_map[key_code] = comp_list
+                                subject_name_map[key_name] = comp_list
+
+                                g_key = (g_level, str_code)
+                                if round(total_w, 2) == 100.0 and g_key not in grade_stream_schemes:
+                                    grade_stream_schemes[g_key] = comp_list
+                                    if not global_clean_scheme:
+                                        global_clean_scheme = comp_list
+
+                            for s_subj, s_comps in subject_comps_grouped.items():
+                                g_level = s_subj.grade.level if s_subj.grade else None
+                                str_code = s_subj.stream.code if s_subj.stream else 'GEN'
+                                g_key = (g_level, str_code)
+                                if g_key not in grade_stream_schemes:
+                                    grade_stream_schemes[g_key] = [
+                                        {'name': c.name, 'weight': c.weight, 'max_marks': c.max_marks}
+                                        for c in s_comps
+                                    ]
+
+                            if not global_clean_scheme and grade_stream_schemes:
+                                global_clean_scheme = list(grade_stream_schemes.values())[0]
+
+                            target_subjects = Subject.objects.filter(school=school).select_related('grade', 'stream')
+                            if target_grade_id:
+                                target_subjects = target_subjects.filter(grade_id=target_grade_id)
+                            elif source_grade_id:
+                                src_g = Grade.objects.filter(id=source_grade_id, school=school).first()
+                                if src_g:
+                                    target_subjects = target_subjects.filter(grade__level=src_g.level, grade__stream_type=src_g.stream_type)
+
+                            if target_stream_id:
+                                target_subjects = target_subjects.filter(stream_id=target_stream_id)
 
                             imported_count = 0
                             with transaction.atomic():
-                                if target_grade_id:
-                                    # Targeted to a specific grade and stream
-                                    t_subjects = Subject.objects.filter(school=school, grade_id=target_grade_id)
-                                    if target_stream_id:
-                                        t_subjects = t_subjects.filter(stream_id=target_stream_id)
+                                for t_subj in target_subjects:
+                                    t_g_level = t_subj.grade.level if t_subj.grade else None
+                                    t_str_code = t_subj.stream.code if t_subj.stream else 'GEN'
 
-                                    for c_def in flat_defs:
-                                        for subj in t_subjects:
-                                            if overwrite_existing:
-                                                _, created = AssessmentComponent.objects.update_or_create(
-                                                    school=school,
-                                                    academic_year=ay,
-                                                    period=target_period,
-                                                    subject=subj,
-                                                    name=c_def['name'],
-                                                    defaults={
-                                                        'weight': c_def['weight'],
-                                                        'max_marks': c_def['max_marks']
-                                                    }
-                                                )
+                                    # 1. Exact subject match by code & grade
+                                    t_key_code = (t_subj.code.upper().strip(), t_g_level, t_str_code)
+                                    target_comps = subject_map.get(t_key_code)
+
+                                    # 2. Subject match by name & grade
+                                    if not target_comps:
+                                        t_key_name = (t_subj.name.lower().strip(), t_g_level, t_str_code)
+                                        target_comps = subject_name_map.get(t_key_name)
+
+                                    # 3. Match across streams by code & level
+                                    if not target_comps:
+                                        for (sc_code, sc_lvl, _), c_list in subject_map.items():
+                                            if sc_code == t_subj.code.upper().strip() and sc_lvl == t_g_level:
+                                                target_comps = c_list
+                                                break
+
+                                    # 4. Fallback to (grade, stream) scheme
+                                    if not target_comps:
+                                        target_comps = grade_stream_schemes.get((t_g_level, t_str_code))
+
+                                    # 5. Fallback to global clean scheme
+                                    if not target_comps:
+                                        target_comps = grade_stream_schemes.get((t_g_level, 'GEN')) or global_clean_scheme
+
+                                    if not target_comps:
+                                        continue
+
+                                    # Overwrite cleanup: remove un-marked components first
+                                    if overwrite_existing:
+                                        existing_comps = AssessmentComponent.objects.filter(
+                                            school=school, academic_year=ay, period=target_period, subject=t_subj
+                                        )
+                                        for ec in existing_comps:
+                                            if not StudentMark.objects.filter(assessment_component=ec).exists():
+                                                ec.delete()
+
+                                    for c_def in target_comps:
+                                        if overwrite_existing:
+                                            _, created = AssessmentComponent.objects.update_or_create(
+                                                school=school,
+                                                academic_year=ay,
+                                                period=target_period,
+                                                subject=t_subj,
+                                                name=c_def['name'],
+                                                defaults={
+                                                    'weight': c_def['weight'],
+                                                    'max_marks': c_def['max_marks']
+                                                }
+                                            )
+                                            imported_count += 1
+                                        else:
+                                            _, created = AssessmentComponent.objects.get_or_create(
+                                                school=school,
+                                                academic_year=ay,
+                                                period=target_period,
+                                                subject=t_subj,
+                                                name=c_def['name'],
+                                                defaults={
+                                                    'weight': c_def['weight'],
+                                                    'max_marks': c_def['max_marks']
+                                                }
+                                            )
+                                            if created:
                                                 imported_count += 1
-                                            else:
-                                                _, created = AssessmentComponent.objects.get_or_create(
-                                                    school=school,
-                                                    academic_year=ay,
-                                                    period=target_period,
-                                                    subject=subj,
-                                                    name=c_def['name'],
-                                                    defaults={
-                                                        'weight': c_def['weight'],
-                                                        'max_marks': c_def['max_marks']
-                                                    }
-                                                )
-                                                if created:
-                                                    imported_count += 1
-                                else:
-                                    # Auto-map across all matching grades & streams
-                                    for (g_level, g_stream_type), comp_defs in grade_stream_schemes.items():
-                                        target_grades = grades.filter(level=g_level, stream_type=g_stream_type)
-                                        for tg in target_grades:
-                                            tg_subjects = Subject.objects.filter(school=school, grade=tg)
-                                            if target_stream_id:
-                                                tg_subjects = tg_subjects.filter(stream_id=target_stream_id)
-                                            for c_def in comp_defs:
-                                                for subj in tg_subjects:
-                                                    if overwrite_existing:
-                                                        _, created = AssessmentComponent.objects.update_or_create(
-                                                            school=school,
-                                                            academic_year=ay,
-                                                            period=target_period,
-                                                            subject=subj,
-                                                            name=c_def['name'],
-                                                            defaults={
-                                                                'weight': c_def['weight'],
-                                                                'max_marks': c_def['max_marks']
-                                                            }
-                                                        )
-                                                        imported_count += 1
-                                                    else:
-                                                        _, created = AssessmentComponent.objects.get_or_create(
-                                                            school=school,
-                                                            academic_year=ay,
-                                                            period=target_period,
-                                                            subject=subj,
-                                                            name=c_def['name'],
-                                                            defaults={
-                                                                'weight': c_def['weight'],
-                                                                'max_marks': c_def['max_marks']
-                                                            }
-                                                        )
-                                                        if created:
-                                                            imported_count += 1
 
                             messages.success(
                                 request,
-                                f"Successfully replicated assessment schemes from {source_year.name} into {ay.name}! ({imported_count} components mapped across target grades, sections & streams)."
+                                f"Successfully replicated assessment schemes from {source_year.name} ({source_sem.name}) into {ay.name} ({target_period.name})! ({imported_count} subject components configured with 100% accurate weights)."
                             )
                 except Exception as e:
                     messages.error(request, f"Error replicating past year assessment scheme: {e}")
@@ -306,9 +366,9 @@ def manage_components(request):
         elif action == 'seed_standard_scheme':
             target_grade_id = request.POST.get('grade_id')
             preset = request.POST.get('preset', 'STANDARD_5')
+            overwrite_existing = request.POST.get('overwrite_existing') == 'true'
             
             if preset == 'STANDARD_5':
-                # Standard Ethiopian MoE 5-Component Scheme (Total 100%)
                 scheme_defs = [
                     {'name': 'Class Activity / Assignment', 'weight': 10.0, 'max_marks': 10.0},
                     {'name': 'Quiz & Homework', 'weight': 10.0, 'max_marks': 10.0},
@@ -317,14 +377,12 @@ def manage_components(request):
                     {'name': 'Final Exam', 'weight': 50.0, 'max_marks': 50.0},
                 ]
             elif preset == 'STANDARD_3':
-                # 3-Component Scheme (Total 100%)
                 scheme_defs = [
                     {'name': 'Continuous Assessment (CA)', 'weight': 30.0, 'max_marks': 30.0},
                     {'name': 'Midterm Examination', 'weight': 20.0, 'max_marks': 20.0},
                     {'name': 'Final Examination', 'weight': 50.0, 'max_marks': 50.0},
                 ]
             else:
-                # 4-Component Scheme (Total 100%)
                 scheme_defs = [
                     {'name': 'Classwork & Homework', 'weight': 15.0, 'max_marks': 15.0},
                     {'name': 'Project & Practical', 'weight': 15.0, 'max_marks': 15.0},
@@ -340,21 +398,44 @@ def manage_components(request):
                 messages.error(request, "No subjects found to apply the assessment scheme. Please add subjects first.")
             else:
                 created_total = 0
-                for comp_def in scheme_defs:
+                with transaction.atomic():
                     for subj in target_subjects:
-                        _, created = AssessmentComponent.objects.get_or_create(
-                            school=school,
-                            academic_year=ay,
-                            period=sem,
-                            subject=subj,
-                            name=comp_def['name'],
-                            defaults={
-                                'weight': comp_def['weight'],
-                                'max_marks': comp_def['max_marks']
-                            }
-                        )
-                        if created:
-                            created_total += 1
+                        if overwrite_existing:
+                            existing_comps = AssessmentComponent.objects.filter(
+                                school=school, academic_year=ay, period=sem, subject=subj
+                            )
+                            for ec in existing_comps:
+                                if not StudentMark.objects.filter(assessment_component=ec).exists():
+                                    ec.delete()
+
+                        for comp_def in scheme_defs:
+                            if overwrite_existing:
+                                _, created = AssessmentComponent.objects.update_or_create(
+                                    school=school,
+                                    academic_year=ay,
+                                    period=sem,
+                                    subject=subj,
+                                    name=comp_def['name'],
+                                    defaults={
+                                        'weight': comp_def['weight'],
+                                        'max_marks': comp_def['max_marks']
+                                    }
+                                )
+                                created_total += 1
+                            else:
+                                _, created = AssessmentComponent.objects.get_or_create(
+                                    school=school,
+                                    academic_year=ay,
+                                    period=sem,
+                                    subject=subj,
+                                    name=comp_def['name'],
+                                    defaults={
+                                        'weight': comp_def['weight'],
+                                        'max_marks': comp_def['max_marks']
+                                    }
+                                )
+                                if created:
+                                    created_total += 1
                 messages.success(request, f"Standard Ethiopian 100% Assessment Scheme initialized successfully! ({created_total} components created).")
 
         elif action == 'replicate_grade_scheme':
@@ -377,11 +458,27 @@ def manage_components(request):
                 if not source_comps.exists():
                     messages.error(request, "The source grade does not have any assessment components configured yet.")
                 else:
-                    # Get unique component definitions from source grade
-                    unique_defs = {}
-                    for c in source_comps:
-                        if c.name not in unique_defs:
-                            unique_defs[c.name] = {'weight': c.weight, 'max_marks': c.max_marks}
+                    from collections import defaultdict
+                    source_by_subj = defaultdict(list)
+                    for sc in source_comps:
+                        if sc.subject:
+                            source_by_subj[sc.subject].append(sc)
+
+                    subject_code_map = {}
+                    subject_name_map = {}
+                    grade_clean_scheme = []
+
+                    for s_subj, s_comps in source_by_subj.items():
+                        c_list = [{'name': c.name, 'weight': c.weight, 'max_marks': c.max_marks} for c in s_comps]
+                        total_w = sum(float(c['weight']) for c in c_list)
+                        subject_code_map[s_subj.code.upper().strip()] = c_list
+                        subject_name_map[s_subj.name.lower().strip()] = c_list
+                        if round(total_w, 2) == 100.0 and not grade_clean_scheme:
+                            grade_clean_scheme = c_list
+
+                    if not grade_clean_scheme and source_by_subj:
+                        first_subj_comps = list(source_by_subj.values())[0]
+                        grade_clean_scheme = [{'name': c.name, 'weight': c.weight, 'max_marks': c.max_marks} for c in first_subj_comps]
 
                     if target_grade_id:
                         target_grades = grades.filter(id=target_grade_id)
@@ -394,18 +491,32 @@ def manage_components(request):
                             tg_subjects = Subject.objects.filter(school=school, grade=tg)
                             if target_stream_id:
                                 tg_subjects = tg_subjects.filter(stream_id=target_stream_id)
-                            for c_name, c_props in unique_defs.items():
-                                for subj in tg_subjects:
+
+                            for t_subj in tg_subjects:
+                                t_comps = subject_code_map.get(t_subj.code.upper().strip()) or subject_name_map.get(t_subj.name.lower().strip()) or grade_clean_scheme
+
+                                if not t_comps:
+                                    continue
+
+                                if overwrite_existing:
+                                    existing_comps = AssessmentComponent.objects.filter(
+                                        school=school, academic_year=ay, period=sem, subject=t_subj
+                                    )
+                                    for ec in existing_comps:
+                                        if not StudentMark.objects.filter(assessment_component=ec).exists():
+                                            ec.delete()
+
+                                for c_def in t_comps:
                                     if overwrite_existing:
                                         _, was_created = AssessmentComponent.objects.update_or_create(
                                             school=school,
                                             academic_year=ay,
                                             period=sem,
-                                            subject=subj,
-                                            name=c_name,
+                                            subject=t_subj,
+                                            name=c_def['name'],
                                             defaults={
-                                                'weight': c_props['weight'],
-                                                'max_marks': c_props['max_marks']
+                                                'weight': c_def['weight'],
+                                                'max_marks': c_def['max_marks']
                                             }
                                         )
                                         replicated_count += 1
@@ -414,18 +525,18 @@ def manage_components(request):
                                             school=school,
                                             academic_year=ay,
                                             period=sem,
-                                            subject=subj,
-                                            name=c_name,
+                                            subject=t_subj,
+                                            name=c_def['name'],
                                             defaults={
-                                                'weight': c_props['weight'],
-                                                'max_marks': c_props['max_marks']
+                                                'weight': c_def['weight'],
+                                                'max_marks': c_def['max_marks']
                                             }
                                         )
                                         if was_created:
                                             replicated_count += 1
 
                     source_grade_name = Grade.objects.filter(id=source_grade_id).first()
-                    messages.success(request, f"Successfully replicated assessment structure from {source_grade_name} across target grades and streams ({replicated_count} components created).")
+                    messages.success(request, f"Successfully replicated assessment structure from {source_grade_name} across target grades ({replicated_count} components created).")
 
         redirect_url = request.path
         params = []
@@ -446,8 +557,17 @@ def manage_components(request):
     for g in grades:
         g_comps = []
         g_seen = set()
-        g_weight = 0.0
         g_raw = all_components_raw.filter(subject__grade=g)
+        
+        # Calculate subject-by-subject total weights
+        g_subjects = Subject.objects.filter(school=school, grade=g)
+        subject_weights = []
+        for subj in g_subjects:
+            s_comps = g_raw.filter(subject=subj)
+            if s_comps.exists():
+                sw = sum(float(c.weight) for c in s_comps)
+                subject_weights.append(sw)
+
         for comp in g_raw:
             k = (comp.name, comp.weight, comp.max_marks, comp.subject.stream_id if comp.subject.stream else None)
             if k not in g_seen:
@@ -455,10 +575,6 @@ def manage_components(request):
                 comp.scope_grade = g
                 comp.scope_stream = comp.subject.stream
                 g_comps.append(comp)
-                try:
-                    g_weight += float(comp.weight)
-                except (ValueError, TypeError):
-                    pass
 
             # Also maintain unique components list for flat view
             gk = (comp.name, comp.weight, comp.max_marks, g.id, comp.subject.stream_id if comp.subject.stream else None)
@@ -466,12 +582,18 @@ def manage_components(request):
                 seen_global_keys.add(gk)
                 unique_components.append(comp)
 
-        g_weight = round(g_weight, 2)
+        if subject_weights:
+            is_valid_grade = all(round(sw, 2) == 100.0 for sw in subject_weights)
+            g_weight = round(sum(subject_weights) / len(subject_weights), 2)
+        else:
+            is_valid_grade = False
+            g_weight = 0.0
+
         grade_groups.append({
             'grade': g,
             'components': g_comps,
             'total_weight': g_weight,
-            'is_valid': (g_weight == 100.0),
+            'is_valid': is_valid_grade,
             'component_count': len(g_comps),
         })
 
@@ -497,6 +619,7 @@ def manage_components(request):
     past_years = AcademicYear.objects.filter(school=school).exclude(id=ay.id).order_by('-gregorian_start_date') if ay else []
     sections = Section.objects.filter(school=school).select_related('grade', 'stream').order_by('grade__level', 'name')
     periods = AcademicPeriod.objects.filter(school=school, academic_year=ay).order_by('start_date') if ay else []
+    all_period_names = list(AcademicPeriod.objects.filter(school=school).values_list('name', flat=True).distinct())
 
     return render(request, 'assessments/components.html', {
         'components': unique_components,
@@ -515,6 +638,7 @@ def manage_components(request):
         'sections': sections,
         'periods': periods,
         'past_years': past_years,
+        'all_period_names': all_period_names,
         'selected_grade_id': selected_grade_id,
         'selected_stream_id': selected_stream_id,
     })
@@ -550,12 +674,40 @@ def mark_entry(request):
     else:
         assignments = assignments_qs.select_related('section__grade', 'subject', 'teacher__user')
         
+    # Annotate assignments with lock status
+    assignment_list = list(assignments)
+    for assign in assignment_list:
+        is_l, l_reason, _ = MarkEntryLock.check_lock(
+            school=school,
+            academic_year=ay,
+            period=sem,
+            grade=assign.section.grade,
+            subject=assign.subject,
+            teacher=assign.teacher.user,
+            section=assign.section
+        )
+        assign.is_locked = is_l
+        assign.lock_reason = l_reason
+
+    active_locks = MarkEntryLock.objects.filter(school=school, is_active=True).select_related(
+        'grade', 'subject', 'teacher', 'locked_by'
+    )
+    grades = Grade.objects.filter(school=school).order_by('level', 'stream_type')
+    teachers = User.objects.filter(school=school, role=UserRole.TEACHER).order_by('first_name', 'last_name')
+    all_subjects = Subject.objects.filter(school=school).order_by('name')
+
     return render(request, 'assessments/mark_entry_dashboard.html', {
-        'assignments': assignments,
+        'assignments': assignment_list,
         'subjects': subjects,
+        'all_subjects': all_subjects,
+        'grades': grades,
+        'teachers': teachers,
+        'active_locks': active_locks,
+        'total_active_locks': active_locks.count(),
         'selected_subject_id': selected_subject_id,
         'ay': ay,
-        'sem': sem
+        'sem': sem,
+        'school': school,
     })
 
 @login_required
@@ -651,25 +803,55 @@ def mark_entry_grid(request, section_id, subject_id):
             components = AssessmentComponent.objects.filter(school=school, subject=subject).order_by('id')
 
     enrollments_qs = StudentEnrollment.objects.filter(
-        school=school, section=section, status=EnrollmentStatus.ACTIVE
+        school=school, section=section
     )
     if ay:
         enrollments_qs = enrollments_qs.filter(academic_year=ay)
-    enrollments = enrollments_qs.select_related('student').order_by('student__first_name', 'student__last_name')
-    if not enrollments.exists():
-        enrollments = StudentEnrollment.objects.filter(
-            school=school, section=section
-        ).select_related('student').order_by('student__first_name', 'student__last_name')
     
+    enrollments = enrollments_qs.exclude(
+        status__in=[EnrollmentStatus.WITHDRAWN, EnrollmentStatus.TRANSFERRED]
+    ).select_related('student__user').order_by('student__user__first_name', 'student__user__last_name')
+
     # Fetch existing marks
     existing_marks = StudentMark.objects.filter(
         school=school, enrollment__in=enrollments, assessment_component__in=components
     )
 
+    # Determine assigned teacher for lock evaluation and admin quick-toggle
+    teacher_to_check = request.user if request.user.role == UserRole.TEACHER else None
+    assigned_tch = TeacherAssignment.objects.filter(school=school, section=section, subject=subject).select_related('teacher__user').first()
+    if not teacher_to_check and assigned_tch:
+        teacher_to_check = assigned_tch.teacher.user
+
     from apps.academics.models import PeriodStatus
-    is_locked = (
-        sem and sem.status == PeriodStatus.LOCKED
-    ) or any(m.status == MarkStatus.LOCKED for m in existing_marks)
+    is_period_locked = (sem and sem.status == PeriodStatus.LOCKED)
+
+    # Granular Lock check (by Grade, Subject, Teacher, Section)
+    rule_locked, lock_reason, lock_obj = MarkEntryLock.check_lock(
+        school=school,
+        academic_year=ay,
+        period=sem,
+        grade=section.grade,
+        subject=subject,
+        teacher=teacher_to_check,
+        section=section
+    )
+
+    is_locked = is_period_locked or rule_locked or any(m.status == MarkStatus.LOCKED for m in existing_marks)
+    if not lock_reason:
+        if is_period_locked:
+            lock_reason = f"Academic term '{sem.name}' is globally locked."
+        elif any(m.status == MarkStatus.LOCKED for m in existing_marks):
+            lock_reason = "Individual student marks have been locked."
+        elif not is_locked:
+            lock_reason = ""
+
+    # Status of lock toggles for this section/subject for admin toolbar
+    grade_lock_active = MarkEntryLock.objects.filter(school=school, grade=section.grade, subject__isnull=True, teacher__isnull=True, section__isnull=True, is_active=True).exists()
+    subject_lock_active = MarkEntryLock.objects.filter(school=school, subject=subject, grade__isnull=True, teacher__isnull=True, section__isnull=True, is_active=True).exists()
+    teacher_lock_active = False
+    if teacher_to_check:
+        teacher_lock_active = MarkEntryLock.objects.filter(school=school, teacher=teacher_to_check, grade__isnull=True, subject__isnull=True, is_active=True).exists()
     
     # Map for easy rendering: mark_dict[enrollment_id][component_id] = mark
     mark_dict = {e.id: {} for e in enrollments}
@@ -687,6 +869,13 @@ def mark_entry_grid(request, section_id, subject_id):
         'mark_dict': mark_dict,
         'status': status,
         'is_locked': is_locked,
+        'is_period_locked': is_period_locked,
+        'lock_reason': lock_reason,
+        'lock_obj': lock_obj,
+        'grade_lock_active': grade_lock_active,
+        'subject_lock_active': subject_lock_active,
+        'teacher_lock_active': teacher_lock_active,
+        'teacher_to_check': teacher_to_check,
         'MarkStatus': MarkStatus,
         'ay': ay,
         'sem': sem
@@ -730,6 +919,13 @@ def save_marks(request):
                         except ValueError:
                             continue
                         
+                        if mark_val < 0:
+                            err_msg = f"Error: Mark cannot be negative (got {mark_val} for {comp.name})"
+                            if is_htmx:
+                                return HttpResponse(f"<div class='p-2 bg-red-100 text-red-800 rounded'>{err_msg}</div>", status=400)
+                            messages.error(request, err_msg)
+                            return redirect(request.META.get('HTTP_REFERER', 'assessments:mark_entry'))
+
                         if mark_val > float(comp.max_marks):
                             err_msg = f"Error: Mark {mark_val} exceeds max {comp.max_marks} for {comp.name}"
                             if is_htmx:
@@ -738,6 +934,23 @@ def save_marks(request):
                             return redirect(request.META.get('HTTP_REFERER', 'assessments:mark_entry'))
                             
                         enrollment = StudentEnrollment.objects.get(id=enrollment_id, school=school)
+
+                        # Granular Lock check (by Grade, Subject, Teacher, Section)
+                        rule_locked, lock_reason, _ = MarkEntryLock.check_lock(
+                            school=school,
+                            academic_year=comp.academic_year,
+                            period=comp.period,
+                            grade=enrollment.grade,
+                            subject=comp.subject,
+                            teacher=request.user if request.user.role == UserRole.TEACHER else None,
+                            section=enrollment.section
+                        )
+                        if rule_locked and not check_admin_access(request.user):
+                            err_msg = lock_reason or "Error: Mark entry is locked for this class by School Administration."
+                            if is_htmx:
+                                return HttpResponse(f"<div class='p-3 bg-red-100 text-red-800 rounded border border-red-200 mt-4 font-bold'><i class='fa-solid fa-lock mr-2'></i>{err_msg}</div>", status=403)
+                            messages.error(request, err_msg)
+                            return redirect(request.META.get('HTTP_REFERER', 'assessments:mark_entry'))
                         
                         mark_obj, created = StudentMark.objects.update_or_create(
                             school=school,
@@ -753,12 +966,35 @@ def save_marks(request):
                         
                         if action == 'submit':
                             mark_obj.status = MarkStatus.SUBMITTED
-                            mark_obj.save()
+                            mark_obj.save(update_fields=['status', 'mark_value', 'entered_by'])
                         elif action == 'publish':
-                            mark_obj.status = MarkStatus.PUBLISHED
-                            mark_obj.save()
+                            # Only admins/principals can directly publish marks
+                            if check_admin_access(request.user):
+                                mark_obj.status = MarkStatus.PUBLISHED
+                                mark_obj.save(update_fields=['status', 'mark_value', 'entered_by'])
+                            else:
+                                # Teacher attempted direct publish — silently downgrade to SUBMITTED
+                                mark_obj.status = MarkStatus.SUBMITTED
+                                mark_obj.save(update_fields=['status', 'mark_value', 'entered_by'])
                             
             student_count = len(saved_students)
+            if saved_count > 0:
+                client_ip = AuditService.get_client_ip(request)
+                action_label = 'MARK_SUBMIT' if action == 'submit' else ('MARK_PUBLISH' if action == 'publish' else 'MARK_SAVE')
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action=action_label,
+                    object_type="StudentMarks",
+                    object_id=f"{saved_count}_records",
+                    after_val={
+                        'marks_updated': saved_count,
+                        'students_affected': student_count,
+                        'action': action
+                    },
+                    ip_address=client_ip
+                )
+
             if action == 'submit':
                 msg = f"Submitted {saved_count} marks for {student_count} student{'s' if student_count != 1 else ''} for review successfully!"
             elif action == 'publish':
@@ -818,14 +1054,25 @@ def approve_marks(request):
     section_id = request.POST.get('section_id')
     subject_id = request.POST.get('subject_id')
     
-    StudentMark.objects.filter(
+    approved_count = StudentMark.objects.filter(
         school=school,
         enrollment__section_id=section_id,
         assessment_component__subject_id=subject_id,
         status=MarkStatus.SUBMITTED
     ).update(status=MarkStatus.APPROVED)
     
-    messages.success(request, "Marks approved successfully.")
+    client_ip = AuditService.get_client_ip(request)
+    AuditService.log_action(
+        school=school,
+        user=request.user,
+        action="MARKS_APPROVED",
+        object_type="SectionSubjectMarks",
+        object_id=f"Sec_{section_id}_Subj_{subject_id}",
+        after_val={'approved_count': approved_count, 'section_id': section_id, 'subject_id': subject_id},
+        ip_address=client_ip
+    )
+    
+    messages.success(request, f"{approved_count} marks approved successfully.")
     return redirect('assessments:review')
 
 @login_required
@@ -944,13 +1191,15 @@ def period_close(request):
             marks.update(status=MarkStatus.PUBLISHED)
             processed += 1
             
-        # Rank computation (Simple)
+        # Rank computation — use bulk_update to avoid N+1 DB writes
         sections = Section.objects.filter(school=school)
         for section in sections:
-            results = AcademicPeriodResult.objects.filter(school=school, period=sem, enrollment__section=section).order_by('-average_score')
+            results = list(AcademicPeriodResult.objects.filter(
+                school=school, period=sem, enrollment__section=section
+            ).order_by('-average_score'))
             for i, res in enumerate(results, 1):
                 res.section_rank = i
-                res.save()
+            AcademicPeriodResult.objects.bulk_update(results, ['section_rank'])
                 
         # Auto-lock period after computation to prevent further edits by teachers
         from apps.academics.models import PeriodStatus
@@ -1017,3 +1266,254 @@ def report_cards(request):
         'ay': ay,
         'sem': sem,
     })
+
+
+@login_required
+def manage_mark_locks(request):
+    """
+    Control center for locking and unlocking mark entry by:
+    - Grade (e.g. Grade 10)
+    - Subject (e.g. Biology)
+    - Teacher (e.g. Dawit Tadesse)
+    - Section / Targeted combination
+    """
+    if not check_admin_access(request.user):
+        messages.error(request, "Unauthorized access: Mark locking is restricted to School Administration.")
+        return redirect('index')
+
+    school = get_school(request)
+    ay, sem = get_active_term(request)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'create_lock':
+            lock_type = request.POST.get('lock_type', 'CUSTOM')
+            grade_id = request.POST.get('grade_id') or None
+            subject_id = request.POST.get('subject_id') or None
+            teacher_id = request.POST.get('teacher_id') or None
+            section_id = request.POST.get('section_id') or None
+            reason = request.POST.get('reason', '').strip()
+
+            grade = Grade.objects.filter(id=grade_id, school=school).first() if grade_id else None
+            subject = Subject.objects.filter(id=subject_id, school=school).first() if subject_id else None
+            teacher = User.objects.filter(id=teacher_id, school=school).first() if teacher_id else None
+            section = Section.objects.filter(id=section_id, school=school).first() if section_id else None
+
+            if not (grade or subject or teacher or section):
+                messages.error(request, "Please select at least one target to lock (Grade, Subject, Teacher, or Section).")
+            else:
+                lock_obj, created = MarkEntryLock.objects.update_or_create(
+                    school=school,
+                    grade=grade,
+                    subject=subject,
+                    teacher=teacher,
+                    section=section,
+                    defaults={
+                        'lock_type': lock_type,
+                        'academic_year': ay,
+                        'period': sem,
+                        'reason': reason or "Locked by Administrator",
+                        'is_active': True,
+                        'locked_by': request.user
+                    }
+                )
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action="MARK_LOCK_CREATED",
+                    object_type="MarkEntryLock",
+                    object_id=str(lock_obj.id),
+                    after_val={
+                        'lock_type': lock_type,
+                        'grade': grade.name if grade else None,
+                        'subject': subject.name if subject else None,
+                        'teacher': teacher.username if teacher else None,
+                        'reason': reason
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+                messages.success(request, f"Mark entry lock created: {str(lock_obj)}")
+
+        elif action == 'quick_lock_grade':
+            grade_id = request.POST.get('grade_id')
+            grade = get_object_or_404(Grade, id=grade_id, school=school)
+            lock_obj, _ = MarkEntryLock.objects.update_or_create(
+                school=school,
+                grade=grade,
+                subject=None,
+                teacher=None,
+                section=None,
+                defaults={
+                    'lock_type': 'GRADE',
+                    'academic_year': ay,
+                    'period': sem,
+                    'is_active': True,
+                    'reason': f"Grade {grade.name} mark entry locked by Administrator",
+                    'locked_by': request.user
+                }
+            )
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action="MARK_LOCK_GRADE",
+                object_type="Grade",
+                object_id=str(grade.id),
+                after_val={'grade': grade.name},
+                ip_address=AuditService.get_client_ip(request)
+            )
+            messages.success(request, f"Mark entry LOCKED for all sections and subjects in {grade.name}.")
+
+        elif action == 'unlock_all':
+            count = MarkEntryLock.objects.filter(school=school, is_active=True).update(is_active=False)
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action="MARK_LOCKS_UNLOCKED_ALL",
+                object_type="MarkEntryLock",
+                object_id=str(count),
+                after_val={'unlocked_count': count},
+                ip_address=AuditService.get_client_ip(request)
+            )
+            messages.success(request, f"All mark entry locks deactivated ({count} lock rules unlocked).")
+
+        return redirect('assessments:manage_locks')
+
+    # GET
+    locks = MarkEntryLock.objects.filter(school=school).select_related(
+        'grade', 'subject', 'teacher', 'section', 'locked_by', 'period'
+    ).order_by('-is_active', '-created_at')
+
+    grades = Grade.objects.filter(school=school).order_by('level', 'stream_type')
+    subjects = Subject.objects.filter(school=school).order_by('name')
+    teachers = User.objects.filter(school=school, role=UserRole.TEACHER).order_by('first_name', 'last_name')
+    sections = Section.objects.filter(school=school).select_related('grade').order_by('grade__level', 'name')
+
+    total_active = locks.filter(is_active=True).count()
+    grade_locks_count = locks.filter(is_active=True, grade__isnull=False, subject__isnull=True, teacher__isnull=True).count()
+    subject_locks_count = locks.filter(is_active=True, subject__isnull=False).count()
+    teacher_locks_count = locks.filter(is_active=True, teacher__isnull=False).count()
+
+    return render(request, 'assessments/mark_entry_locks.html', {
+        'locks': locks,
+        'grades': grades,
+        'subjects': subjects,
+        'teachers': teachers,
+        'sections': sections,
+        'total_active': total_active,
+        'grade_locks_count': grade_locks_count,
+        'subject_locks_count': subject_locks_count,
+        'teacher_locks_count': teacher_locks_count,
+        'ay': ay,
+        'sem': sem,
+    })
+
+
+@login_required
+def toggle_mark_lock(request, lock_id):
+    if not check_admin_access(request.user) or request.method != 'POST':
+        return HttpResponse("Unauthorized", status=403)
+
+    school = get_school(request)
+    lock = get_object_or_404(MarkEntryLock, id=lock_id, school=school)
+    lock.is_active = not lock.is_active
+    lock.save(update_fields=['is_active'])
+
+    AuditService.log_action(
+        school=school,
+        user=request.user,
+        action="MARK_LOCK_TOGGLED",
+        object_type="MarkEntryLock",
+        object_id=str(lock.id),
+        after_val={'is_active': lock.is_active, 'rule': str(lock)},
+        ip_address=AuditService.get_client_ip(request)
+    )
+
+    status_str = "LOCKED" if lock.is_active else "UNLOCKED"
+    messages.success(request, f"Mark entry rule is now {status_str}: {str(lock)}")
+    referer = request.META.get('HTTP_REFERER')
+    return redirect(referer or 'assessments:manage_locks')
+
+
+@login_required
+def delete_mark_lock(request, lock_id):
+    if not check_admin_access(request.user) or request.method != 'POST':
+        return HttpResponse("Unauthorized", status=403)
+
+    school = get_school(request)
+    lock = get_object_or_404(MarkEntryLock, id=lock_id, school=school)
+    lock_desc = str(lock)
+    lock.delete()
+
+    AuditService.log_action(
+        school=school,
+        user=request.user,
+        action="MARK_LOCK_DELETED",
+        object_type="MarkEntryLock",
+        object_id=str(lock_id),
+        after_val={'rule_deleted': lock_desc},
+        ip_address=AuditService.get_client_ip(request)
+    )
+
+    messages.success(request, f"Lock rule removed: {lock_desc}")
+    return redirect('assessments:manage_locks')
+
+
+@login_required
+def quick_toggle_grid_lock(request):
+    """
+    Instant lock/unlock toggle directly from the mark entry grid toolbar for Grade, Subject, or Teacher.
+    """
+    if not check_admin_access(request.user) or request.method != 'POST':
+        return HttpResponse("Unauthorized", status=403)
+
+    school = get_school(request)
+    ay, sem = get_active_term(request)
+    target_type = request.POST.get('target_type')  # 'grade', 'subject', 'teacher'
+    target_id = request.POST.get('target_id')
+    referer = request.POST.get('referer') or request.META.get('HTTP_REFERER')
+
+    if target_type == 'grade':
+        target_obj = get_object_or_404(Grade, id=target_id, school=school)
+        existing = MarkEntryLock.objects.filter(school=school, grade=target_obj, subject__isnull=True, teacher__isnull=True, section__isnull=True).first()
+        if existing and existing.is_active:
+            existing.is_active = False
+            existing.save(update_fields=['is_active'])
+            messages.success(request, f"Grade {target_obj.name} mark entry UNLOCKED.")
+        else:
+            MarkEntryLock.objects.update_or_create(
+                school=school, grade=target_obj, subject__isnull=True, teacher__isnull=True, section__isnull=True,
+                defaults={'lock_type': 'GRADE', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': f"Grade {target_obj.name} locked via Gradebook", 'locked_by': request.user}
+            )
+            messages.success(request, f"Grade {target_obj.name} mark entry LOCKED.")
+
+    elif target_type == 'subject':
+        target_obj = get_object_or_404(Subject, id=target_id, school=school)
+        existing = MarkEntryLock.objects.filter(school=school, subject=target_obj, grade__isnull=True, teacher__isnull=True, section__isnull=True).first()
+        if existing and existing.is_active:
+            existing.is_active = False
+            existing.save(update_fields=['is_active'])
+            messages.success(request, f"Subject {target_obj.name} mark entry UNLOCKED.")
+        else:
+            MarkEntryLock.objects.update_or_create(
+                school=school, subject=target_obj, grade__isnull=True, teacher__isnull=True, section__isnull=True,
+                defaults={'lock_type': 'SUBJECT', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': f"Subject {target_obj.name} locked via Gradebook", 'locked_by': request.user}
+            )
+            messages.success(request, f"Subject {target_obj.name} mark entry LOCKED.")
+
+    elif target_type == 'teacher':
+        target_obj = get_object_or_404(User, id=target_id, school=school)
+        existing = MarkEntryLock.objects.filter(school=school, teacher=target_obj, grade__isnull=True, subject__isnull=True).first()
+        if existing and existing.is_active:
+            existing.is_active = False
+            existing.save(update_fields=['is_active'])
+            messages.success(request, f"Teacher {target_obj.get_full_name() or target_obj.username} mark entry UNLOCKED.")
+        else:
+            MarkEntryLock.objects.update_or_create(
+                school=school, teacher=target_obj, grade__isnull=True, subject__isnull=True,
+                defaults={'lock_type': 'TEACHER', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': f"Teacher locked via Gradebook", 'locked_by': request.user}
+            )
+            messages.success(request, f"Teacher {target_obj.get_full_name() or target_obj.username} mark entry LOCKED.")
+
+    return redirect(referer or 'assessments:mark_entry')
+

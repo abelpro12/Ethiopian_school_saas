@@ -49,7 +49,18 @@ def public_admission_form_view(request):
         messages.success(request, f"Application submitted! Your application number is: {app_number}")
         return redirect(f'/admission/apply/status/?app_number={app_number}')
 
-    return render(request, 'students/public_admission.html')
+    initial_code = request.GET.get('school', request.GET.get('school_code', '')).strip().upper()
+    if not initial_code:
+        school_obj = getattr(request, 'school', None) or getattr(request, 'tenant', None)
+        if school_obj and hasattr(school_obj, 'code'):
+            initial_code = school_obj.code
+
+    form_data = {
+        'school_code': initial_code,
+        'gender': 'M',
+        'grade_level': '9',
+    }
+    return render(request, 'students/public_admission.html', {'form_data': form_data})
 
 
 def public_admission_form_redirect(request):

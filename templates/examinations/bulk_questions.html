@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bulk Question Importer | {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <a href="{% url 'examinations:questions_builder' exam.id %}" class="hover:text-cyan-600 truncate max-w-xs">{{ exam.title }}</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold">Bulk Import</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-file-import text-indigo-600"></i>
+                Bulk Question Importer
+            </h1>
+        </div>
+
+        <a href="{% url 'examinations:questions_builder' exam.id %}" class="btn-secondary text-xs">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back to Builder
+        </a>
+    </div>
+
+    <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 space-y-6">
+        <div>
+            <h2 class="text-lg font-bold text-slate-900 font-heading">Paste Questions JSON Payload</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Quickly import tens of questions at once using standardized JSON structure.</p>
+        </div>
+
+        <form method="POST" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">JSON Structure</label>
+                <textarea name="bulk_data" rows="12" required placeholder="[
+  {
+    &quot;question&quot;: &quot;What is the SI unit of force?&quot;,
+    &quot;type&quot;: &quot;MCQ&quot;,
+    &quot;points&quot;: 2.0,
+    &quot;options&quot;: [
+      {&quot;text&quot;: &quot;Joule&quot;, &quot;is_correct&quot;: false},
+      {&quot;text&quot;: &quot;Newton&quot;, &quot;is_correct&quot;: true},
+      {&quot;text&quot;: &quot;Watt&quot;, &quot;is_correct&quot;: false},
+      {&quot;text&quot;: &quot;Pascal&quot;, &quot;is_correct&quot;: false}
+    ]
+  },
+  {
+    &quot;question&quot;: &quot;Photosynthesis occurs in the chloroplasts.&quot;,
+    &quot;type&quot;: &quot;TRUE_FALSE&quot;,
+    &quot;points&quot;: 1.0,
+    &quot;correct_answer&quot;: &quot;True&quot;
+  }
+]" class="input-field font-mono text-xs leading-relaxed"></textarea>
+            </div>
+
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs text-slate-600">
+                <p class="font-bold text-slate-800"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Format Guidelines:</p>
+                <ul class="list-disc list-inside space-y-1 text-slate-600">
+                    <li>Valid <code class="font-mono text-indigo-600">type</code> values: <code class="font-mono">MCQ</code>, <code class="font-mono">MULTIPLE_CHOICE</code>, <code class="font-mono">TRUE_FALSE</code>, <code class="font-mono">SHORT_ANSWER</code>, <code class="font-mono">ESSAY</code>.</li>
+                    <li>For <code class="font-mono">MCQ</code> and <code class="font-mono">MULTIPLE_CHOICE</code>, provide array of options with <code class="font-mono">text</code> and <code class="font-mono">is_correct</code> flags.</li>
+                    <li>For <code class="font-mono">SHORT_ANSWER</code>, set <code class="font-mono">correct_answer</code> string.</li>
+                </ul>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3">
+                <a href="{% url 'examinations:questions_builder' exam.id %}" class="btn-secondary text-xs">Cancel</a>
+                <button type="submit" class="btn-primary text-xs flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Import Questions
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

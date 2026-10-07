@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Exam Analytics & Performance | {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Breadcrumb & Top Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <a href="{% url 'examinations:detail' exam.id %}" class="hover:text-cyan-600 truncate max-w-xs">{{ exam.title }}</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold">Analytics</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-chart-pie text-purple-600"></i>
+                Performance Analytics & Item Difficulty
+            </h1>
+        </div>
+
+        <a href="{% url 'examinations:detail' exam.id %}" class="btn-secondary text-xs">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back to Overview
+        </a>
+    </div>
+
+    <!-- Metric Stat Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidates</p>
+            <p class="text-xl font-black text-slate-900 mt-1">{{ analytics.total_candidates }}</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Average Score</p>
+            <p class="text-xl font-black text-indigo-600 mt-1">{{ analytics.average_score }}</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Average %</p>
+            <p class="text-xl font-black text-indigo-600 mt-1">{{ analytics.average_percentage }}%</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Pass Rate</p>
+            <p class="text-xl font-black text-emerald-600 mt-1">{{ analytics.pass_rate }}%</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Highest Score</p>
+            <p class="text-xl font-black text-emerald-600 mt-1">{{ analytics.highest_score }}</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lowest Score</p>
+            <p class="text-xl font-black text-red-600 mt-1">{{ analytics.lowest_score }}</p>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Score Distribution Histogram (8 cols) -->
+        <div class="lg:col-span-8 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-base font-bold text-slate-900 font-heading flex items-center gap-2">
+                <i class="fa-solid fa-chart-column text-indigo-600"></i> Score Distribution Histogram
+            </h3>
+            <div class="h-64">
+                <canvas id="scoreHistogramChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Pass vs Fail Doughnut (4 cols) -->
+        <div class="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between">
+            <h3 class="text-base font-bold text-slate-900 font-heading flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-emerald-600"></i> Pass / Fail Ratio
+            </h3>
+            <div class="h-56 relative flex items-center justify-center">
+                <canvas id="passFailDoughnutChart"></canvas>
+            </div>
+            <div class="flex items-center justify-center gap-6 text-xs pt-2 border-t border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    <span>Passed: <strong>{{ analytics.pass_count }}</strong></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+                    <span>Failed: <strong>{{ analytics.fail_count }}</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Item Difficulty Matrix -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+                <h3 class="text-base font-bold text-slate-900 font-heading flex items-center gap-2">
+                    <i class="fa-solid fa-microscope text-cyan-600"></i> Item Difficulty & Success Rate Matrix
+                </h3>
+                <p class="text-xs text-slate-500">Analyze performance per individual question to identify topic mastery and challenging areas.</p>
+            </div>
+        </div>
+
+        {% if analytics.questions_analytics %}
+        <div class="table-wrap">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3 px-3 w-12">#</th>
+                        <th class="py-3 px-3">Question Prompt</th>
+                        <th class="py-3 px-3">Type</th>
+                        <th class="py-3 px-3 text-center">Correct / Total</th>
+                        <th class="py-3 px-3">Success Rate</th>
+                        <th class="py-3 px-3 text-right">Difficulty Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    {% for q in analytics.questions_analytics %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-3.5 px-3 font-mono font-bold text-slate-500">Q{{ q.order }}</td>
+                        <td class="py-3.5 px-3 font-semibold text-slate-800">{{ q.text }}</td>
+                        <td class="py-3.5 px-3"><span class="badge badge-blue text-[10px]">{{ q.type }}</span></td>
+                        <td class="py-3.5 px-3 text-center font-mono font-bold text-slate-700">{{ q.correct_answers }} / {{ q.total_answers }}</td>
+                        <td class="py-3.5 px-3 w-40">
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                    <div class="h-2 rounded-full {% if q.success_rate >= 70 %}bg-emerald-500{% elif q.success_rate >= 40 %}bg-amber-500{% else %}bg-rose-500{% endif %}"
+                                        style="width: {{ q.success_rate }}%"></div>
+                                </div>
+                                <span class="font-mono font-bold text-slate-800 w-10 text-right">{{ q.success_rate }}%</span>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-3 text-right">
+                            {% if q.success_rate >= 75 %}
+                            <span class="badge badge-green text-[10px]">High Mastery</span>
+                            {% elif q.success_rate >= 45 %}
+                            <span class="badge badge-yellow text-[10px]">Moderate</span>
+                            {% else %}
+                            <span class="badge badge-red text-[10px]">Challenging</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl">
+            No question response data available yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Histogram
+    const distData = JSON.parse('{{ distribution_json|escapejs }}');
+    const ctxHist = document.getElementById('scoreHistogramChart');
+    if (ctxHist) {
+        new Chart(ctxHist, {
+            type: 'bar',
+            data: {
+                labels: ['0% - 40%', '41% - 60%', '61% - 80%', '81% - 100%'],
+                datasets: [{
+                    label: 'Number of Students',
+                    data: [distData['0-40'] || 0, distData['41-60'] || 0, distData['61-80'] || 0, distData['81-100'] || 0],
+                    backgroundColor: ['#f43f5e', '#f59e0b', '#3b82f6', '#10b981'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                }
+            }
+        });
+    }
+
+    // Doughnut
+    const ctxDoughnut = document.getElementById('passFailDoughnutChart');
+    if (ctxDoughnut) {
+        new Chart(ctxDoughnut, {
+            type: 'doughnut',
+            data: {
+                labels: ['Passed', 'Failed'],
+                datasets: [{
+                    data: [{{ analytics.pass_count }}, {{ analytics.fail_count }}],
+                    backgroundColor: ['#10b981', '#f43f5e'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                cutout: '70%'
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

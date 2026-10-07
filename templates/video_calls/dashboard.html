@@ -1,0 +1,761 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Virtual Classrooms & Video Calls — {{ active_school.name|default:"EthioSchool" }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-7xl mx-auto pb-12">
+
+    <!-- Top Breadcrumb & Header Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800/80">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-32 top-0 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        
+        <div class="relative z-10 space-y-2">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-xs font-bold tracking-wide">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>WebRTC Live Video Engine</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-heading font-black tracking-tight flex items-center gap-3">
+                <i class="fa-solid fa-video text-indigo-400"></i> Virtual Classrooms & Video Calls
+            </h1>
+            <p class="text-slate-300 text-xs sm:text-sm max-w-2xl font-normal leading-relaxed">
+                Connect seamlessly through HD live classrooms, 1-on-1 parent-teacher consultations, staff conferences, and real-time student attendance tracking.
+            </p>
+        </div>
+
+        {% if can_create %}
+        <div class="relative z-10 flex flex-wrap items-center gap-2.5">
+            <button type="button" onclick="openInstantModal()" class="btn-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 hover:scale-[1.02] active:scale-[0.98] transition">
+                <i class="fa-solid fa-bolt-lightning text-amber-300"></i>
+                <span>Instant Call</span>
+            </button>
+            <a href="{% url 'video_calls:instant' %}?guest=true" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-purple-600/80 hover:bg-purple-600 text-white text-xs sm:text-sm font-bold border border-purple-400/30 shadow-md shadow-purple-600/20 backdrop-blur-md transition">
+                <i class="fa-solid fa-user-astronaut text-purple-200"></i>
+                <span>VIP Guest Call</span>
+            </a>
+            <button type="button" onclick="openScheduleModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-bold border border-white/20 hover:border-white/30 backdrop-blur-md transition shadow-sm">
+                <i class="fa-solid fa-calendar-plus text-indigo-300"></i>
+                <span>Schedule</span>
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Stats Metric Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div class="stat-card bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Live Now</p>
+                <h3 class="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+                    {{ stats.live_count }}
+                    {% if stats.live_count > 0 %}
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    {% endif %}
+                </h3>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg shadow-inner">
+                <i class="fa-solid fa-tower-broadcast"></i>
+            </div>
+        </div>
+
+        <div class="stat-card bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Upcoming</p>
+                <h3 class="text-2xl font-black text-slate-900 mt-1">{{ stats.upcoming_count }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg shadow-inner">
+                <i class="fa-solid fa-calendar-check"></i>
+            </div>
+        </div>
+
+        <div class="stat-card bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Hosted</p>
+                <h3 class="text-2xl font-black text-slate-900 mt-1">{{ stats.total_hosted }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg shadow-inner">
+                <i class="fa-solid fa-chalkboard-user"></i>
+            </div>
+        </div>
+
+        <div class="stat-card bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">My Attendance</p>
+                <h3 class="text-2xl font-black text-slate-900 mt-1">{{ stats.my_attended }}</h3>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg shadow-inner">
+                <i class="fa-solid fa-user-check"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Now Section (Highlights active rooms) -->
+    {% if live_meetings %}
+    <div class="space-y-4">
+        <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span>
+            <h2 class="text-base font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <span>Happening Now — Live Video Rooms</span>
+                <span class="px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-black">{{ live_meetings.count }} Active</span>
+            </h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {% for meeting in live_meetings %}
+            <div class="bg-gradient-to-br from-white to-indigo-50/40 rounded-2xl border-2 border-indigo-200/80 shadow-md p-5 flex flex-col justify-between hover:shadow-xl hover:border-indigo-400 transition transform hover:-translate-y-1">
+                <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-red-500 text-white flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-circle text-[8px] animate-pulse"></i> LIVE
+                        </span>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                            {{ meeting.get_meeting_type_display }}
+                        </span>
+                    </div>
+
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 leading-snug line-clamp-1">{{ meeting.title }}</h3>
+                        {% if meeting.description %}
+                        <p class="text-xs text-slate-500 line-clamp-2 mt-1">{{ meeting.description }}</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Target tags -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        {% if meeting.target_grade %}
+                        <span class="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+                            <i class="fa-solid fa-graduation-cap"></i> {{ meeting.target_grade.name }}
+                        </span>
+                        {% endif %}
+                        {% if meeting.target_section %}
+                        <span class="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                            <i class="fa-solid fa-people-roof"></i> Sec {{ meeting.target_section.name }}
+                        </span>
+                        {% endif %}
+                        {% if meeting.target_subject %}
+                        <span class="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 font-bold">
+                            <i class="fa-solid fa-book"></i> {{ meeting.target_subject.name }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Host Info -->
+                    <div class="flex items-center gap-2.5 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                        <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center font-bold text-[10px] shadow-sm">
+                            {{ meeting.host.username|slice:":1"|upper }}
+                        </div>
+                        <div class="truncate">
+                            <span class="font-bold text-slate-800">{{ meeting.host.get_full_name|default:meeting.host.username }}</span>
+                            <span class="text-[10px] text-slate-400 block">{{ meeting.host.get_role_display }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 flex items-center gap-2">
+                    <a href="{% url 'video_calls:room' meeting.id %}" class="flex-1 text-center py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 transition hover:scale-[1.02]">
+                        <i class="fa-solid fa-door-open"></i>
+                        <span>Join Live Room</span>
+                    </a>
+                    <button type="button" onclick="copyInviteLink('{{ meeting.id }}')" title="Copy Member Link" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition">
+                        <i class="fa-solid fa-link"></i>
+                    </button>
+                    {% if meeting.allow_guest_access and meeting.guest_token %}
+                    <button type="button" onclick="copyGuestLink('{{ meeting.guest_token }}')" title="Copy Public Guest Invite Link" class="p-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 transition">
+                        <i class="fa-solid fa-user-astronaut"></i>
+                    </button>
+                    {% endif %}
+                    {% if meeting.host_id == user.id or user.role == 'SCHOOL_ADMIN' or user.role == 'PRINCIPAL' or user.role == 'SUPER_ADMIN' %}
+                    <a href="{% url 'video_calls:end' meeting.id %}" onclick="return confirm('End this live meeting for everyone?');" title="End Live Meeting" class="p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-600 transition">
+                        <i class="fa-solid fa-power-off"></i>
+                    </a>
+                    <form method="POST" action="{% url 'video_calls:delete' meeting.id %}" class="inline" onsubmit="return confirm('Are you sure you want to delete meeting: {{ meeting.title|escapejs }}?');">
+                        {% csrf_token %}
+                        <button type="submit" title="Delete Meeting" class="p-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Meeting Directory Section (Upcoming & Past Tabs) -->
+    <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+        
+        <!-- Filter Header & Tabs -->
+        <div class="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                <a href="?tab=all" class="px-4 py-2 rounded-xl text-xs font-extrabold transition {% if tab == 'all' or not tab %}bg-slate-900 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    All Sessions
+                </a>
+                <a href="?tab=upcoming" class="px-4 py-2 rounded-xl text-xs font-extrabold transition {% if tab == 'upcoming' %}bg-indigo-600 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    Upcoming ({{ upcoming_meetings.count }})
+                </a>
+                <a href="?tab=past" class="px-4 py-2 rounded-xl text-xs font-extrabold transition {% if tab == 'past' %}bg-slate-900 text-white shadow-sm{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                    Past & Records ({{ past_meetings.count }})
+                </a>
+            </div>
+
+            <!-- Type Filter Dropdown -->
+            <form method="GET" class="flex items-center gap-2">
+                <input type="hidden" name="tab" value="{{ tab }}">
+                <select name="type" onchange="this.form.submit()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <option value="">Filter by Type</option>
+                    {% for key, label in meeting_types %}
+                    <option value="{{ key }}" {% if request.GET.type == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                {% if request.GET.type %}
+                <a href="?tab={{ tab }}" class="text-xs font-bold text-slate-400 hover:text-slate-600 px-2 py-1">Clear</a>
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Meeting List Content -->
+        <div class="p-5 sm:p-6">
+            {% if tab == 'upcoming' %}
+                {% include 'video_calls/_meeting_list_partial.html' with meetings=upcoming_meetings empty_msg="No upcoming video meetings scheduled yet." %}
+            {% elif tab == 'past' %}
+                {% include 'video_calls/_meeting_list_partial.html' with meetings=past_meetings empty_msg="No past video meetings recorded." %}
+            {% else %}
+                <div class="space-y-8">
+                    {% if upcoming_meetings %}
+                    <div>
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-clock"></i> Upcoming Scheduled Sessions
+                        </h3>
+                        {% include 'video_calls/_meeting_list_partial.html' with meetings=upcoming_meetings empty_msg="No upcoming video meetings scheduled." %}
+                    </div>
+                    {% endif %}
+
+                    {% if past_meetings %}
+                    <div>
+                        <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Past Sessions & Logs
+                        </h3>
+                        {% include 'video_calls/_meeting_list_partial.html' with meetings=past_meetings empty_msg="No past meetings found." %}
+                    </div>
+                    {% endif %}
+
+                    {% if not upcoming_meetings and not past_meetings and not live_meetings %}
+                    <div class="text-center py-16">
+                        <div class="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto text-2xl mb-3 shadow-inner">
+                            <i class="fa-solid fa-video"></i>
+                        </div>
+                        <h4 class="text-base font-bold text-slate-800">No Video Sessions Found</h4>
+                        <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">Get started by creating a live virtual classroom, parent consultation, or staff conference.</p>
+                        {% if can_create %}
+                        <button type="button" onclick="openScheduleModal()" class="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:bg-indigo-700 transition">
+                            <i class="fa-solid fa-plus"></i> Schedule New Session
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════ MODAL: START INSTANT MEETING ═══════════════ -->
+<div id="instantModal" class="modal-overlay">
+    <div class="modal-content max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
+        <button type="button" onclick="closeModal('instantModal')" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-inner">
+                <i class="fa-solid fa-bolt-lightning"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-heading font-black text-slate-900">Start Instant Live Meeting</h3>
+                <p class="text-xs text-slate-500">Launch an instant video room right now</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{% url 'video_calls:create' %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="is_instant" value="true">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Meeting / Class Title <span class="text-red-500">*</span></label>
+                <input type="text" name="title" required placeholder="e.g. Quick Grade 10 Math Review or Teacher Consultation" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Meeting Type</label>
+                <select name="meeting_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    {% for key, label in meeting_types %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Grade (Optional)</label>
+                    <select name="target_grade" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">All / Not Specific</option>
+                        {% for g in grades %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Section (Optional)</label>
+                    <select name="target_section" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">All Sections</option>
+                        {% for s in sections %}<option value="{{ s.id }}">{{ s.grade.name }} - Sec {{ s.name }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dynamic Cascading 1-on-1 Invitee Section -->
+            <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span><i class="fa-solid fa-user-tag text-indigo-600 mr-1"></i> Target Person (1-on-1 Direct Call)</span>
+                        <span class="text-[10px] text-slate-400 font-medium">Optional</span>
+                    </label>
+                    <select id="instantTargetType" onchange="switchInviteeGroup('instant')" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="none">🌐 Open Session (No specific individual)</option>
+                        <option value="parent">👨‍👩‍👧 Parent Separately (1-on-1 Parent Consultation)</option>
+                        <option value="student">🎓 Student Separately (1-on-1 Tutoring / Oral Exam)</option>
+                        <option value="teacher">👨‍🏫 Teacher Separately (1-on-1 Staff Consultation)</option>
+                    </select>
+                </div>
+
+                <!-- Sub-Dropdown 1: Parent -->
+                <div id="instantParentWrap" class="hidden space-y-1.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                        <i class="fa-solid fa-user-shield text-indigo-600 mr-1"></i> Select Parent
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input type="text" id="instantParentSearch" oninput="filterSelectOptions(this, 'instantParentSelect')" placeholder="🔍 Type to search parent or child name..." class="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                        <button type="button" onclick="clearSelectFilter('instantParentSearch', 'instantParentSelect')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <select id="instantParentSelect" name="participants" disabled class="w-full bg-white border border-indigo-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose Parent to Call --</option>
+                        {% for p in parent_list %}
+                        <option value="{{ p.user_id }}">👨‍👩‍👧 {{ p.name }}{{ p.child_info }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-emerald-600 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Live call alert will appear only on this parent's portal.
+                    </p>
+                </div>
+
+                <!-- Sub-Dropdown 2: Student -->
+                <div id="instantStudentWrap" class="hidden space-y-1.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                        <i class="fa-solid fa-graduation-cap text-indigo-600 mr-1"></i> Select Student
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input type="text" id="instantStudentSearch" oninput="filterSelectOptions(this, 'instantStudentSelect')" placeholder="🔍 Type to search student name, ID, or grade..." class="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                        <button type="button" onclick="clearSelectFilter('instantStudentSearch', 'instantStudentSelect')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <select id="instantStudentSelect" name="participants" disabled class="w-full bg-white border border-indigo-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose Student to Call --</option>
+                        {% for s in student_list %}
+                        <option value="{{ s.user_id }}">🎓 {{ s.name }} ({{ s.student_id }}{{ s.grade_info }})</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-emerald-600 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Live call alert will appear only on this student's portal.
+                    </p>
+                </div>
+
+                <!-- Sub-Dropdown 3: Teacher -->
+                <div id="instantTeacherWrap" class="hidden space-y-1.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                        <i class="fa-solid fa-chalkboard-user text-indigo-600 mr-1"></i> Select Teacher / Staff
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input type="text" id="instantTeacherSearch" oninput="filterSelectOptions(this, 'instantTeacherSelect')" placeholder="🔍 Type to search teacher name..." class="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                        <button type="button" onclick="clearSelectFilter('instantTeacherSearch', 'instantTeacherSelect')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <select id="instantTeacherSelect" name="participants" disabled class="w-full bg-white border border-indigo-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose Teacher/Staff to Call --</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">👨‍🏫 {{ t.get_full_name|default:t.username }} (Teacher)</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-emerald-600 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Live call alert will appear in this teacher's Video Calls tab.
+                    </p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Estimated Duration (Minutes)</label>
+                <select name="duration_minutes" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                    <option value="30">30 Minutes</option>
+                    <option value="45" selected>45 Minutes (Standard Class Period)</option>
+                    <option value="60">60 Minutes</option>
+                    <option value="90">90 Minutes</option>
+                    <option value="120">2 Hours</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="allow_guest_access" id="instantGuestAccess" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+                <label for="instantGuestAccess" class="text-xs font-bold text-slate-700 select-none">
+                    <i class="fa-solid fa-user-astronaut text-purple-600"></i> Enable Public Guest Join Link (VIPs, Parents, Inspectors)
+                </label>
+            </div>
+
+            <div class="pt-4 flex items-center gap-3">
+                <button type="button" onclick="closeModal('instantModal')" class="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> Launch Room Now
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════ MODAL: SCHEDULE FUTURE MEETING ═══════════════ -->
+<div id="scheduleModal" class="modal-overlay">
+    <div class="modal-content max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
+        <button type="button" onclick="closeModal('scheduleModal')" class="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-inner">
+                <i class="fa-solid fa-calendar-plus"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-heading font-black text-slate-900">Schedule Class or Meeting</h3>
+                <p class="text-xs text-slate-500">Plan ahead with date, time, and target student roster</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{% url 'video_calls:create' %}" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="is_instant" value="false">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Meeting / Class Title <span class="text-red-500">*</span></label>
+                <input type="text" name="title" required placeholder="e.g. Grade 11 Physics — Wave Mechanics Lecture" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Meeting Type</label>
+                    <select name="meeting_type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        {% for key, label in meeting_types %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Subject (Optional)</label>
+                    <select name="target_subject" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">General / None</option>
+                        {% for sub in subjects %}<option value="{{ sub.id }}">{{ sub.name }} ({{ sub.grade.name }})</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Grade</label>
+                    <select name="target_grade" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">All / Not Specific</option>
+                        {% for g in grades %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Section</label>
+                    <select name="target_section" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">All Sections in Grade</option>
+                        {% for s in sections %}<option value="{{ s.id }}">{{ s.grade.name }} - Sec {{ s.name }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dynamic Cascading 1-on-1 Invitee Section -->
+            <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span><i class="fa-solid fa-user-tag text-indigo-600 mr-1"></i> Target Person (1-on-1 Consultation)</span>
+                        <span class="text-[10px] text-slate-400 font-medium">Optional</span>
+                    </label>
+                    <select id="schedTargetType" onchange="switchInviteeGroup('sched')" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="none">🌐 Open Session (No specific individual)</option>
+                        <option value="parent">👨‍👩‍👧 Parent Separately (1-on-1 Parent Consultation)</option>
+                        <option value="student">🎓 Student Separately (1-on-1 Tutoring / Oral Exam)</option>
+                        <option value="teacher">👨‍🏫 Teacher Separately (1-on-1 Staff Consultation)</option>
+                    </select>
+                </div>
+
+                <!-- Sub-Dropdown 1: Parent -->
+                <div id="schedParentWrap" class="hidden space-y-1.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                        <i class="fa-solid fa-user-shield text-indigo-600 mr-1"></i> Select Parent
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input type="text" id="schedParentSearch" oninput="filterSelectOptions(this, 'schedParentSelect')" placeholder="🔍 Type to search parent or child name..." class="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                        <button type="button" onclick="clearSelectFilter('schedParentSearch', 'schedParentSelect')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <select id="schedParentSelect" name="participants" disabled class="w-full bg-white border border-indigo-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose Parent to Call --</option>
+                        {% for p in parent_list %}
+                        <option value="{{ p.user_id }}">👨‍👩‍👧 {{ p.name }}{{ p.child_info }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-emerald-600 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Call alert will appear only on this parent's portal.
+                    </p>
+                </div>
+
+                <!-- Sub-Dropdown 2: Student -->
+                <div id="schedStudentWrap" class="hidden space-y-1.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                        <i class="fa-solid fa-graduation-cap text-indigo-600 mr-1"></i> Select Student
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input type="text" id="schedStudentSearch" oninput="filterSelectOptions(this, 'schedStudentSelect')" placeholder="🔍 Type to search student name, ID, or grade..." class="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                        <button type="button" onclick="clearSelectFilter('schedStudentSearch', 'schedStudentSelect')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <select id="schedStudentSelect" name="participants" disabled class="w-full bg-white border border-indigo-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose Student to Call --</option>
+                        {% for s in student_list %}
+                        <option value="{{ s.user_id }}">🎓 {{ s.name }} ({{ s.student_id }}{{ s.grade_info }})</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-emerald-600 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Call alert will appear only on this student's portal.
+                    </p>
+                </div>
+
+                <!-- Sub-Dropdown 3: Teacher -->
+                <div id="schedTeacherWrap" class="hidden space-y-1.5">
+                    <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
+                        <i class="fa-solid fa-chalkboard-user text-indigo-600 mr-1"></i> Select Teacher / Staff
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+                        <input type="text" id="schedTeacherSearch" oninput="filterSelectOptions(this, 'schedTeacherSelect')" placeholder="🔍 Type to search teacher name..." class="w-full bg-white border border-indigo-200 rounded-xl pl-8 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-sm">
+                        <button type="button" onclick="clearSelectFilter('schedTeacherSearch', 'schedTeacherSelect')" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <select id="schedTeacherSelect" name="participants" disabled class="w-full bg-white border border-indigo-300 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="">-- Choose Teacher/Staff to Call --</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">👨‍🏫 {{ t.get_full_name|default:t.username }} (Teacher)</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-[10px] text-emerald-600 font-medium">
+                        <i class="fa-solid fa-circle-check mr-1"></i> Call alert will appear in this teacher's Video Calls tab.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Date <span class="text-red-500">*</span></label>
+                    <input type="date" name="start_date" required value="{{ now|date:'Y-m-d' }}" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Start Time <span class="text-red-500">*</span></label>
+                    <input type="time" name="start_time" required value="{{ now|date:'H:i' }}" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Duration</label>
+                    <select name="duration_minutes" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500">
+                        <option value="30">30 Min</option>
+                        <option value="45" selected>45 Min</option>
+                        <option value="60">60 Min</option>
+                        <option value="90">90 Min</option>
+                        <option value="120">2 Hours</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Description / Agenda (Optional)</label>
+                <textarea name="description" rows="2" placeholder="Provide instructions, required materials, or topics covered..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Room Passcode (Optional)</label>
+                <input type="text" name="passcode" placeholder="Leave empty for open room access" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="allow_guest_access" id="schedGuestAccess" checked class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+                <label for="schedGuestAccess" class="text-xs font-bold text-slate-700 select-none">
+                    <i class="fa-solid fa-user-astronaut text-purple-600"></i> Enable Public Guest Join Link (VIPs, Parents, Inspectors)
+                </label>
+            </div>
+
+            <div class="pt-4 flex items-center gap-3">
+                <button type="button" onclick="closeModal('scheduleModal')" class="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition">
+                    Cancel
+                </button>
+                <button type="submit" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-calendar-check"></i> Confirm Schedule
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function filterSelectOptions(inputElem, selectId) {
+        const query = (inputElem.value || '').toLowerCase().trim();
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        if (!select._allOptions) {
+            select._allOptions = Array.from(select.options).map(opt => ({
+                value: opt.value,
+                text: opt.textContent
+            }));
+        }
+
+        const currentSelected = select.value;
+        select.innerHTML = '';
+
+        const matching = select._allOptions.filter((opt, idx) => {
+            if (idx === 0) return false;
+            return !query || opt.text.toLowerCase().includes(query);
+        });
+
+        const firstOpt = document.createElement('option');
+        firstOpt.value = '';
+        firstOpt.textContent = query ? `-- ${matching.length} result(s) found --` : select._allOptions[0].text;
+        select.appendChild(firstOpt);
+
+        matching.forEach(opt => {
+            const newOpt = document.createElement('option');
+            newOpt.value = opt.value;
+            newOpt.textContent = opt.text;
+            if (opt.value === currentSelected) {
+                newOpt.selected = true;
+            }
+            select.appendChild(newOpt);
+        });
+
+        if (matching.length === 1 && query.length >= 2) {
+            select.selectedIndex = 1;
+        }
+    }
+
+    function clearSelectFilter(inputId, selectId) {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.value = '';
+            filterSelectOptions(input, selectId);
+            input.focus();
+        }
+    }
+
+    function switchInviteeGroup(prefix) {
+        const typeSelect = document.getElementById(prefix + 'TargetType');
+        if (!typeSelect) return;
+        const type = typeSelect.value;
+
+        const parentWrap = document.getElementById(prefix + 'ParentWrap');
+        const parentSelect = document.getElementById(prefix + 'ParentSelect');
+        const parentSearch = document.getElementById(prefix + 'ParentSearch');
+
+        const studentWrap = document.getElementById(prefix + 'StudentWrap');
+        const studentSelect = document.getElementById(prefix + 'StudentSelect');
+        const studentSearch = document.getElementById(prefix + 'StudentSearch');
+
+        const teacherWrap = document.getElementById(prefix + 'TeacherWrap');
+        const teacherSelect = document.getElementById(prefix + 'TeacherSelect');
+        const teacherSearch = document.getElementById(prefix + 'TeacherSearch');
+
+        // Hide and disable all sub-dropdowns & clear search inputs
+        [parentWrap, studentWrap, teacherWrap].forEach(w => { if (w) w.classList.add('hidden'); });
+        [parentSelect, studentSelect, teacherSelect].forEach(s => { 
+            if (s) {
+                s.disabled = true;
+                s.value = '';
+            }
+        });
+        [parentSearch, studentSearch, teacherSearch].forEach(inp => {
+            if (inp) {
+                inp.value = '';
+            }
+        });
+
+        // Restore original options on switch
+        [parentSelect, studentSelect, teacherSelect].forEach(s => {
+            if (s && s._allOptions) {
+                s.innerHTML = '';
+                s._allOptions.forEach(opt => {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = opt.value;
+                    newOpt.textContent = opt.text;
+                    s.appendChild(newOpt);
+                });
+            }
+        });
+
+        // Activate the selected category & focus its search box
+        if (type === 'parent' && parentWrap && parentSelect) {
+            parentWrap.classList.remove('hidden');
+            parentSelect.disabled = false;
+            if (parentSearch) setTimeout(() => parentSearch.focus(), 100);
+        } else if (type === 'student' && studentWrap && studentSelect) {
+            studentWrap.classList.remove('hidden');
+            studentSelect.disabled = false;
+            if (studentSearch) setTimeout(() => studentSearch.focus(), 100);
+        } else if (type === 'teacher' && teacherWrap && teacherSelect) {
+            teacherWrap.classList.remove('hidden');
+            teacherSelect.disabled = false;
+            if (teacherSearch) setTimeout(() => teacherSearch.focus(), 100);
+        }
+    }
+
+    function openInstantModal() {
+        openModal('instantModal');
+    }
+    function openScheduleModal() {
+        openModal('scheduleModal');
+    }
+    function copyInviteLink(meetingId) {
+        const fullUrl = window.location.origin + '/video-calls/room/' + meetingId + '/';
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            alert('Member meeting link copied to clipboard!\n' + fullUrl);
+        }).catch(() => {
+            prompt('Copy this meeting link:', fullUrl);
+        });
+    }
+    function copyGuestLink(guestToken) {
+        const fullUrl = window.location.origin + '/video-calls/guest/' + guestToken + '/';
+        navigator.clipboard.writeText(fullUrl).then(() => {
+            alert('Guest Video Call Invitation link copied to clipboard!\nShare this with external guests:\n' + fullUrl);
+        }).catch(() => {
+            prompt('Copy this Guest Invitation link:', fullUrl);
+        });
+    }
+</script>
+{% endblock %}

@@ -213,6 +213,35 @@ def parent_dashboard_view(request):
     if getattr(request.user, 'role', None) in [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL]:
         all_parents = ParentProfile.objects.filter(school=school).select_related('user')[:200]
 
+    # Active & Upcoming 1-on-1 Parent-Teacher Video Calls
+    active_video_calls = []
+    upcoming_video_calls = []
+    try:
+        from apps.video_calls.models import VideoMeeting, MeetingStatus, MeetingType
+        parent_user = parent_profile.user if parent_profile else None
+        if parent_user and school:
+            from django.utils import timezone
+            now = timezone.now()
+            # Active Live Calls
+            active_video_calls = VideoMeeting.objects.filter(
+                school=school,
+                status=MeetingStatus.LIVE
+            ).filter(
+                Q(invited_participants=parent_user) |
+                Q(meeting_type=MeetingType.GENERAL)
+            ).select_related('host').distinct()
+
+            # Upcoming Scheduled Consultations
+            upcoming_video_calls = VideoMeeting.objects.filter(
+                school=school,
+                status=MeetingStatus.SCHEDULED,
+                scheduled_start__gte=now - timezone.timedelta(hours=2),
+                invited_participants=parent_user
+            ).select_related('host').order_by('scheduled_start')[:5]
+    except Exception:
+        active_video_calls = []
+        upcoming_video_calls = []
+
     return render(request, 'parents/parent_portal.html', {
         'parent_profile': parent_profile,
         'all_parents': all_parents,
@@ -233,5 +262,7 @@ def parent_dashboard_view(request):
         'outstanding_balance': outstanding_balance,
         'announcements': announcements,
         'active_borrows': active_borrows,
+        'active_video_calls': active_video_calls,
+        'upcoming_video_calls': upcoming_video_calls,
     })
 

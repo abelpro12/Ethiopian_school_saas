@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Exam Instructions & Verification | {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6" x-data="{
+    agreed: false,
+    launchFullscreenExam(targetUrl) {
+        if (!this.agreed) return;
+
+        const docEl = document.documentElement;
+        const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+
+        if (requestFS) {
+            try {
+                const fsPromise = requestFS.call(docEl);
+                if (fsPromise && typeof fsPromise.then === 'function') {
+                    fsPromise.then(() => {
+                        window.location.href = targetUrl;
+                    }).catch(() => {
+                        // If browser blocks fullscreen or user rejects, still navigate
+                        window.location.href = targetUrl;
+                    });
+                    return;
+                }
+            } catch (e) {
+                // Ignore and proceed
+            }
+        }
+        window.location.href = targetUrl;
+    }
+}">
+    <!-- Breadcrumb & Top Bar -->
+    <div class="flex items-center justify-between">
+        <a href="{% url 'examinations:student_list' %}" class="btn-secondary text-xs">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back to My Exams
+        </a>
+    </div>
+
+    <!-- Instructions Card -->
+    <div class="bg-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-200 space-y-6">
+        <div class="text-center space-y-2">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 text-white flex items-center justify-center text-2xl mx-auto shadow-lg shadow-cyan-600/30">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">{{ exam.title }}</h1>
+            <p class="text-sm font-semibold text-cyan-700">{{ exam.subject.name }}</p>
+        </div>
+
+        <!-- Metric Badges -->
+        <div class="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+            <div>
+                <p class="text-[10px] uppercase font-bold text-slate-400">Duration</p>
+                <p class="text-lg font-black text-slate-900 font-mono mt-0.5">{{ exam.duration_minutes }} Mins</p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase font-bold text-slate-400">Total Marks</p>
+                <p class="text-lg font-black text-slate-900 font-mono mt-0.5">{{ exam.total_marks }} pts</p>
+            </div>
+            <div>
+                <p class="text-[10px] uppercase font-bold text-slate-400">Questions</p>
+                <p class="text-lg font-black text-slate-900 font-mono mt-0.5">{{ exam.question_count }}</p>
+            </div>
+        </div>
+
+        <!-- Exam Specific Instructions -->
+        {% if exam.instructions %}
+        <div class="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 text-xs text-indigo-900 space-y-1">
+            <p class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-circle-info text-indigo-600"></i> Teacher Instructions:</p>
+            <p class="leading-relaxed">{{ exam.instructions }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Anti-Cheating & System Rules -->
+        <div class="space-y-3">
+            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Exam Environment Guidelines</h3>
+            <div class="space-y-2 text-xs text-slate-600">
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <i class="fa-solid fa-expand text-cyan-600 mt-0.5"></i>
+                    <div>
+                        <strong class="text-slate-800">Fullscreen Enforcement:</strong>
+                        The exam will automatically launch in fullscreen mode. Exiting fullscreen or navigating away will trigger security alerts and be logged.
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <i class="fa-solid fa-window-restore text-amber-600 mt-0.5"></i>
+                    <div>
+                        <strong class="text-slate-800">Tab Switching & Window Blur:</strong>
+                        Switching browser tabs or opening another application is logged automatically. Exceeding {{ exam.max_violations_allowed }} violations will auto-submit or disqualify your test.
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <i class="fa-solid fa-cloud-arrow-up text-emerald-600 mt-0.5"></i>
+                    <div>
+                        <strong class="text-slate-800">Automatic Answer Saving:</strong>
+                        Your answers are saved in the background upon every choice selection. If your browser closes or device restarts, your answers remain safe.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agreement Checkbox -->
+        <div class="p-4 bg-cyan-50/60 rounded-2xl border border-cyan-200/80 flex items-start gap-3">
+            <input type="checkbox" id="agree_rules" x-model="agreed" class="mt-1 w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500 cursor-pointer">
+            <label for="agree_rules" class="text-xs font-semibold text-slate-800 cursor-pointer leading-relaxed">
+                I understand and agree to follow all examination rules. I agree to remain in fullscreen mode and will maintain academic integrity throughout the test.
+            </label>
+        </div>
+
+        <!-- Launch Button -->
+        <div class="text-center pt-2">
+            <button type="button"
+                @click="launchFullscreenExam('{% url 'examinations:student_room' exam.id %}')"
+                :disabled="!agreed"
+                :class="agreed ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30 cursor-pointer hover:scale-[1.01] active:scale-[0.99]' : 'bg-slate-300 pointer-events-none opacity-60 shadow-none cursor-not-allowed'"
+                class="btn-primary w-full py-4 text-sm font-bold text-white rounded-2xl shadow-lg transition duration-200 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-expand"></i> Agree &amp; Continue (Start in Fullscreen)
+            </button>
+            <p class="text-[11px] text-slate-400 mt-2 flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-cyan-600"></i> Clicking Agree &amp; Continue will automatically launch the test in secure fullscreen mode.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -25,6 +25,67 @@
     {% endif %}
 </div>
 
+<!-- Active 1-on-1 Parent Video Call Alert Banner -->
+{% if active_video_calls %}
+<div class="mb-6 space-y-3">
+    {% for meeting in active_video_calls %}
+    <div class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl p-5 sm:p-6 text-white shadow-xl border-2 border-emerald-400/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="flex items-start sm:items-center gap-4 relative z-10">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white text-xl shrink-0 shadow-inner">
+                <i class="fa-solid fa-video animate-pulse"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-400 text-slate-900 uppercase tracking-wider shadow-sm">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-900 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
+                        </span>
+                        Live Video Call
+                    </span>
+                    <span class="text-xs text-emerald-100 font-medium">1-on-1 Parent Consultation</span>
+                </div>
+                <h3 class="text-lg sm:text-xl font-extrabold text-white leading-tight">
+                    {{ meeting.title }}
+                </h3>
+                <p class="text-xs text-emerald-100 mt-0.5">
+                    Hosted by <strong>{{ meeting.host.get_full_name|default:meeting.host.username }}</strong>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 shrink-0 relative z-10">
+            <a href="{% url 'video_calls:room' meeting.id %}" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-emerald-800 hover:bg-emerald-50 rounded-xl font-black text-sm shadow-lg transition transform hover:-translate-y-0.5">
+                <i class="fa-solid fa-video"></i> Join Call Now
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Upcoming Scheduled Parent-Teacher Consultations -->
+{% if upcoming_video_calls %}
+<div class="mb-6 bg-white rounded-2xl p-4 sm:p-5 border border-indigo-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg font-bold">
+            <i class="fa-solid fa-calendar-check"></i>
+        </div>
+        <div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Upcoming Video Meeting</span>
+            {% for m in upcoming_video_calls|slice:":1" %}
+            <p class="text-sm font-bold text-slate-800">{{ m.title }}</p>
+            <p class="text-xs text-slate-500"><i class="fa-regular fa-clock mr-1"></i>{{ m.scheduled_start|date:"M d, Y - H:i" }} with {{ m.host.get_full_name|default:m.host.username }}</p>
+            {% endfor %}
+        </div>
+    </div>
+    <a href="{% url 'video_calls:dashboard' %}" class="btn-secondary text-xs shrink-0 self-start sm:self-center">
+        <i class="fa-solid fa-calendar mr-1"></i> View All Meetings
+    </a>
+</div>
+{% endif %}
+
 {% if selected_child %}
 <!-- Child Header Card -->
 <div class="bg-gradient-to-r from-brand-700 to-slate-800 rounded-2xl p-6 text-white mb-8 shadow-md">
@@ -47,8 +108,8 @@
             </div>
 
             <div class="flex items-center space-x-2 flex-wrap gap-y-2">
-                <a href="{% url 'download_transcript_pdf' selected_child.id %}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100 transition">
-                    <i class="fa-solid fa-file-pdf mr-1.5 text-red-600"></i>Transcript
+                <a href="{% url 'official_transcript_html_view' selected_child.id %}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-graduation-cap mr-1.5 text-brand-600"></i>Official Transcript
                 </a>
                 <a href="{% url 'download_enrollment_certificate_pdf' selected_child.id %}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-white text-slate-800 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100 transition">
                     <i class="fa-solid fa-certificate mr-1.5 text-emerald-600"></i>Enrollment Cert

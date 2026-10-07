@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Grading Studio | {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Breadcrumb & Top Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <a href="{% url 'examinations:detail' exam.id %}" class="hover:text-cyan-600 truncate max-w-xs">{{ exam.title }}</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold">Grading Studio</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-marker text-amber-600"></i>
+                Grading & Evaluation Studio
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+            {% if exam.assessment_component %}
+            <a href="{% url 'examinations:sync_grades' exam.id %}" onclick="return confirm('Sync all graded online examination marks into official report card mark records?')"
+                class="btn-primary text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30">
+                <i class="fa-solid fa-rotate"></i> Sync to Gradebook
+            </a>
+            {% endif %}
+            <a href="{% url 'examinations:detail' exam.id %}" class="btn-secondary text-xs">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Overview
+            </a>
+        </div>
+    </div>
+
+    <!-- Candidate Submissions Table -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-900 font-heading">Submissions & Answer Sheets</h2>
+            <span class="badge bg-slate-100 text-slate-700 font-mono text-xs">{{ attempts|length }} attempts</span>
+        </div>
+
+        {% if attempts %}
+        <div class="table-wrap">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-3 px-3">Candidate</th>
+                        <th class="py-3 px-3">Submitted At</th>
+                        <th class="py-3 px-3">Status</th>
+                        <th class="py-3 px-3">Pending Essays</th>
+                        <th class="py-3 px-3 text-right">Score</th>
+                        <th class="py-3 px-3 text-center">Result</th>
+                        <th class="py-3 px-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-xs">
+                    {% for a in attempts %}
+                    <tr class="hover:bg-slate-50">
+                        <td class="py-3.5 px-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs">
+                                    {{ a.student.get_full_name|first|default:a.student.username|first }}
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900">{{ a.student.get_full_name|default:a.student.username }}</p>
+                                    <p class="text-[10px] text-slate-400 font-mono">{{ a.student.username }}</p>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-3 text-slate-600 font-mono text-[11px]">
+                            {{ a.submitted_at|date:"M d, H:i"|default:"In Progress" }}
+                        </td>
+
+                        <td class="py-3.5 px-3">
+                            {% if a.status == 'GRADED' %}
+                            <span class="badge badge-green">Graded</span>
+                            {% elif a.status == 'SUBMITTED' %}
+                            <span class="badge badge-blue">Pending Review</span>
+                            {% elif a.status == 'AUTO_SUBMITTED' %}
+                            <span class="badge badge-purple">Auto-Submitted</span>
+                            {% elif a.status == 'IN_PROGRESS' %}
+                            <span class="badge badge-yellow"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Active</span>
+                            {% elif a.status == 'DISQUALIFIED' %}
+                            <span class="badge badge-red">Disqualified</span>
+                            {% else %}
+                            <span class="badge badge-gray">Not Started</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="py-3.5 px-3">
+                            {% if a.pending_essay_count > 0 %}
+                            <span class="badge badge-orange font-bold">
+                                <i class="fa-solid fa-pen mr-1"></i> {{ a.pending_essay_count }} to grade
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400 text-xs">None</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="py-3.5 px-3 text-right font-mono font-bold text-slate-900 text-sm">
+                            {{ a.total_score }} / {{ exam.total_marks }}
+                        </td>
+
+                        <td class="py-3.5 px-3 text-center">
+                            {% if a.status == 'GRADED' %}
+                            <span class="badge {% if a.is_passed %}badge-green{% else %}badge-red{% endif %} text-xs font-bold">
+                                {{ a.percentage }}% {% if a.is_passed %}PASS{% else %}FAIL{% endif %}
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400 text-xs">—</span>
+                            {% endif %}
+                        </td>
+
+                        <td class="py-3.5 px-3 text-right">
+                            <a href="{% url 'examinations:grade_submission' exam.id a.id %}" class="btn-secondary text-xs px-3 py-1.5 h-auto inline-flex items-center gap-1 font-bold text-cyan-700 hover:text-cyan-800">
+                                <i class="fa-solid fa-file-pen"></i> Evaluate
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <p class="text-xs text-slate-400">No candidates have taken or submitted this exam yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

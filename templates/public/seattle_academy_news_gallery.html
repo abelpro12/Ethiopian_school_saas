@@ -120,12 +120,17 @@
                     </div>
                 </a>
 
-                <!-- Back to Main Site & Portal Login -->
+                <!-- Navigation & Portal Login -->
                 <div class="flex items-center gap-3">
                     <a href="{% url 'seattle_academy_home' %}" 
                        class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-left text-saBlue-600"></i>
-                        Main Website
+                        <i class="fa-solid fa-house text-saBlue-600"></i>
+                        Home
+                    </a>
+                    <a href="{% url 'seattle_academy_about' %}" 
+                       class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-saOrange-500"></i>
+                        About Us
                     </a>
                     <a href="{% url 'seattle_academy_login' %}" 
                        class="px-5 py-2.5 rounded-xl bg-saBlue-600 hover:bg-saBlue-700 text-white font-bold text-xs shadow-md shadow-saBlue-600/30 transition flex items-center gap-2">
@@ -133,6 +138,7 @@
                         Portal Sign In
                     </a>
                 </div>
+
             </div>
         </div>
         <div class="eth-stripe"></div>
@@ -353,10 +359,13 @@
             <div class="pt-4 border-t border-slate-900 text-xs text-slate-500 flex justify-between items-center max-w-xl mx-auto">
                 <a href="{% url 'seattle_academy_home' %}" class="hover:text-white">Main Website</a>
                 <span>•</span>
+                <a href="{% url 'seattle_academy_about' %}" class="hover:text-white">About Us</a>
+                <span>•</span>
                 <a href="{% url 'seattle_academy_login' %}" class="hover:text-white">Portal Sign In</a>
                 <span>•</span>
                 <a href="tel:+251937381801" class="hover:text-white">+251 937 381 801</a>
             </div>
+
         </div>
     </footer>
 

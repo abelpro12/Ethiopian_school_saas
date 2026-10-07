@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Live Proctoring & Monitor | {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="liveExamMonitor('{% url 'examinations:live_status_api' exam.id %}')" x-init="startPolling()">
+    <!-- Top Bar & Breadcrumb -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <a href="{% url 'examinations:detail' exam.id %}" class="hover:text-cyan-600 truncate max-w-xs">{{ exam.title }}</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold">Live Invigilation</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-display text-emerald-600"></i>
+                Live Proctoring Cockpit
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full text-xs font-bold">
+                <span class="relative flex h-2.5 w-2.5">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span>Live Feed Active</span>
+            </div>
+
+            <button @click="fetchStatus()" class="btn-secondary text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-arrows-rotate" :class="isRefreshing ? 'fa-spin' : ''"></i> Refresh
+            </button>
+
+            <a href="{% url 'examinations:detail' exam.id %}" class="btn-secondary text-xs">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Exit Monitor
+            </a>
+        </div>
+    </div>
+
+    <!-- Live Ticker Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned Candidates</p>
+            <p class="text-2xl font-black text-slate-900 mt-1" x-text="attempts.length || '{{ total_assigned }}'"></p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-emerald-100 bg-emerald-50/40 shadow-sm">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider">Currently Active</p>
+                <i class="fa-solid fa-spinner fa-spin text-emerald-500"></i>
+            </div>
+            <p class="text-2xl font-black text-emerald-700 mt-1" x-text="getActiveCount()"></p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-indigo-100 bg-indigo-50/40 shadow-sm">
+            <p class="text-xs font-bold text-indigo-700 uppercase tracking-wider">Submitted / Done</p>
+            <p class="text-2xl font-black text-indigo-700 mt-1" x-text="getCompletedCount()"></p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-red-100 bg-red-50/40 shadow-sm">
+            <div class="flex items-center justify-between">
+                <p class="text-xs font-bold text-red-700 uppercase tracking-wider">Cheating Alerts</p>
+                <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+            </div>
+            <p class="text-2xl font-black text-red-700 mt-1" x-text="getFlaggedCount()"></p>
+        </div>
+    </div>
+
+    <!-- Main Invigilator Workspace (Table & Logs) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Live Candidates Grid (8 cols) -->
+        <div class="lg:col-span-8 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h2 class="text-base font-bold text-slate-900 font-heading flex items-center gap-2">
+                    <i class="fa-solid fa-users text-indigo-600"></i> Candidates Roster
+                </h2>
+                <div class="text-xs text-slate-400">Auto-refreshing every 6s</div>
+            </div>
+
+            <!-- Table of Students -->
+            <div class="table-wrap">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            <th class="py-3 px-3">Candidate</th>
+                            <th class="py-3 px-3">Status</th>
+                            <th class="py-3 px-3">Progress</th>
+                            <th class="py-3 px-3">Time Left</th>
+                            <th class="py-3 px-3 text-center">Violations</th>
+                            <th class="py-3 px-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <template x-for="candidate in attempts" :key="candidate.id">
+                            <tr :class="candidate.is_flagged ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-slate-50'">
+                                <td class="py-3.5 px-3">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs flex-shrink-0">
+                                            <span x-text="candidate.student_name.charAt(0)"></span>
+                                        </div>
+                                        <div>
+                                            <p class="font-bold text-slate-900 truncate max-w-[140px]" x-text="candidate.student_name"></p>
+                                            <p class="text-[10px] text-slate-400 font-mono" x-text="candidate.student_id"></p>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="py-3.5 px-3">
+                                    <template x-if="candidate.status === 'IN_PROGRESS'">
+                                        <span class="badge badge-green flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Testing
+                                        </span>
+                                    </template>
+                                    <template x-if="candidate.status === 'SUBMITTED' || candidate.status === 'GRADED'">
+                                        <span class="badge badge-blue">Submitted</span>
+                                    </template>
+                                    <template x-if="candidate.status === 'AUTO_SUBMITTED'">
+                                        <span class="badge badge-purple">Auto-Submitted</span>
+                                    </template>
+                                    <template x-if="candidate.status === 'DISQUALIFIED'">
+                                        <span class="badge badge-red">Disqualified</span>
+                                    </template>
+                                    <template x-if="candidate.status === 'NOT_STARTED'">
+                                        <span class="badge badge-gray">Not Started</span>
+                                    </template>
+                                </td>
+
+                                <td class="py-3.5 px-3">
+                                    <div class="w-24">
+                                        <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-1">
+                                            <span x-text="candidate.answered_count + '/' + candidate.total_questions"></span>
+                                            <span x-text="Math.round((candidate.answered_count / (candidate.total_questions || 1)) * 100) + '%'"></span>
+                                        </div>
+                                        <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                            <div class="bg-cyan-500 h-1.5 rounded-full transition-all duration-300"
+                                                :style="'width: ' + Math.min(100, Math.round((candidate.answered_count / (candidate.total_questions || 1)) * 100)) + '%'"></div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td class="py-3.5 px-3 font-mono font-bold text-slate-700">
+                                    <span x-text="formatTime(candidate.remaining_seconds)"></span>
+                                </td>
+
+                                <td class="py-3.5 px-3 text-center">
+                                    <template x-if="candidate.violation_count > 0">
+                                        <span class="badge badge-red font-bold animate-bounce" :title="candidate.flag_reason || 'Anti-cheat violations'">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                            <span x-text="candidate.violation_count"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="candidate.violation_count === 0">
+                                        <span class="text-slate-300 text-xs">—</span>
+                                    </template>
+                                </td>
+
+                                <td class="py-3.5 px-3 text-right">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <!-- Action Trigger Modal -->
+                                        <button @click="openActionModal(candidate)" class="btn-secondary text-[11px] px-2.5 py-1.5 h-auto">
+                                            <i class="fa-solid fa-screwdriver-wrench mr-1"></i> Control
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Live Proctoring Security Feed (4 cols) -->
+        <div class="lg:col-span-4 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 font-heading flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-cyan-600"></i> Security Log Feed
+                </h3>
+                <span class="badge bg-slate-100 text-slate-700 font-mono text-[10px]">Real-time</span>
+            </div>
+
+            {% if recent_logs %}
+            <div class="divide-y divide-slate-100 max-h-[500px] overflow-y-auto space-y-2 pr-1">
+                {% for log in recent_logs %}
+                <div class="pt-2.5 pb-2.5 text-xs space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800">{{ log.attempt.student.get_full_name }}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">{{ log.timestamp|date:"H:i:s" }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        {% if log.event_type == 'TAB_SWITCH' %}
+                        <span class="badge badge-red text-[10px]"><i class="fa-solid fa-window-restore mr-1"></i> Tab Switched</span>
+                        {% elif log.event_type == 'FULLSCREEN_EXIT' %}
+                        <span class="badge badge-orange text-[10px]"><i class="fa-solid fa-compress mr-1"></i> Exited Fullscreen</span>
+                        {% elif log.event_type == 'WINDOW_BLUR' %}
+                        <span class="badge badge-yellow text-[10px]"><i class="fa-solid fa-eye-slash mr-1"></i> Window Blur</span>
+                        {% elif log.event_type == 'FORCE_SUBMIT' %}
+                        <span class="badge badge-purple text-[10px]">Force Submitted</span>
+                        {% elif log.event_type == 'EXTEND_TIME' %}
+                        <span class="badge badge-green text-[10px]">+ Time Extended</span>
+                        {% elif log.event_type == 'DISQUALIFIED' %}
+                        <span class="badge badge-red text-[10px]">Disqualified</span>
+                        {% else %}
+                        <span class="badge badge-gray text-[10px]">{{ log.get_event_type_display }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if log.event_description %}
+                    <p class="text-[11px] text-slate-500 font-mono">{{ log.event_description }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <i class="fa-solid fa-shield-check text-2xl text-slate-300 mb-2"></i>
+                <p class="text-xs text-slate-500 font-semibold">No Security Incidents</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">All candidates complying with proctoring rules.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Invigilator Action Intervention Modal -->
+    <div x-show="selectedCandidate" class="modal-overlay active" style="display: none;" x-show.transition="selectedCandidate">
+        <div class="modal-content max-w-md bg-white rounded-2xl p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5" @click.away="selectedCandidate = null">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Candidate Control</h3>
+                    <p class="text-xs text-slate-500 font-bold" x-text="selectedCandidate ? selectedCandidate.student_name : ''"></p>
+                </div>
+                <button type="button" @click="selectedCandidate = null" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form method="POST" action="{% url 'examinations:monitor_action' exam.id %}" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="attempt_id" :value="selectedCandidate ? selectedCandidate.id : ''">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Intervention Action</label>
+                    <select name="action" x-model="modalAction" class="input-field text-sm font-semibold">
+                        <option value="extend_time">Grant Extra Time (+ Minutes)</option>
+                        <option value="force_submit">Force Submit Candidate Exam</option>
+                        <option value="disqualify">Disqualify Candidate (Cheating / Malpractice)</option>
+                        <option value="clear_flag">Clear Cheating Flags</option>
+                    </select>
+                </div>
+
+                <div x-show="modalAction === 'extend_time'">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Extra Time (Minutes)</label>
+                    <input type="number" name="extra_minutes" value="10" min="1" max="60" class="input-field font-bold">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Reason / Note</label>
+                    <input type="text" name="reason" placeholder="e.g., Computer restart or power glitch..." class="input-field text-xs">
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" @click="selectedCandidate = null" class="btn-secondary text-xs">Cancel</button>
+                    <button type="submit" class="btn-primary text-xs px-5 py-2">
+                        Confirm Action
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function liveExamMonitor(apiUrl) {
+    return {
+        apiUrl: apiUrl,
+        attempts: [],
+        selectedCandidate: null,
+        modalAction: 'extend_time',
+        isRefreshing: false,
+        pollInterval: null,
+
+        startPolling() {
+            this.fetchStatus();
+            this.pollInterval = setInterval(() => {
+                this.fetchStatus();
+            }, 6000);
+        },
+
+        fetchStatus() {
+            this.isRefreshing = true;
+            fetch(this.apiUrl)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        this.attempts = data.attempts;
+                    }
+                    this.isRefreshing = false;
+                })
+                .catch(err => {
+                    this.isRefreshing = false;
+                });
+        },
+
+        getActiveCount() {
+            return this.attempts.filter(a => a.status === 'IN_PROGRESS').length;
+        },
+
+        getCompletedCount() {
+            return this.attempts.filter(a => ['SUBMITTED', 'AUTO_SUBMITTED', 'GRADED'].includes(a.status)).length;
+        },
+
+        getFlaggedCount() {
+            return this.attempts.filter(a => a.is_flagged || a.violation_count > 0).length;
+        },
+
+        formatTime(seconds) {
+            if (!seconds || seconds <= 0) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+        },
+
+        openActionModal(candidate) {
+            this.selectedCandidate = candidate;
+            this.modalAction = 'extend_time';
+        }
+    }
+}
+</script>
+{% endblock %}

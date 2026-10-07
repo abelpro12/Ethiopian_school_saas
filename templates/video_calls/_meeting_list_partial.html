@@ -1,0 +1,116 @@
+{% if meetings %}
+<div class="overflow-x-auto -mx-2 sm:mx-0">
+    <table class="w-full text-left text-xs border-collapse">
+        <thead>
+            <tr class="border-b border-slate-100 text-slate-400 font-extrabold uppercase tracking-wider text-[10px]">
+                <th class="py-3 px-3">Session & Type</th>
+                <th class="py-3 px-3">Target Roster</th>
+                <th class="py-3 px-3">Date & Time</th>
+                <th class="py-3 px-3">Host</th>
+                <th class="py-3 px-3">Status</th>
+                <th class="py-3 px-3 text-right">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100/80">
+            {% for m in meetings %}
+            <tr class="hover:bg-slate-50/80 transition">
+                <td class="py-3.5 px-3">
+                    <div class="space-y-0.5">
+                        <span class="font-extrabold text-slate-900 text-xs block hover:text-indigo-600 transition">{{ m.title }}</span>
+                        <div class="flex items-center gap-1.5 text-[11px]">
+                            {% if m.meeting_type == 'VIRTUAL_CLASS' %}
+                            <span class="badge badge-blue"><i class="fa-solid fa-chalkboard"></i> Virtual Class</span>
+                            {% elif m.meeting_type == 'PARENT_TEACHER' %}
+                            <span class="badge badge-orange"><i class="fa-solid fa-users"></i> Parent-Teacher</span>
+                            {% elif m.meeting_type == 'STAFF_MEETING' %}
+                            <span class="badge badge-purple"><i class="fa-solid fa-user-tie"></i> Staff Conference</span>
+                            {% elif m.meeting_type == 'GUEST_CONSULTATION' %}
+                            <span class="badge badge-purple"><i class="fa-solid fa-user-astronaut"></i> VIP Guest Call</span>
+                            {% else %}
+                            <span class="badge badge-teal"><i class="fa-solid fa-phone"></i> {{ m.get_meeting_type_display }}</span>
+                            {% endif %}
+                            <span class="text-slate-400 font-mono font-medium">{{ m.duration_minutes }}m</span>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="py-3.5 px-3">
+                    {% if m.target_grade or m.target_section or m.target_subject %}
+                    <div class="flex flex-wrap gap-1 text-[10px]">
+                        {% if m.target_grade %}<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-bold">{{ m.target_grade.name }}</span>{% endif %}
+                        {% if m.target_section %}<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">Sec {{ m.target_section.name }}</span>{% endif %}
+                        {% if m.target_subject %}<span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">{{ m.target_subject.name }}</span>{% endif %}
+                    </div>
+                    {% else %}
+                    <span class="text-slate-400 italic text-[11px]">Open / Guest Call</span>
+                    {% endif %}
+                </td>
+
+                <td class="py-3.5 px-3 whitespace-nowrap">
+                    <div class="font-bold text-slate-800">{{ m.scheduled_start|date:"M d, Y" }}</div>
+                    <div class="text-[11px] text-slate-400">{{ m.scheduled_start|time:"g:i A" }}</div>
+                </td>
+
+                <td class="py-3.5 px-3 whitespace-nowrap">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-[9px]">
+                            {{ m.host.username|slice:":1"|upper }}
+                        </div>
+                        <span class="font-semibold text-slate-700">{{ m.host.get_full_name|default:m.host.username }}</span>
+                    </div>
+                </td>
+
+                <td class="py-3.5 px-3 whitespace-nowrap">
+                    {% if m.status == 'LIVE' %}
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-500 text-white shadow-sm animate-pulse">
+                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span> LIVE
+                    </span>
+                    {% elif m.status == 'SCHEDULED' %}
+                    <span class="badge badge-blue">Scheduled</span>
+                    {% elif m.status == 'ENDED' %}
+                    <span class="badge badge-gray">Ended</span>
+                    {% else %}
+                    <span class="badge badge-red">{{ m.get_status_display }}</span>
+                    {% endif %}
+                </td>
+
+                <td class="py-3.5 px-3 text-right whitespace-nowrap">
+                    <div class="inline-flex items-center gap-1.5">
+                        {% if m.status != 'ENDED' and m.status != 'CANCELLED' %}
+                        <a href="{% url 'video_calls:room' m.id %}" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-extrabold shadow-sm flex items-center gap-1 transition">
+                            <i class="fa-solid fa-video"></i> Join
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'video_calls:detail' m.id %}" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition" title="View Summary & Attendance">
+                            <i class="fa-solid fa-chart-pie"></i>
+                        </a>
+                        <button type="button" onclick="copyInviteLink('{{ m.id }}')" class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition" title="Copy Member Link">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                        {% if m.allow_guest_access and m.guest_token %}
+                        <button type="button" onclick="copyGuestLink('{{ m.guest_token }}')" class="p-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 transition" title="Copy Guest Invite Link">
+                            <i class="fa-solid fa-user-astronaut"></i>
+                        </button>
+                        {% endif %}
+                        {% if m.host_id == user.id or user.role == 'SCHOOL_ADMIN' or user.role == 'PRINCIPAL' or user.role == 'SUPER_ADMIN' %}
+                        <form method="POST" action="{% url 'video_calls:delete' m.id %}" class="inline" onsubmit="return confirm('Are you sure you want to delete this scheduled meeting: {{ m.title|escapejs }}?');">
+                            {% csrf_token %}
+                            <button type="submit" class="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 transition" title="Delete Meeting">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-10 text-slate-400">
+    <i class="fa-regular fa-calendar-xmark text-3xl mb-2 block"></i>
+    <p class="text-xs font-semibold">{{ empty_msg|default:"No meetings found." }}</p>
+</div>
+{% endif %}

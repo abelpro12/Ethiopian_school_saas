@@ -40,10 +40,12 @@ class SchoolNews(TenantAwareModel):
     image = models.ImageField(upload_to='school_news/', blank=True, null=True)
     image_url = models.CharField(max_length=500, blank=True, null=True)
     is_published = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0, help_text="Display order sequence (lower values appear first)")
+    is_featured = models.BooleanField(default=True, help_text="Show on the main school landing page")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['order', '-created_at']
 
     def __str__(self):
         return self.title
@@ -55,10 +57,12 @@ class SchoolGallery(TenantAwareModel):
     category = models.CharField(max_length=100, default='Campus Life')
     image = models.ImageField(upload_to='school_gallery/', blank=True, null=True)
     image_url = models.CharField(max_length=500, blank=True, null=True)
+    order = models.PositiveIntegerField(default=0, help_text="Display order sequence (lower values appear first)")
+    is_featured = models.BooleanField(default=True, help_text="Show on the main school landing page")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['order', '-created_at']
 
     def __str__(self):
         return self.title

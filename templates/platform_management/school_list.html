@@ -54,6 +54,34 @@
             </div>
         </div>
         <div class="table-wrap">
+            <!-- Mobile Cards -->
+            <div class="sm:hidden divide-y divide-slate-100">
+                {% for sch in schools %}
+                <div class="p-4 hover:bg-slate-50 transition">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md flex-shrink-0">{{ sch.name|slice:":1" }}</div>
+                            <div class="min-w-0">
+                                <p class="font-bold text-slate-900 text-sm truncate">{{ sch.name }}</p>
+                                <p class="text-[10px] font-mono text-purple-600">{{ sch.code }}</p>
+                            </div>
+                        </div>
+                        {% if sch.is_active %}<span class="badge badge-green flex-shrink-0">Active</span>{% else %}<span class="badge badge-red flex-shrink-0">Inactive</span>{% endif %}
+                    </div>
+                    <div class="text-xs text-slate-500 space-y-1 pl-12">
+                        <p><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>{{ sch.region|default:"—" }}{% if sch.woreda %} / {{ sch.woreda }}{% endif %}</p>
+                        <p><i class="fa-solid fa-globe text-slate-400 mr-1"></i>{{ sch.subdomain }}.ethiopiaschools.et</p>
+                    </div>
+                    <div class="flex gap-2 mt-3 pl-12">
+                        <a href="{% url 'platform:school_detail' sch.id %}" class="text-xs font-bold text-brand-600 bg-brand-50 border border-brand-200 px-3 py-1.5 rounded-lg hover:bg-brand-100 transition">View Details</a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-8 text-center text-slate-400 text-sm">No schools registered yet.</div>
+                {% endfor %}
+            </div>
+            <!-- Desktop Table -->
+            <div class="hidden sm:block overflow-x-auto">
             <table class="w-full text-left text-sm whitespace-nowrap">
                 <thead class="bg-slate-100/70 text-slate-600 uppercase tracking-wider text-[11px] font-bold border-b border-slate-200/80">
                     <tr>
@@ -217,6 +245,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div><!-- end desktop overflow wrapper -->
         </div>
     </div>
 </div>

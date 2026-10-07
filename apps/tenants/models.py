@@ -49,7 +49,7 @@ class School(models.Model):
         sub = getattr(self, 'subscription', None)
         if sub:
             sub.sync_status()
-            if sub.is_expired:
+            if not sub.is_usable():
                 return {'label': 'Expired', 'badge': 'badge-red'}
             if sub.status == 'GRACE_PERIOD':
                 return {'label': 'Grace Period', 'badge': 'badge-yellow'}
@@ -57,6 +57,8 @@ class School(models.Model):
                 return {'label': f'Trial ({sub.days_remaining}d)', 'badge': 'badge-blue'}
             if sub.status == 'ACTIVE':
                 return {'label': 'Active', 'badge': 'badge-green'}
+        else:
+            return {'label': 'No Subscription', 'badge': 'badge-red'}
                 
         if self.is_active:
             return {'label': 'Active', 'badge': 'badge-green'}

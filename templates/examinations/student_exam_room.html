@@ -1,0 +1,656 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ exam.title }} | Secure CBT Room</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-user-select: none; user-select: none; }
+        h1,h2,h3,h4,h5,h6 { font-family: 'Outfit', sans-serif; }
+        [x-cloak] { display: none !important; }
+        .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.65); backdrop-filter:blur(8px); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+    </style>
+</head>
+
+<body class="h-full bg-slate-100 text-slate-800 antialiased flex flex-col overflow-hidden"
+    x-data="cbtExamRoom()" x-init="initExam()">
+
+    <!-- ═══════════════ TOP SECURE EXAM APP BAR ═══════════════ -->
+    <header class="bg-slate-900 text-white h-16 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 shadow-lg border-b border-slate-800 relative z-20">
+        <div class="flex items-center gap-3 min-w-0">
+            <div class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center text-base flex-shrink-0">
+                <i class="fa-solid fa-laptop-code"></i>
+            </div>
+            <div class="min-w-0">
+                <h1 class="font-heading font-extrabold text-sm sm:text-base text-white truncate">{{ exam.title }}</h1>
+                <p class="text-[11px] text-slate-400 truncate">{{ exam.subject.name }} • Candidate: <strong>{{ user.get_full_name|default:user.username }}</strong></p>
+            </div>
+        </div>
+
+        <!-- Timer & Status Center -->
+        <div class="flex items-center gap-3 sm:gap-6">
+            <!-- Autosave Indicator -->
+            <div class="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                <i class="fa-solid fa-cloud-arrow-up text-sm" :class="isSaving ? 'animate-bounce text-amber-400' : ''"></i>
+                <span x-text="isSaving ? 'Saving...' : 'Saved'"></span>
+            </div>
+
+            <!-- Countdown Timer Clock -->
+            <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border font-mono font-black text-sm sm:text-base shadow-inner transition duration-300"
+                :class="remainingSeconds <= 300 ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse' : 'bg-slate-800 border-slate-700 text-cyan-300'">
+                <i class="fa-solid fa-stopwatch text-sm"></i>
+                <span x-text="formatTimer()"></span>
+            </div>
+
+            <!-- Fullscreen Indicator & Restore Button -->
+            <button type="button" @click="enterFullscreen(true)"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs"
+                :class="isFullscreen ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white' : 'bg-red-500/20 border-red-500 text-red-400 animate-pulse hover:bg-red-500/30'"
+                :title="isFullscreen ? 'Fullscreen Active' : 'Click to Restore Fullscreen'">
+                <i class="fa-solid" :class="isFullscreen ? 'fa-compress text-[11px]' : 'fa-expand text-[11px]'"></i>
+                <span class="hidden sm:inline" x-text="isFullscreen ? 'Fullscreen' : 'Restore Fullscreen'"></span>
+            </button>
+
+            <!-- Submit Button -->
+            <button type="button" @click="showConfirmSubmit = true"
+                class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-check"></i> <span class="hidden sm:inline">Finish &</span> Submit
+            </button>
+        </div>
+    </header>
+
+    <!-- ═══════════════ MAIN EXAM WORKSPACE ═══════════════ -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Center Question Viewport -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col justify-between">
+            <div class="max-w-3xl mx-auto w-full space-y-6">
+                <!-- Question Card Header -->
+                <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 space-y-6">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-xl bg-slate-900 text-white font-mono font-black text-sm flex items-center justify-center"
+                                x-text="currentQuestionIndex + 1"></span>
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                Question <span x-text="currentQuestionIndex + 1"></span> of <span x-text="questions.length"></span>
+                            </span>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-full font-mono"
+                                x-text="currentQuestion.points + ' Marks'"></span>
+
+                            <button type="button" @click="toggleReviewFlag()"
+                                class="text-xs font-bold px-3 py-1 rounded-full border transition flex items-center gap-1.5"
+                                :class="currentQuestion.is_marked_for_review ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'">
+                                <i class="fa-solid fa-bookmark" :class="currentQuestion.is_marked_for_review ? 'text-purple-600' : ''"></i>
+                                <span x-text="currentQuestion.is_marked_for_review ? 'Marked for Review' : 'Mark for Review'"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Question Prompt Content -->
+                    <div class="text-base sm:text-lg font-bold text-slate-900 leading-relaxed font-heading"
+                        x-text="currentQuestion.question_text">
+                    </div>
+
+                    <!-- 1. MCQ (Single Selection Radio) -->
+                    <template x-if="currentQuestion.question_type === 'MCQ'">
+                        <div class="space-y-3 pt-2">
+                            <template x-for="(opt, optIdx) in currentQuestion.options" :key="opt.id">
+                                <label class="p-4 rounded-2xl border-2 cursor-pointer transition flex items-center gap-3.5 group"
+                                    :class="isOptionSelected(opt.id) ? 'border-cyan-500 bg-cyan-50/50 shadow-sm text-cyan-950 font-bold' : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-medium'">
+                                    <input type="radio" :name="'q_' + currentQuestion.id" :value="opt.id"
+                                        @change="selectSingleOption(opt.id)"
+                                        :checked="isOptionSelected(opt.id)" class="hidden">
+                                    <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition"
+                                        :class="isOptionSelected(opt.id) ? 'border-cyan-500 bg-cyan-500 text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'">
+                                        <i class="fa-solid fa-check text-[10px]" x-show="isOptionSelected(opt.id)"></i>
+                                    </div>
+                                    <span class="text-sm sm:text-base leading-snug" x-text="opt.option_text"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- 2. MULTIPLE CHOICE (Multi-Select Checkboxes) -->
+                    <template x-if="currentQuestion.question_type === 'MULTIPLE_CHOICE'">
+                        <div class="space-y-3 pt-2">
+                            <p class="text-xs font-bold text-indigo-600"><i class="fa-solid fa-circle-info mr-1"></i> Select all options that apply:</p>
+                            <template x-for="(opt, optIdx) in currentQuestion.options" :key="opt.id">
+                                <label class="p-4 rounded-2xl border-2 cursor-pointer transition flex items-center gap-3.5 group"
+                                    :class="isOptionSelected(opt.id) ? 'border-indigo-500 bg-indigo-50/50 shadow-sm text-indigo-950 font-bold' : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700 font-medium'">
+                                    <input type="checkbox" :value="opt.id"
+                                        @change="toggleMultipleOption(opt.id)"
+                                        :checked="isOptionSelected(opt.id)" class="hidden">
+                                    <div class="w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition"
+                                        :class="isOptionSelected(opt.id) ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'">
+                                        <i class="fa-solid fa-check text-[10px]" x-show="isOptionSelected(opt.id)"></i>
+                                    </div>
+                                    <span class="text-sm sm:text-base leading-snug" x-text="opt.option_text"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- 3. TRUE / FALSE -->
+                    <template x-if="currentQuestion.question_type === 'TRUE_FALSE'">
+                        <div class="grid grid-cols-2 gap-4 pt-2">
+                            <template x-for="opt in currentQuestion.options" :key="opt.id">
+                                <button type="button" @click="selectSingleOption(opt.id)"
+                                    class="p-5 rounded-2xl border-2 font-bold text-base transition flex items-center justify-center gap-3"
+                                    :class="isOptionSelected(opt.id) ? 'border-cyan-500 bg-cyan-50 text-cyan-900 shadow-md ring-2 ring-cyan-400/20' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'">
+                                    <i class="fa-solid" :class="opt.option_text.toLowerCase() === 'true' ? 'fa-circle-check text-emerald-500' : 'fa-circle-xmark text-red-500'"></i>
+                                    <span x-text="opt.option_text"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- 4. SHORT ANSWER / FILL IN THE BLANK -->
+                    <template x-if="currentQuestion.question_type === 'SHORT_ANSWER'">
+                        <div class="space-y-3 pt-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Type Your Answer</label>
+                            <input type="text" x-model="currentQuestion.text_response" @input.debounce.500ms="saveCurrentAnswer()"
+                                placeholder="Type exact answer here..."
+                                class="w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100 outline-none text-base font-semibold transition">
+                        </div>
+                    </template>
+
+                    <!-- 5. ESSAY / DESCRIPTIVE RESPONSE -->
+                    <template x-if="currentQuestion.question_type === 'ESSAY'">
+                        <div class="space-y-3 pt-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Essay Response</label>
+                            <textarea rows="6" x-model="currentQuestion.text_response" @input.debounce.800ms="saveCurrentAnswer()"
+                                placeholder="Type your detailed response here..."
+                                class="w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none text-sm font-serif leading-relaxed transition"></textarea>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Bottom Navigation Buttons -->
+                <div class="flex items-center justify-between pt-2">
+                    <button type="button" @click="prevQuestion()" :disabled="currentQuestionIndex === 0 || !examConfig.allow_backtracking"
+                        :class="(currentQuestionIndex === 0 || !examConfig.allow_backtracking) ? 'opacity-40 pointer-events-none' : ''"
+                        class="btn-secondary px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-left"></i> Previous Question
+                    </button>
+
+                    <button type="button" @click="nextQuestion()" x-show="currentQuestionIndex < questions.length - 1"
+                        class="btn-primary px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-slate-900 hover:bg-slate-800">
+                        Next Question <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+
+                    <button type="button" @click="showConfirmSubmit = true" x-show="currentQuestionIndex === questions.length - 1"
+                        class="btn-primary px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600">
+                        <i class="fa-solid fa-circle-check"></i> Review & Submit Exam
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Side: Question Matrix Palette -->
+        <aside class="w-72 bg-white border-l border-slate-200 p-6 flex flex-col justify-between flex-shrink-0 hidden lg:flex">
+            <div class="space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 class="text-sm font-bold text-slate-900 font-heading">Question Palette</h3>
+                    <span class="text-xs font-bold text-slate-400" x-text="getAnsweredCount() + '/' + questions.length + ' Done'"></span>
+                </div>
+
+                <!-- Grid Matrix -->
+                <div class="grid grid-cols-4 gap-2.5">
+                    <template x-for="(q, idx) in questions" :key="q.id">
+                        <button type="button" @click="jumpToQuestion(idx)" :disabled="!examConfig.allow_backtracking && idx < currentQuestionIndex"
+                            class="h-11 rounded-xl text-xs font-black font-mono flex items-center justify-center transition border-2 relative"
+                            :class="{
+                                'border-cyan-500 ring-2 ring-cyan-400/40 text-cyan-700': currentQuestionIndex === idx,
+                                'bg-emerald-500 border-emerald-600 text-white shadow-sm': isQuestionAnswered(q) && currentQuestionIndex !== idx,
+                                'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300': !isQuestionAnswered(q) && currentQuestionIndex !== idx,
+                                'ring-2 ring-purple-400 border-purple-400': q.is_marked_for_review
+                            }">
+                            <span x-text="idx + 1"></span>
+                            <template x-if="q.is_marked_for_review">
+                                <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-purple-600 border border-white"></span>
+                            </template>
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Legend -->
+                <div class="pt-4 border-t border-slate-100 space-y-2 text-[11px] text-slate-500 font-medium">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded bg-emerald-500"></span>
+                        <span>Answered</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded bg-slate-200"></span>
+                        <span>Unanswered</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 rounded bg-purple-500"></span>
+                        <span>Marked for Review</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candidate Security Badge -->
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 text-center text-[11px] text-slate-500">
+                <i class="fa-solid fa-shield-halved text-cyan-600 mb-1"></i>
+                <p>Secure CBT Session Active</p>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ═══════════════ CONFIRM SUBMIT MODAL ═══════════════ -->
+    <div x-show="showConfirmSubmit" class="modal-overlay active" x-cloak>
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 text-center space-y-5"
+            @click.away="showConfirmSubmit = false">
+            <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl mx-auto">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-extrabold font-heading text-slate-900">Submit Examination?</h3>
+                <p class="text-xs text-slate-500 mt-1">Please confirm that you have completed all questions.</p>
+            </div>
+
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                    <p class="text-slate-400 font-bold uppercase">Answered</p>
+                    <p class="text-lg font-black text-emerald-600 mt-0.5" x-text="getAnsweredCount()"></p>
+                </div>
+                <div>
+                    <p class="text-slate-400 font-bold uppercase">Unanswered</p>
+                    <p class="text-lg font-black text-rose-600 mt-0.5" x-text="questions.length - getAnsweredCount()"></p>
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'examinations:student_submit' exam.id %}">
+                {% csrf_token %}
+                <div class="flex items-center gap-3">
+                    <button type="button" @click="showConfirmSubmit = false" class="btn-secondary flex-1 text-xs">
+                        Continue Test
+                    </button>
+                    <button type="submit" class="btn-primary flex-1 text-xs bg-emerald-600 hover:bg-emerald-500">
+                        Yes, Submit Now
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════ MANDATORY FULLSCREEN LOCK / GATE OVERLAY ═══════════════ -->
+    <div x-show="showFullscreenGate && !showConfirmSubmit" class="modal-overlay" style="z-index: 60;" x-cloak>
+        <div class="bg-white rounded-3xl p-6 sm:p-10 max-w-lg w-full shadow-2xl border-2 border-cyan-500 text-center space-y-5 animate-in fade-in zoom-in duration-200">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 text-white flex items-center justify-center text-3xl mx-auto shadow-lg shadow-cyan-600/30">
+                <i class="fa-solid fa-expand"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl font-black font-heading text-slate-900">Secure CBT Fullscreen Required</h2>
+                <p class="text-xs text-slate-600 mt-2 leading-relaxed">
+                    This online examination operates in a secure, distraction-free environment. <strong>Fullscreen mode is strictly mandatory</strong>. Exiting fullscreen or navigating away triggers security alerts and is reported to your exam supervisor.
+                </p>
+            </div>
+
+            <div class="p-3.5 bg-cyan-50 border border-cyan-100 rounded-2xl text-left text-xs text-cyan-900 flex items-start gap-2.5">
+                <i class="fa-solid fa-circle-check text-cyan-600 text-sm mt-0.5 flex-shrink-0"></i>
+                <span class="leading-relaxed">Click below to enter fullscreen mode now. Your timer and exam answers remain active and securely saved.</span>
+            </div>
+
+            <button type="button" @click="enterFullscreen(true)"
+                class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm rounded-2xl shadow-lg shadow-emerald-600/30 hover:scale-[1.01] active:scale-[0.99] transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-expand"></i> Enter Fullscreen &amp; Continue Exam
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════ SECURITY VIOLATION ALERT MODAL ═══════════════ -->
+    <div x-show="showViolationAlert" class="modal-overlay active" style="z-index: 70;" x-cloak>
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border-2 border-red-500 text-center space-y-4">
+            <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-2xl mx-auto animate-bounce">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-extrabold font-heading text-red-700">Security Incident Detected</h3>
+                <p class="text-xs text-slate-600 mt-1" x-text="violationMessage"></p>
+            </div>
+
+            <div class="p-3 bg-red-50 rounded-xl text-xs text-red-800 font-bold">
+                Violation <span x-text="violationCount"></span> of <span x-text="examConfig.maxViolations"></span> Recorded
+            </div>
+
+            <button type="button" @click="dismissViolationAlert()"
+                class="btn-primary w-full text-xs bg-red-600 hover:bg-red-700">
+                I Understand & Return to Fullscreen
+            </button>
+        </div>
+    </div>
+
+    <!-- Server Data Script -->
+    <script id="exam-data" type="application/json">
+    {
+        "examId": "{{ exam.id }}",
+        "attemptId": "{{ attempt.id }}",
+        "remainingSeconds": {{ remaining_seconds }},
+        "allowBacktracking": {{ exam.allow_backtracking|yesno:"true,false" }},
+        "enableProctoring": {{ exam.enable_proctoring|yesno:"true,false" }},
+        "maxViolations": {{ exam.max_violations_allowed }},
+        "saveAnswerUrl": "{% url 'examinations:save_answer_api' %}",
+        "logEventUrl": "{% url 'examinations:log_proctoring_api' %}",
+        "questions": [
+            {% for item in questions_data %}
+            {
+                "id": "{{ item.question.id }}",
+                "question_text": "{{ item.question.question_text|escapejs }}",
+                "question_type": "{{ item.question.question_type }}",
+                "points": "{{ item.question.points }}",
+                "selected_option_ids": [{% for opt_id in item.selected_option_ids %}"{{ opt_id }}"{% if not forloop.last %},{% endif %}{% endfor %}],
+                "text_response": "{{ item.text_response|escapejs }}",
+                "is_marked_for_review": {{ item.is_marked_for_review|yesno:"true,false" }},
+                "options": [
+                    {% for opt in item.options %}
+                    {
+                        "id": "{{ opt.id }}",
+                        "option_text": "{{ opt.option_text|escapejs }}"
+                    }{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                ]
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ]
+    }
+    </script>
+
+    <script>
+    function cbtExamRoom() {
+        const rawData = JSON.parse(document.getElementById('exam-data').textContent);
+
+        return {
+            examConfig: {
+                examId: rawData.examId,
+                attemptId: rawData.attemptId,
+                allow_backtracking: rawData.allowBacktracking,
+                enableProctoring: rawData.enableProctoring,
+                maxViolations: rawData.maxViolations,
+                saveAnswerUrl: rawData.saveAnswerUrl,
+                logEventUrl: rawData.logEventUrl
+            },
+            questions: rawData.questions,
+            currentQuestionIndex: 0,
+            remainingSeconds: rawData.remainingSeconds,
+            isSaving: false,
+            showConfirmSubmit: false,
+            showViolationAlert: false,
+            violationMessage: '',
+            violationCount: 0,
+            timerInterval: null,
+            isFullscreen: false,
+            showFullscreenGate: false,
+            examStarted: false,
+
+            get currentQuestion() {
+                return this.questions[this.currentQuestionIndex] || {};
+            },
+
+            initExam() {
+                this.startTimer();
+                this.initFullscreenMonitoring();
+                if (this.examConfig.enableProctoring) {
+                    this.setupProctoring();
+                }
+                // Attempt immediate fullscreen entry
+                this.enterFullscreen(false);
+            },
+
+            initFullscreenMonitoring() {
+                const checkFS = () => {
+                    const fsElement = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+                    const wasFullscreen = this.isFullscreen;
+                    this.isFullscreen = !!fsElement;
+
+                    if (this.isFullscreen) {
+                        this.showFullscreenGate = false;
+                        this.examStarted = true;
+                    } else if (this.examConfig.enableProctoring) {
+                        this.showFullscreenGate = true;
+                        if (wasFullscreen && this.examStarted) {
+                            this.logProctoringEvent('FULLSCREEN_EXIT', 'Exited fullscreen examination mode');
+                        }
+                    }
+                };
+
+                document.addEventListener('fullscreenchange', checkFS);
+                document.addEventListener('webkitfullscreenchange', checkFS);
+                document.addEventListener('mozfullscreenchange', checkFS);
+                document.addEventListener('MSFullscreenChange', checkFS);
+
+                // Initial state check
+                checkFS();
+            },
+
+            enterFullscreen(userInitiated = true) {
+                const docEl = document.documentElement;
+                const requestFS = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.mozRequestFullScreen || docEl.msRequestFullscreen;
+
+                if (requestFS) {
+                    try {
+                        const p = requestFS.call(docEl);
+                        if (p && typeof p.then === 'function') {
+                            p.then(() => {
+                                this.isFullscreen = true;
+                                this.showFullscreenGate = false;
+                                this.examStarted = true;
+                            }).catch(err => {
+                                if (userInitiated) {
+                                    console.warn("Fullscreen request:", err);
+                                }
+                                const fsElement = document.fullscreenElement || document.webkitFullscreenElement;
+                                if (!fsElement && this.examConfig.enableProctoring) {
+                                    this.showFullscreenGate = true;
+                                }
+                            });
+                            return;
+                        }
+                    } catch (e) {
+                        // Fallback
+                    }
+                }
+                this.isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            },
+
+            startTimer() {
+                this.timerInterval = setInterval(() => {
+                    if (this.remainingSeconds > 0) {
+                        this.remainingSeconds--;
+                    } else {
+                        clearInterval(this.timerInterval);
+                        this.autoSubmitDueToTimeout();
+                    }
+                }, 1000);
+            },
+
+            formatTimer() {
+                const hours = Math.floor(this.remainingSeconds / 3600);
+                const mins = Math.floor((this.remainingSeconds % 3600) / 60);
+                const secs = this.remainingSeconds % 60;
+                
+                if (hours > 0) {
+                    return `${hours}:${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                }
+                return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            },
+
+            isOptionSelected(optId) {
+                return this.currentQuestion.selected_option_ids && this.currentQuestion.selected_option_ids.includes(optId);
+            },
+
+            selectSingleOption(optId) {
+                this.currentQuestion.selected_option_ids = [optId];
+                this.saveCurrentAnswer();
+            },
+
+            toggleMultipleOption(optId) {
+                if (!this.currentQuestion.selected_option_ids) {
+                    this.currentQuestion.selected_option_ids = [];
+                }
+                const idx = this.currentQuestion.selected_option_ids.indexOf(optId);
+                if (idx > -1) {
+                    this.currentQuestion.selected_option_ids.splice(idx, 1);
+                } else {
+                    this.currentQuestion.selected_option_ids.push(optId);
+                }
+                this.saveCurrentAnswer();
+            },
+
+            toggleReviewFlag() {
+                this.currentQuestion.is_marked_for_review = !this.currentQuestion.is_marked_for_review;
+                this.saveCurrentAnswer();
+            },
+
+            isQuestionAnswered(q) {
+                if (!q) return false;
+                const hasOpts = q.selected_option_ids && q.selected_option_ids.length > 0;
+                const hasText = q.text_response && q.text_response.trim().length > 0;
+                return hasOpts || hasText;
+            },
+
+            getAnsweredCount() {
+                return this.questions.filter(q => this.isQuestionAnswered(q)).length;
+            },
+
+            nextQuestion() {
+                if (this.currentQuestionIndex < this.questions.length - 1) {
+                    this.currentQuestionIndex++;
+                }
+            },
+
+            prevQuestion() {
+                if (this.currentQuestionIndex > 0 && this.examConfig.allow_backtracking) {
+                    this.currentQuestionIndex--;
+                }
+            },
+
+            jumpToQuestion(index) {
+                if (this.examConfig.allow_backtracking || index >= this.currentQuestionIndex) {
+                    this.currentQuestionIndex = index;
+                }
+            },
+
+            saveCurrentAnswer() {
+                this.isSaving = true;
+                const q = this.currentQuestion;
+
+                fetch(this.examConfig.saveAnswerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        attempt_id: this.examConfig.attemptId,
+                        question_id: q.id,
+                        selected_option_ids: q.selected_option_ids || [],
+                        text_response: q.text_response || '',
+                        is_marked_for_review: q.is_marked_for_review || false
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    this.isSaving = false;
+                })
+                .catch(err => {
+                    this.isSaving = false;
+                });
+            },
+
+            setupProctoring() {
+                // Prevent Context Menu
+                document.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.logProctoringEvent('RIGHT_CLICK', 'Right click attempted');
+                });
+
+                // Prevent Copy / Paste
+                document.addEventListener('copy', (e) => {
+                    e.preventDefault();
+                    this.logProctoringEvent('COPY_PASTE', 'Clipboard copy attempted');
+                });
+                document.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    this.logProctoringEvent('COPY_PASTE', 'Clipboard paste attempted');
+                });
+
+                // Tab Switch / Window Blur
+                window.addEventListener('blur', () => {
+                    this.logProctoringEvent('WINDOW_BLUR', 'Window focus lost / switched application');
+                });
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        this.logProctoringEvent('TAB_SWITCH', 'Switched browser tab');
+                    }
+                });
+            },
+
+            logProctoringEvent(type, description) {
+                fetch(this.examConfig.logEventUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        attempt_id: this.examConfig.attemptId,
+                        event_type: type,
+                        description: description
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        this.violationCount = data.violation_count;
+                        this.violationMessage = `Incident: ${description}. Please stay in the exam tab.`;
+                        this.showViolationAlert = true;
+
+                        if (data.should_auto_submit) {
+                            alert('Maximum allowed security violations exceeded. Your exam will now be automatically submitted.');
+                            window.location.href = `/examinations/student/attempt/${this.examConfig.attemptId}/result/`;
+                        }
+                    }
+                });
+            },
+
+            dismissViolationAlert() {
+                this.showViolationAlert = false;
+                this.enterFullscreen(true);
+            },
+
+            autoSubmitDueToTimeout() {
+                alert('Time expired! Submitting your exam now.');
+                const form = document.querySelector('form[action*="submit"]');
+                if (form) {
+                    form.submit();
+                } else {
+                    window.location.href = `/examinations/student/attempt/${this.examConfig.attemptId}/result/`;
+                }
+            }
+        }
+    }
+    </script>
+</body>
+</html>

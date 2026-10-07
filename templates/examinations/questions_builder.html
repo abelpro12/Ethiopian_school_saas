@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Question Builder Studio | {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6" x-data="questionBuilder()">
+    <!-- Top Bar & Breadcrumb -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                <a href="{% url 'examinations:list' %}" class="hover:text-cyan-600">Online Exams</a>
+                <span>/</span>
+                <a href="{% url 'examinations:detail' exam.id %}" class="hover:text-cyan-600 truncate max-w-xs">{{ exam.title }}</a>
+                <span>/</span>
+                <span class="text-slate-800 font-semibold">Question Studio</span>
+            </div>
+            <h1 class="text-2xl font-black font-heading text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-layer-group text-indigo-600"></i>
+                Question Builder Studio
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <a href="{% url 'examinations:bulk_questions' exam.id %}" class="btn-secondary text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-file-import"></i> Bulk Import (JSON/Text)
+            </a>
+            <a href="{% url 'examinations:detail' exam.id %}" class="btn-secondary text-xs">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Done & Return
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Stats Bar -->
+    <div class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white rounded-2xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4 border border-slate-800">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 text-xl">
+                <i class="fa-solid fa-pen-ruler"></i>
+            </div>
+            <div>
+                <p class="text-xs text-indigo-300 font-bold uppercase tracking-wider">{{ exam.subject.name }} ({{ exam.title }})</p>
+                <p class="text-base font-extrabold text-white mt-0.5">
+                    {{ questions|length }} Questions <span class="text-slate-400 font-normal text-xs">configured</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6 text-sm">
+            <div class="text-right">
+                <p class="text-xs text-slate-400">Total Points Awarded</p>
+                <p class="text-lg font-black text-amber-400 font-mono">{{ total_points }} / {{ exam.total_marks }} pts</p>
+            </div>
+            {% if exam.status == 'DRAFT' and questions|length > 0 %}
+            <a href="{% url 'examinations:toggle_publish' exam.id %}" class="btn-primary text-xs bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30">
+                <i class="fa-solid fa-upload mr-1"></i> Publish Now
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Add Question Form (7 cols) -->
+        <div class="lg:col-span-7 bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h2 class="text-lg font-bold text-slate-900 font-heading flex items-center gap-2">
+                    <i class="fa-solid fa-circle-plus text-cyan-600"></i> Add New Question
+                </h2>
+                <span class="text-xs font-bold text-slate-400 font-mono">Q#{{ questions|length|add:1 }}</span>
+            </div>
+
+            <form method="POST" class="space-y-5">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_question">
+
+                <!-- Question Type Selection Tabs -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Question Type</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <label class="p-2.5 rounded-xl border cursor-pointer text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                            :class="questionType === 'MCQ' ? 'border-cyan-500 bg-cyan-50 text-cyan-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            <input type="radio" name="question_type" value="MCQ" x-model="questionType" class="hidden">
+                            <i class="fa-solid fa-circle-dot text-sm"></i> Single Choice (MCQ)
+                        </label>
+
+                        <label class="p-2.5 rounded-xl border cursor-pointer text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                            :class="questionType === 'MULTIPLE_CHOICE' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            <input type="radio" name="question_type" value="MULTIPLE_CHOICE" x-model="questionType" class="hidden">
+                            <i class="fa-solid fa-square-check text-sm"></i> Multiple Choice
+                        </label>
+
+                        <label class="p-2.5 rounded-xl border cursor-pointer text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                            :class="questionType === 'TRUE_FALSE' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            <input type="radio" name="question_type" value="TRUE_FALSE" x-model="questionType" class="hidden">
+                            <i class="fa-solid fa-toggle-on text-sm"></i> True / False
+                        </label>
+
+                        <label class="p-2.5 rounded-xl border cursor-pointer text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                            :class="questionType === 'SHORT_ANSWER' ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            <input type="radio" name="question_type" value="SHORT_ANSWER" x-model="questionType" class="hidden">
+                            <i class="fa-solid fa-spell-check text-sm"></i> Fill-in / Short Answer
+                        </label>
+
+                        <label class="p-2.5 rounded-xl border cursor-pointer text-center text-xs font-bold transition flex items-center justify-center gap-1.5"
+                            :class="questionType === 'ESSAY' ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-sm' : 'border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            <input type="radio" name="question_type" value="ESSAY" x-model="questionType" class="hidden">
+                            <i class="fa-solid fa-align-left text-sm"></i> Essay / Long Answer
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Question Prompt -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Question Prompt <span class="text-red-500">*</span></label>
+                    <textarea name="question_text" rows="3" required placeholder="Type the question content here..."
+                        class="input-field text-sm font-medium"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Points / Marks</label>
+                        <input type="number" step="0.5" name="points" value="1.0" min="0.5" max="100" required class="input-field font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Explanation (Optional)</label>
+                        <input type="text" name="explanation" placeholder="Rationale shown in review..." class="input-field text-xs">
+                    </div>
+                </div>
+
+                <!-- Dynamic Options for MCQ & MULTIPLE_CHOICE -->
+                <div x-show="questionType === 'MCQ' || questionType === 'MULTIPLE_CHOICE'" class="space-y-3 pt-2">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Answer Choices <span class="text-slate-400 font-normal">(Select radio/checkbox for correct answer)</span>
+                        </label>
+                        <button type="button" @click="addOption()" class="text-xs font-bold text-cyan-600 hover:text-cyan-700">
+                            <i class="fa-solid fa-plus mr-1"></i> Add Choice
+                        </button>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <template x-for="(opt, idx) in options" :key="idx">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 flex items-center justify-center">
+                                    <input :type="questionType === 'MCQ' ? 'radio' : 'checkbox'"
+                                        name="is_correct[]" :value="idx" :checked="opt.is_correct"
+                                        class="w-4 h-4 text-cyan-600 focus:ring-cyan-500 cursor-pointer">
+                                </div>
+                                <input type="text" name="option_text[]" x-model="opt.text" required :placeholder="'Option ' + (idx + 1)"
+                                    class="input-field text-sm flex-1">
+                                <button type="button" @click="removeOption(idx)" x-show="options.length > 2"
+                                    class="w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition">
+                                    <i class="fa-solid fa-xmark text-sm"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Options for TRUE_FALSE -->
+                <div x-show="questionType === 'TRUE_FALSE'" class="space-y-3 pt-2">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Select Correct Answer</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3 cursor-pointer hover:border-emerald-400 transition">
+                            <input type="radio" name="tf_correct" value="True" checked class="w-4 h-4 text-emerald-600">
+                            <span class="font-bold text-slate-900 text-sm">True</span>
+                        </label>
+                        <label class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3 cursor-pointer hover:border-red-400 transition">
+                            <input type="radio" name="tf_correct" value="False" class="w-4 h-4 text-red-600">
+                            <span class="font-bold text-slate-900 text-sm">False</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Options for SHORT_ANSWER -->
+                <div x-show="questionType === 'SHORT_ANSWER'" class="space-y-3 pt-2">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Accepted Answer(s)</label>
+                    <input type="text" name="correct_short_answer" placeholder="e.g., Photosynthesis or separated by commas: Newton, Isaac Newton"
+                        class="input-field font-semibold text-sm">
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="checkbox" id="case_sensitive" name="case_sensitive" class="w-4 h-4 rounded text-cyan-600">
+                        <label for="case_sensitive" class="text-xs text-slate-600 font-medium cursor-pointer">Exact Case-Sensitive Matching</label>
+                    </div>
+                </div>
+
+                <!-- Options for ESSAY -->
+                <div x-show="questionType === 'ESSAY'" class="p-4 bg-purple-50 border border-purple-100 rounded-xl text-xs text-purple-800 space-y-1">
+                    <p class="font-bold"><i class="fa-solid fa-circle-info mr-1"></i> Teacher Graded Question</p>
+                    <p>Essay submissions will be routed to the Teacher Grading Studio for manual point awarding and rubric feedback.</p>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex items-center justify-end">
+                    <button type="submit" class="btn-primary flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-indigo-600">
+                        <i class="fa-solid fa-plus"></i> Save Question
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Questions Palette List (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Exam Question Items</h3>
+                    <span class="badge bg-slate-100 text-slate-700 font-mono">{{ questions|length }} total</span>
+                </div>
+
+                {% if questions %}
+                <div class="divide-y divide-slate-100 max-h-[620px] overflow-y-auto space-y-3 pr-1">
+                    {% for q in questions %}
+                    <div class="pt-3 pb-3 space-y-2 group">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-lg bg-slate-900 text-white text-xs font-black flex items-center justify-center font-mono">
+                                    {{ forloop.counter }}
+                                </span>
+                                <span class="badge badge-blue text-[10px]">{{ q.get_question_type_display }}</span>
+                                <span class="text-xs font-bold text-slate-500 font-mono">{{ q.points }} pts</span>
+                            </div>
+
+                            <a href="{% url 'examinations:question_delete' exam.id q.id %}" onclick="return confirm('Delete question #{{ forloop.counter }}?')"
+                                class="w-7 h-7 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-xs transition" title="Delete Question">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </a>
+                        </div>
+
+                        <p class="text-xs font-bold text-slate-800 line-clamp-2 leading-relaxed">{{ q.question_text }}</p>
+
+                        {% if q.options.all %}
+                        <div class="grid grid-cols-1 gap-1 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                            {% for opt in q.options.all %}
+                            <div class="flex items-center gap-2 {% if opt.is_correct %}text-emerald-700 font-bold{% endif %}">
+                                <i class="fa-solid {% if opt.is_correct %}fa-circle-check text-emerald-500{% else %}fa-circle-dot text-slate-300{% endif %} text-[9px]"></i>
+                                <span class="truncate">{{ opt.option_text }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% elif q.question_type == 'SHORT_ANSWER' %}
+                        <div class="text-[11px] text-slate-600 bg-amber-50 p-2 rounded-lg border border-amber-100 font-mono">
+                            Key: <strong>{{ q.correct_short_answer }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    <p class="text-xs text-slate-400">No questions added yet. Use the form on the left to add your first question.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function questionBuilder() {
+    return {
+        questionType: 'MCQ',
+        options: [
+            { text: '', is_correct: true },
+            { text: '', is_correct: false },
+            { text: '', is_correct: false },
+            { text: '', is_correct: false },
+        ],
+        addOption() {
+            if (this.options.length < 8) {
+                this.options.push({ text: '', is_correct: false });
+            }
+        },
+        removeOption(index) {
+            if (this.options.length > 2) {
+                this.options.splice(index, 1);
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

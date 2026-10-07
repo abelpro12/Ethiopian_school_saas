@@ -265,6 +265,35 @@ def student_dashboard_view(request):
     if getattr(user, 'role', None) in ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL', 'REGISTRAR', 'TEACHER']:
         all_students = StudentProfile.objects.filter(school=school).select_related('user')[:200]
 
+    # Active & Upcoming Virtual Classroom / 1-on-1 Sessions for Student
+    active_video_calls = []
+    upcoming_video_calls = []
+    try:
+        from apps.video_calls.models import VideoMeeting, MeetingStatus, MeetingType
+        if student and student.user and school:
+            from django.utils import timezone
+            now = timezone.now()
+            student_q = Q(invited_participants=student.user) | Q(meeting_type=MeetingType.GENERAL)
+            if active_enrollment:
+                student_q |= Q(
+                    meeting_type=MeetingType.VIRTUAL_CLASS,
+                    target_grade=active_enrollment.grade
+                ) & (Q(target_section=active_enrollment.section) | Q(target_section__isnull=True))
+
+            active_video_calls = VideoMeeting.objects.filter(
+                school=school,
+                status=MeetingStatus.LIVE
+            ).filter(student_q).select_related('host', 'target_subject').distinct()
+
+            upcoming_video_calls = VideoMeeting.objects.filter(
+                school=school,
+                status=MeetingStatus.SCHEDULED,
+                scheduled_start__gte=now - timezone.timedelta(hours=2)
+            ).filter(student_q).select_related('host', 'target_subject').order_by('scheduled_start')[:5]
+    except Exception:
+        active_video_calls = []
+        upcoming_video_calls = []
+
     return render(request, 'students/student_portal.html', {
         'student': student,
         'all_students': all_students,
@@ -285,6 +314,8 @@ def student_dashboard_view(request):
         'timetable_slots': timetable_slots,
         'announcements': announcements,
         'active_borrows': active_borrows,
+        'active_video_calls': active_video_calls,
+        'upcoming_video_calls': upcoming_video_calls,
     })
 
 
@@ -338,19 +369,20 @@ def review_application(request, application_id):
             parent_phone = request.POST.get('parent_phone', '').strip()
             parent_relationship = request.POST.get('parent_relationship', 'Father')
 
-            # Create Student User — generate a secure random initial password
-            import secrets
-            student_initial_pwd = secrets.token_urlsafe(10)
+            # Create Student User — generate username based on first name
+            from apps.accounts.utils import generate_unique_username, get_default_role_password
+            student_initial_pwd = get_default_role_password(UserRole.STUDENT)
+            student_username = generate_unique_username(application.first_name, application.last_name, school=school)
 
-            student_user, student_created = User.objects.get_or_create(
-                username=st_id.lower(),
-                defaults={'school': school, 'role': UserRole.STUDENT, 'first_name': application.first_name, 'last_name': application.last_name}
+            student_user = User.objects.create_user(
+                username=student_username,
+                school=school,
+                role=UserRole.STUDENT,
+                first_name=application.first_name,
+                last_name=application.last_name
             )
-            student_user.school = school
-            student_user.role = UserRole.STUDENT
-            if student_created:
-                student_user.set_password(student_initial_pwd)
-                student_user.must_change_password = True
+            student_user.set_password(student_initial_pwd)
+            student_user.must_change_password = True
             student_user.save()
 
             student, _ = StudentProfile.objects.get_or_create(
@@ -380,15 +412,21 @@ def review_application(request, application_id):
                 )
                 parent_msg = f"Linked to existing family account '{parent_profile.user.username}'."
             else:
-                parent_user, parent_created = User.objects.get_or_create(
-                    username=f"p_{st_id.lower()}",
-                    defaults={'school': school, 'role': UserRole.PARENT, 'first_name': application.last_name, 'last_name': 'Guardian'}
+                parent_first = application.last_name
+                parent_last = "Guardian"
+                parent_username = generate_unique_username(parent_first, parent_last, school=school, prefix="p_")
+
+                parent_user = User.objects.create_user(
+                    username=parent_username,
+                    school=school,
+                    role=UserRole.PARENT,
+                    first_name=parent_first,
+                    last_name=parent_last
                 )
-                if parent_created:
-                    parent_initial_pwd = secrets.token_urlsafe(10)
-                    parent_user.set_password(parent_initial_pwd)
-                    parent_user.must_change_password = True
-                    parent_user.save()
+                parent_initial_pwd = get_default_role_password(UserRole.PARENT)
+                parent_user.set_password(parent_initial_pwd)
+                parent_user.must_change_password = True
+                parent_user.save()
 
                 parent_profile, _ = ParentProfile.objects.get_or_create(
                     user=parent_user,
@@ -397,7 +435,9 @@ def review_application(request, application_id):
                 GuardianRelationship.objects.get_or_create(
                     school=school, parent=parent_profile, student=student, defaults={'is_primary': True}
                 )
-                parent_msg = f"Parent login username: {parent_user.username}" + (f" | Password: {parent_initial_pwd} (must change on login)" if parent_created else " (existing account).") + "."
+                parent_msg = f"Parent login username: {parent_user.username} | Password: {parent_initial_pwd} (must change on login)."
+
+
 
             if sec_id:
                 sec = Section.objects.get(id=sec_id, school=school)
@@ -672,8 +712,12 @@ def student_profile_admin_view(request, student_id):
             if status in dict(StudentStatus.choices):
                 student.status = status
 
-            # Handle photo upload if present
-            if 'photo' in request.FILES:
+            # Handle photo upload or removal
+            if request.POST.get('remove_photo') == '1':
+                if student.photo:
+                    student.photo.delete(save=False)
+                    student.photo = None
+            elif 'photo' in request.FILES:
                 student.photo = request.FILES['photo']
 
             student.save()
@@ -787,6 +831,160 @@ def student_profile_admin_view(request, student_id):
                 messages.error(request, "Invalid data provided for historical transcript.")
                 
             return redirect('students:admin_profile', student_id=student.id)
+
+        elif action == 'add_parent':
+            from apps.accounts.models import User, UserRole
+            from apps.parents.models import ParentProfile, GuardianRelationship
+
+            fname = request.POST.get('first_name', '').strip()
+            lname = request.POST.get('last_name', '').strip()
+            phone = request.POST.get('phone', '').strip()
+            rel = request.POST.get('relationship', 'Father').strip()
+            email = request.POST.get('email', '').strip()
+            username = request.POST.get('username', '').strip().lower()
+            password = request.POST.get('password', '').strip() or 'parent123'
+            preferred_language = request.POST.get('preferred_language', 'am')
+            is_primary = request.POST.get('is_primary') in ['on', 'true', '1']
+
+            if not fname or not phone:
+                messages.error(request, "Parent First Name and Phone Number are required.")
+                return redirect('students:admin_profile', student_id=student.id)
+
+            if not username:
+                digits = ''.join(filter(str.isdigit, phone))
+                clean_stu_code = student.student_id.lower().replace('-', '_')
+                candidate = f"p_{clean_stu_code}"
+                if User.objects.filter(username=candidate).exists():
+                    candidate = f"parent_{digits[-6:]}" if len(digits) >= 6 else f"p_{clean_stu_code}_{User.objects.filter(username__startswith='p_').count()+1}"
+                username = candidate
+
+            if User.objects.filter(username=username).exists():
+                messages.error(request, f"Username '{username}' already exists. Please choose another username or link the existing parent.")
+                return redirect('students:admin_profile', student_id=student.id)
+
+            parent_user = User.objects.create(
+                username=username,
+                first_name=fname,
+                last_name=lname,
+                email=email,
+                role=UserRole.PARENT,
+                school=school,
+                phone=phone
+            )
+            parent_user.set_password(password)
+            parent_user.must_change_password = True
+            parent_user.save()
+
+            parent_profile = ParentProfile.objects.create(
+                user=parent_user,
+                school=school,
+                phone=phone,
+                relationship=rel,
+                preferred_language=preferred_language
+            )
+
+            if is_primary:
+                GuardianRelationship.objects.filter(student=student, school=school).update(is_primary=False)
+
+            GuardianRelationship.objects.create(
+                school=school,
+                parent=parent_profile,
+                student=student,
+                is_primary=is_primary
+            )
+
+            messages.success(request, f"Parent/Guardian '{parent_user.get_full_name() or parent_user.username}' created and linked successfully! (Username: {username}, Password: {password})")
+            return redirect('students:admin_profile', student_id=student.id)
+
+        elif action == 'link_existing_parent':
+            from apps.parents.models import ParentProfile, GuardianRelationship
+
+            parent_id = request.POST.get('parent_id')
+            rel = request.POST.get('relationship', 'Father').strip()
+            is_primary = request.POST.get('is_primary') in ['on', 'true', '1']
+
+            if not parent_id:
+                messages.error(request, "Please select an existing parent to link.")
+                return redirect('students:admin_profile', student_id=student.id)
+
+            parent_profile = get_object_or_404(ParentProfile, id=parent_id, school=school)
+
+            if is_primary:
+                GuardianRelationship.objects.filter(student=student, school=school).update(is_primary=False)
+
+            guardian_rel, created = GuardianRelationship.objects.get_or_create(
+                school=school,
+                parent=parent_profile,
+                student=student,
+                defaults={'is_primary': is_primary}
+            )
+
+            if not created:
+                guardian_rel.is_primary = is_primary
+                guardian_rel.save()
+                messages.info(request, f"Parent '{parent_profile.user.get_full_name() or parent_profile.user.username}' was already linked to this student.")
+            else:
+                messages.success(request, f"Parent '{parent_profile.user.get_full_name() or parent_profile.user.username}' successfully linked to '{student.full_name}'!")
+
+            return redirect('students:admin_profile', student_id=student.id)
+
+        elif action == 'edit_parent':
+            from apps.parents.models import ParentProfile, GuardianRelationship
+
+            parent_id = request.POST.get('parent_id')
+            guardianship_id = request.POST.get('guardianship_id')
+
+            parent_profile = get_object_or_404(ParentProfile, id=parent_id, school=school)
+            fname = request.POST.get('first_name', '').strip()
+            lname = request.POST.get('last_name', '').strip()
+            phone = request.POST.get('phone', '').strip()
+            rel = request.POST.get('relationship', parent_profile.relationship).strip()
+            preferred_language = request.POST.get('preferred_language', parent_profile.preferred_language)
+            email = request.POST.get('email', '').strip()
+            new_password = request.POST.get('new_password', '').strip()
+            is_primary = request.POST.get('is_primary') in ['on', 'true', '1']
+
+            user = parent_profile.user
+            if fname: user.first_name = fname
+            if lname: user.last_name = lname
+            user.email = email
+            if phone: user.phone = phone
+            if new_password and len(new_password) >= 6:
+                user.set_password(new_password)
+                user.must_change_password = True
+            user.save()
+
+            if phone: parent_profile.phone = phone
+            parent_profile.relationship = rel
+            parent_profile.preferred_language = preferred_language
+            parent_profile.save()
+
+            if guardianship_id:
+                try:
+                    guardian_rel = GuardianRelationship.objects.get(id=guardianship_id, school=school, student=student)
+                    if is_primary:
+                        GuardianRelationship.objects.filter(student=student, school=school).exclude(id=guardian_rel.id).update(is_primary=False)
+                    guardian_rel.is_primary = is_primary
+                    guardian_rel.save()
+                except GuardianRelationship.DoesNotExist:
+                    pass
+
+            messages.success(request, f"Parent/Guardian profile for '{user.get_full_name() or user.username}' updated successfully.")
+            return redirect('students:admin_profile', student_id=student.id)
+
+        elif action == 'unlink_parent':
+            from apps.parents.models import GuardianRelationship
+
+            guardianship_id = request.POST.get('guardianship_id')
+            try:
+                guardian_rel = GuardianRelationship.objects.get(id=guardianship_id, school=school, student=student)
+                parent_name = guardian_rel.parent.user.get_full_name() or guardian_rel.parent.user.username
+                guardian_rel.delete()
+                messages.success(request, f"Parent/Guardian '{parent_name}' unlinked from '{student.full_name}'.")
+            except GuardianRelationship.DoesNotExist:
+                messages.error(request, "Guardian relationship not found.")
+
+            return redirect('students:admin_profile', student_id=student.id)
             
     active_enrollment = StudentEnrollment.objects.filter(student=student, status='ACTIVE').first()
     
@@ -801,6 +999,12 @@ def student_profile_admin_view(request, student_id):
     from apps.reports.models import HistoricalTranscriptYear
     historical_records = HistoricalTranscriptYear.objects.filter(student=student, school=school)
 
+    from apps.parents.models import ParentProfile, GuardianRelationship
+    guardianships = GuardianRelationship.objects.filter(
+        student=student, school=school
+    ).select_related('parent__user').order_by('-is_primary', 'id')
+    all_parents = ParentProfile.objects.filter(school=school).select_related('user').order_by('user__first_name', 'user__last_name')
+
     return render(request, 'students/admin_student_profile.html', {
         'student': student,
         'active_enrollment': active_enrollment,
@@ -810,6 +1014,8 @@ def student_profile_admin_view(request, student_id):
         'all_sections': all_sections,
         'all_academic_years': all_academic_years,
         'historical_records': historical_records,
+        'guardianships': guardianships,
+        'all_parents': all_parents,
     })
 
 
@@ -982,8 +1188,8 @@ def bulk_import_students(request):
                     username = f"{base_username}{suffix}"
                     suffix += 1
 
-                import secrets
-                password = secrets.token_urlsafe(10)
+                from apps.accounts.utils import get_default_role_password
+                password = get_default_role_password('STUDENT')
 
                 user_obj = User.objects.create_user(
                     username=username,
@@ -994,6 +1200,7 @@ def bulk_import_students(request):
                     school=school,
                     must_change_password=True,
                 )
+
 
                 dob = None
                 dob_str = (row.get('date_of_birth', '') or '').strip()
