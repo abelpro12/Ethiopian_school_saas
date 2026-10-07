@@ -32,7 +32,7 @@ class AuditService:
         return request.META.get('REMOTE_ADDR')
 
     @staticmethod
-    def log_action(school, user, action: str, object_type: str = None, object_id: str = None, before_val: dict = None, after_val: dict = None, ip_address: str = None):
+    def log_action(school, user, action: str, object_type: str = None, object_id: str = None, before_val: dict = None, after_val: dict = None, ip_address: str = None, details: dict = None, **kwargs):
         """
         Creates an immutable audit log record for sensitive operations.
         """
@@ -42,6 +42,7 @@ class AuditService:
         if not school:
             return None
 
+        final_after = after_val or details or {}
         try:
             return AuditLog.objects.create(
                 school=school,
@@ -50,7 +51,7 @@ class AuditService:
                 object_type=object_type or '',
                 object_id=str(object_id) if object_id else '',
                 before_value=before_val or {},
-                after_value=after_val or {},
+                after_value=final_after,
                 ip_address=ip_address
             )
         except Exception:

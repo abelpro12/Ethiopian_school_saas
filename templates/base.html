@@ -289,8 +289,11 @@
         </a>
 
         <div class="nav-section mt-3">Academic Management</div>
+        <a href="{% url 'school_calendar' %}" class="nav-link {% if request.resolver_match.url_name == 'school_calendar' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calendar-days text-brand-400"></i><span>Academic Calendar</span>
+        </a>
         <a href="{% url 'academics:config' %}" class="nav-link" onclick="closeSidebarOnMobile()">
-            <i class="fa-solid fa-calendar-days text-brand-400"></i><span>Academics Config</span>
+            <i class="fa-solid fa-sliders text-indigo-400"></i><span>Academics Config</span>
         </a>
         <a href="{% url 'timetable:manage' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-clock text-brand-400"></i><span>Timetable Config</span>
@@ -421,6 +424,9 @@
         {# === 6. TEACHER === #}
         {% if user.role == 'TEACHER' %}
         <div class="nav-section mt-2">Teaching</div>
+        <a href="{% url 'school_calendar' %}" class="nav-link {% if request.resolver_match.url_name == 'school_calendar' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calendar-days text-amber-400"></i><span>School Calendar</span>
+        </a>
         <a href="{% url 'teachers:subjects' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-book-open text-brand-400"></i><span>My Subjects</span>
         </a>
@@ -453,6 +459,9 @@
         {# === 7. PARENT / GUARDIAN === #}
         {% if user.role == 'PARENT' %}
         <div class="nav-section mt-2">Guardian</div>
+        <a href="{% url 'school_calendar' %}" class="nav-link {% if request.resolver_match.url_name == 'school_calendar' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calendar-days text-amber-400"></i><span>School Calendar</span>
+        </a>
         <a href="{% url 'parent_portal' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-users-between-lines text-amber-400"></i><span>Parent Portal</span>
         </a>
@@ -464,6 +473,9 @@
         {# === 8. STUDENT === #}
         {% if user.role == 'STUDENT' %}
         <div class="nav-section mt-2">My Academics</div>
+        <a href="{% url 'school_calendar' %}" class="nav-link {% if request.resolver_match.url_name == 'school_calendar' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-calendar-days text-brand-400"></i><span>Academic Calendar</span>
+        </a>
         <a href="{% url 'student_portal' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-user-graduate text-indigo-400"></i><span>My Academic Portal</span>
         </a>

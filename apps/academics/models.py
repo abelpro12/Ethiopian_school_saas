@@ -326,6 +326,27 @@ class TimetableSlot(TenantAwareModel):
         return f"{self.section.name} - {self.day_of_week} {self.period_slot.name}: {self.subject.code}"
 
 
+class EventCategory(models.TextChoices):
+    ACADEMIC = 'ACADEMIC', 'Academic Calendar & Terms'
+    EXAMINATION = 'EXAMINATION', 'Examinations & Assessments'
+    HOLIDAY = 'HOLIDAY', 'National & Religious Holidays'
+    BREAK = 'BREAK', 'School Breaks & Vacations'
+    REGISTRATION = 'REGISTRATION', 'Registration & Admission'
+    TRAINING = 'TRAINING', 'Teacher Training & Workshops'
+    MEETING = 'MEETING', 'Parent-Teacher & Staff Meetings'
+    CEREMONY = 'CEREMONY', 'School Events & Ceremonies'
+    EXTRACURRICULAR = 'EXTRACURRICULAR', 'Sports & Extracurricular'
+    OTHER = 'OTHER', 'Other'
+
+
+class EventStatus(models.TextChoices):
+    SCHEDULED = 'SCHEDULED', 'Scheduled'
+    ONGOING = 'ONGOING', 'In Progress'
+    COMPLETED = 'COMPLETED', 'Completed'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+    POSTPONED = 'POSTPONED', 'Postponed'
+
+
 class EventType(models.TextChoices):
     SCHOOL_EVENT = 'SCHOOL_EVENT', 'School Event'
     PARENT_MEETING = 'PARENT_MEETING', 'Parent Meeting'
@@ -347,16 +368,48 @@ class TargetAudience(models.TextChoices):
 
 class SchoolEvent(TenantAwareModel):
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='school_events')
+    academic_period = models.ForeignKey(AcademicPeriod, on_delete=models.SET_NULL, null=True, blank=True, related_name='events')
     title = models.CharField(max_length=255)
+    event_category = models.CharField(max_length=30, choices=EventCategory.choices, default=EventCategory.ACADEMIC)
     event_type = models.CharField(max_length=50, choices=EventType.choices, default=EventType.SCHOOL_EVENT)
     target_audience = models.CharField(max_length=20, choices=TargetAudience.choices, default=TargetAudience.ALL)
+    status = models.CharField(max_length=20, choices=EventStatus.choices, default=EventStatus.SCHEDULED)
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
+    start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
+    is_automated = models.BooleanField(default=False)
+    is_override = models.BooleanField(default=False)
+    is_recurring = models.BooleanField(default=False)
+    recurrence_rule = models.CharField(max_length=100, blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_events')
+
+    class Meta:
+        ordering = ['start_date', 'start_time']
 
     def __str__(self):
-        return f"{self.title} ({self.get_event_type_display()}) [{self.start_date}]"
+        return f"{self.title} ({self.get_event_category_display()}) [{self.start_date}]"
+
+    @property
+    def ethiopian_start_date(self):
+        try:
+            from apps.academics.ethiopian_date import format_ethiopian_date
+            return format_ethiopian_date(self.start_date)
+        except Exception:
+            return ""
+
+    @property
+    def ethiopian_end_date(self):
+        if not self.end_date:
+            return ""
+        try:
+            from apps.academics.ethiopian_date import format_ethiopian_date
+            return format_ethiopian_date(self.end_date)
+        except Exception:
+            return ""
 
 
 class AcademicEvent(TenantAwareModel):
