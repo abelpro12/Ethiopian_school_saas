@@ -307,8 +307,9 @@ class MarkEntryLock(TenantAwareModel):
         Returns a tuple: (is_locked: bool, reason: str, lock_rule: MarkEntryLock or None)
         """
         from apps.academics.models import PeriodStatus
-        if period and getattr(period, 'status', None) == PeriodStatus.LOCKED:
-            return True, f"Academic term '{period.name}' is globally locked by School Administration.", None
+        if period and getattr(period, 'status', None) in [PeriodStatus.LOCKED, PeriodStatus.CLOSED, PeriodStatus.ARCHIVED]:
+            status_label = period.get_status_display() if hasattr(period, 'get_status_display') else period.status
+            return True, f"Academic term '{period.name}' is {status_label} and marks cannot be altered.", None
 
         if not school:
             return False, "", None

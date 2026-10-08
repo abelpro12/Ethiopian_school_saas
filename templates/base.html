@@ -313,8 +313,8 @@
         <a href="{% url 'assessments:report_cards' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-file-signature text-amber-400"></i><span>Report Cards</span>
         </a>
-        <a href="{% url 'assessments:period_close' %}" class="nav-link" onclick="closeSidebarOnMobile()">
-            <i class="fa-solid fa-flag-checkered text-violet-400"></i><span>Semester Close</span>
+        <a href="{% url 'academics:semester_lifecycle' %}" class="nav-link {% if request.resolver_match.url_name == 'semester_lifecycle' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-flag-checkered text-violet-400"></i><span>Term & Semester Lifecycle</span>
         </a>
         <a href="{% url 'assessments:annual_dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-rotate text-emerald-400"></i><span>Annual Promotion Engine</span>

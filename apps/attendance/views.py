@@ -141,6 +141,21 @@ class SectionAttendanceView(LoginRequiredMixin, View):
             date = datetime.date.today()
 
         current_ay = getattr(request, 'academic_year', None)
+
+        # Enforce locked period protection for attendance records
+        from apps.academics.models import AcademicPeriod, PeriodStatus
+        locked_period = AcademicPeriod.objects.filter(
+            school=school,
+            start_date__lte=date,
+            end_date__gte=date,
+            status__in=[PeriodStatus.LOCKED, PeriodStatus.CLOSED, PeriodStatus.ARCHIVED]
+        ).first()
+
+        can_override = getattr(request.user, 'role', None) in ['SUPER_ADMIN', 'SCHOOL_ADMIN', 'PRINCIPAL']
+        if locked_period and not can_override:
+            status_desc = locked_period.get_status_display() if hasattr(locked_period, 'get_status_display') else locked_period.status
+            messages.error(request, f"Attendance for {date} is locked because '{locked_period.name}' is {status_desc}. Contact administration.")
+            return redirect(f"{request.path}?date={date.isoformat()}")
         active_enrollment_q = {'school': school, 'section': section, 'status': 'ACTIVE'}
         if current_ay:
             active_enrollment_q['academic_year'] = current_ay

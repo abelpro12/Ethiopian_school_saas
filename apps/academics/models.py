@@ -104,6 +104,7 @@ class PeriodStatus(models.TextChoices):
     CLOSING = 'CLOSING', 'Closing'
     CLOSED = 'CLOSED', 'Closed'
     LOCKED = 'LOCKED', 'Locked'
+    ARCHIVED = 'ARCHIVED', 'Archived'
 
 
 class PeriodType(models.TextChoices):
@@ -112,14 +113,32 @@ class PeriodType(models.TextChoices):
     QUARTER = 'QUARTER', 'Quarter'
     CUSTOM = 'CUSTOM', 'Custom'
 
+
 class AcademicPeriod(TenantAwareModel):
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='academic_periods')
     name = models.CharField(max_length=100)  # e.g., "Semester 1", "Term 1", "Quarter 1"
     period_type = models.CharField(max_length=20, choices=PeriodType.choices, default=PeriodType.SEMESTER)
     start_date = models.DateField()
     end_date = models.DateField()
+    instructional_days = models.PositiveIntegerField(default=90, help_text="Planned instruction days in this semester/term")
     is_current = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=PeriodStatus.choices, default=PeriodStatus.OPEN)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='locked_periods')
+    reopened_at = models.DateTimeField(null=True, blank=True)
+    reopened_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reopened_periods')
+    reopen_reason = models.TextField(blank=True, null=True)
+    has_supplementary_exam = models.BooleanField(default=False)
+    supplementary_start_date = models.DateField(null=True, blank=True)
+    supplementary_end_date = models.DateField(null=True, blank=True)
+
+    @property
+    def is_locked(self):
+        return self.status in [PeriodStatus.LOCKED, PeriodStatus.CLOSED, PeriodStatus.ARCHIVED]
+
+    @property
+    def is_open(self):
+        return self.status == PeriodStatus.OPEN
 
 
     class Meta:
@@ -175,6 +194,26 @@ class AcademicPeriod(TenantAwareModel):
 
     def __str__(self):
         return f"{self.name} ({self.academic_year.name})"
+
+
+class SemesterArchive(TenantAwareModel):
+    period = models.ForeignKey(AcademicPeriod, on_delete=models.CASCADE, related_name='archives')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='semester_archives')
+    archived_at = models.DateTimeField(auto_now_add=True)
+    archived_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_semester_archives')
+    total_students = models.PositiveIntegerField(default=0)
+    passed_students = models.PositiveIntegerField(default=0)
+    failed_students = models.PositiveIntegerField(default=0)
+    overall_average = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
+    snapshot_data = models.JSONField(default=dict, help_text="Summary metrics, pass rates, and grade averages at time of archiving")
+    notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-archived_at']
+
+    def __str__(self):
+        return f"Archive: {self.period.name} ({self.academic_year.name}) - {self.archived_at.strftime('%Y-%m-%d')}"
+
 
 
 ETHIOPIAN_GRADES = [

@@ -1,0 +1,538 @@
+{% extends "base.html" %}
+{% load calendar_tags %}
+{% block title %}Term & Semester Lifecycle Hub — EthioSchool SaaS{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+  <!-- Header Card -->
+  <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <div class="flex items-start sm:items-center gap-4">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-500 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/30 flex-shrink-0">
+        <i class="fa-solid fa-flag-checkered text-white text-2xl"></i>
+      </div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Term &amp; Semester Lifecycle Hub</h1>
+          {% if active_period %}
+          <span class="bg-emerald-500/20 text-emerald-300 font-mono text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Active: {{ active_period.name }}
+          </span>
+          {% else %}
+          <span class="bg-amber-500/20 text-amber-300 font-mono text-xs font-bold px-3 py-1 rounded-full border border-amber-500/30">
+            No Active Semester
+          </span>
+          {% endif %}
+        </div>
+        <p class="text-slate-400 text-xs sm:text-sm mt-1.5">
+          Academic Year: <strong class="text-brand-300">{{ current_ay.name }}</strong> · Semester switching, tamper-proof mark locks, historical archiving & rollovers
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick Year Switcher & Rollover Action -->
+    <div class="flex flex-wrap items-center gap-3">
+      <form method="GET" class="flex items-center gap-2">
+        <label class="text-[11px] text-slate-400 font-bold uppercase hidden sm:inline">Year:</label>
+        <select name="academic_year_id" onchange="this.form.submit()" class="bg-slate-800 text-white border border-slate-700 text-xs rounded-xl px-3 py-2 font-medium focus:ring-1 focus:ring-brand-500">
+          {% for ay in academic_years %}
+          <option value="{{ ay.id }}" {% if ay.id == current_ay.id %}selected{% endif %}>
+            {{ ay.name }} {% if ay.is_active %}(Current){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+
+      <button onclick="openModal('rolloverModal')" class="bg-gradient-to-r from-brand-500 to-indigo-600 hover:from-brand-600 hover:to-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-brand-500/30 transition flex items-center gap-2 transform active:scale-95">
+        <i class="fa-solid fa-arrow-right-arrow-left"></i>
+        <span>Term Rollover Wizard</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Active Term Banner -->
+  {% if active_period %}
+  <div class="p-4 bg-gradient-to-r from-emerald-500/10 via-brand-500/5 to-transparent rounded-2xl border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold text-base flex-shrink-0">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <p class="text-xs font-bold text-slate-900">
+          Currently Operational Term: <span class="text-emerald-700 font-black">{{ active_period.name }}</span>
+        </p>
+        <p class="text-[11px] text-slate-500">
+          All gradebook mark entries, student attendances, and daily timetable lessons are recording under this semester.
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="badge {% if active_period.status == 'OPEN' %}badge-green{% elif active_period.status == 'LOCKED' %}badge-red{% elif active_period.status == 'CLOSED' %}badge-blue{% else %}badge-purple{% endif %} text-xs font-bold">
+        Status: {{ active_period.get_status_display }}
+      </span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Semesters Grid -->
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-heading font-bold text-slate-800 text-base flex items-center gap-2">
+        <i class="fa-solid fa-layer-group text-brand-600"></i> Semesters in {{ current_ay.name }}
+      </h3>
+      <span class="text-xs text-slate-500 font-medium">{{ periods_data|length }} Period(s) configured</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {% for item in periods_data %}
+      {% with p=item.period %}
+      <div class="bg-white rounded-3xl shadow-sm border {% if p.is_current %}border-emerald-500/40 ring-2 ring-emerald-500/10{% else %}border-slate-100{% endif %} p-6 space-y-5 transition card-hover">
+        
+        <!-- Header -->
+        <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <h4 class="font-heading font-extrabold text-slate-900 text-lg">{{ p.name }}</h4>
+              {% if p.is_current %}
+              <span class="bg-emerald-100 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
+                ACTIVE
+              </span>
+              {% endif %}
+            </div>
+            <p class="text-slate-400 text-xs mt-0.5">{{ p.get_period_type_display }} · {{ p.academic_year.name }}</p>
+          </div>
+
+          <span class="badge {% if p.status == 'OPEN' %}badge-green{% elif p.status == 'LOCKED' %}badge-red{% elif p.status == 'CLOSED' %}badge-blue{% else %}badge-purple{% endif %} text-xs">
+            {{ p.get_status_display }}
+          </span>
+        </div>
+
+        <!-- Metrics & Dates -->
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Duration Window</span>
+            <p class="font-bold text-slate-800 font-mono">{{ p.start_date }} — {{ p.end_date }}</p>
+            <p class="text-[10px] text-emerald-700 font-medium">{{ item.eth_start }} — {{ item.eth_end }}</p>
+          </div>
+
+          <div class="p-3 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Instructional Days</span>
+            <p class="font-bold text-slate-800 text-sm">{{ p.instructional_days }} Teaching Days</p>
+            <p class="text-[10px] text-slate-500">{{ item.results_count }} Results Computed</p>
+          </div>
+        </div>
+
+        <!-- Supplementary Exams status -->
+        <div class="p-3 rounded-2xl border text-xs flex items-center justify-between {% if p.has_supplementary_exam %}bg-amber-50/60 border-amber-200/60 text-amber-900{% else %}bg-slate-50/60 border-slate-100 text-slate-500{% endif %}">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-graduation-cap {% if p.has_supplementary_exam %}text-amber-600{% else %}text-slate-400{% endif %}"></i>
+            <span>
+              {% if p.has_supplementary_exam %}
+              <strong>Supplementary Exams:</strong> {{ p.supplementary_start_date }} to {{ p.supplementary_end_date }}
+              {% else %}
+              No supplementary exams scheduled
+              {% endif %}
+            </span>
+          </div>
+          <button onclick="openSupplementaryModal('{{ p.id }}', '{{ p.name|escapejs }}', '{{ p.supplementary_start_date|default:"" }}', '{{ p.supplementary_end_date|default:"" }}')" class="text-[11px] font-bold text-brand-600 hover:underline">
+            Configure
+          </button>
+        </div>
+
+        <!-- Lock Info / Audit Details -->
+        {% if p.is_locked %}
+        <div class="p-3 bg-red-50/40 rounded-2xl border border-red-100 text-xs text-red-900 space-y-1">
+          <p class="font-bold flex items-center gap-1.5 text-red-700">
+            <i class="fa-solid fa-lock text-red-500"></i> Locked on {{ p.locked_at|date:"M d, Y H:i"|default:"Recently" }}
+          </p>
+          <p class="text-[11px] text-red-600">
+            Marks & historical attendance modifications are strictly disabled across all sections.
+          </p>
+        </div>
+        {% elif p.reopen_reason %}
+        <div class="p-3 bg-amber-50/40 rounded-2xl border border-amber-100 text-xs text-amber-900 space-y-1">
+          <p class="font-bold flex items-center gap-1.5 text-amber-700">
+            <i class="fa-solid fa-unlock text-amber-500"></i> Reopened on {{ p.reopened_at|date:"M d, Y" }}
+          </p>
+          <p class="text-[11px] text-amber-700 italic">"{{ p.reopen_reason }}"</p>
+        </div>
+        {% endif %}
+
+        <!-- Actions Row -->
+        <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
+          {% if not p.is_current %}
+          <form method="POST" action="{% url 'academics:set_active_semester' p.id %}">
+            {% csrf_token %}
+            <button type="submit" class="bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+              <i class="fa-solid fa-check"></i> Set Active
+            </button>
+          </form>
+          {% endif %}
+
+          {% if p.is_open %}
+          <!-- Lock Button -->
+          <form method="POST" action="{% url 'academics:lock_semester' p.id %}" onsubmit="return confirm('Freeze marks and lock {{ p.name }}? Teachers will no longer be able to submit or modify marks.')">
+            {% csrf_token %}
+            <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs px-3 py-2 rounded-xl border border-red-200 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-lock"></i> Lock Semester
+            </button>
+          </form>
+
+          <!-- Close & Archive Button -->
+          <button onclick="openCloseModal('{{ p.id }}', '{{ p.name|escapejs }}')" class="bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold text-xs px-3 py-2 rounded-xl shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-flag-checkered"></i> Close & Archive
+          </button>
+          {% else %}
+          <!-- Reopen Button -->
+          <button onclick="openReopenModal('{{ p.id }}', '{{ p.name|escapejs }}')" class="bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs px-3 py-2 rounded-xl border border-amber-200 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-unlock"></i> Reopen Semester
+          </button>
+          {% endif %}
+        </div>
+
+      </div>
+      {% endwith %}
+      {% empty %}
+      <div class="col-span-2 text-center py-12 bg-white rounded-3xl border border-slate-100 text-slate-400">
+        <i class="fa-regular fa-calendar-xmark text-4xl opacity-20 mb-2 block"></i>
+        <p class="text-sm font-semibold">No semesters configured for {{ current_ay.name }}.</p>
+        <a href="{% url 'academics:config' %}" class="mt-2 inline-block text-xs font-bold text-brand-600 hover:underline">
+          Go to Academics Config to create semesters →
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Historical Archives Table Card -->
+  <div class="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+      <div>
+        <h3 class="font-heading font-bold text-slate-800 text-base flex items-center gap-2">
+          <i class="fa-solid fa-box-archive text-purple-600"></i> Historical Semester Snapshot Archives
+        </h3>
+        <p class="text-xs text-slate-400 mt-0.5">Immutable records of past closed semesters, ranking summaries, and pass rates</p>
+      </div>
+      <span class="badge badge-purple text-xs">{{ archives|length }} Archive(s)</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead>
+          <tr class="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
+            <th class="py-3 px-3">Semester / Term</th>
+            <th class="py-3 px-3">Academic Year</th>
+            <th class="py-3 px-3">Archived On</th>
+            <th class="py-3 px-3 text-center">Students Evaluated</th>
+            <th class="py-3 px-3 text-center">Pass Rate</th>
+            <th class="py-3 px-3 text-center">Class Average</th>
+            <th class="py-3 px-3 text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 text-slate-700">
+          {% for arc in archives %}
+          <tr class="hover:bg-slate-50/70 transition">
+            <td class="py-3 px-3 font-bold text-slate-900">{{ arc.period.name }}</td>
+            <td class="py-3 px-3 font-medium text-slate-600">{{ arc.academic_year.name }}</td>
+            <td class="py-3 px-3 text-slate-500">{{ arc.archived_at|date:"M d, Y H:i" }}</td>
+            <td class="py-3 px-3 text-center font-bold font-mono">{{ arc.total_students }}</td>
+            <td class="py-3 px-3 text-center">
+              <span class="badge {% if arc.passed_students == arc.total_students %}badge-green{% else %}badge-blue{% endif %} font-mono">
+                {{ arc.passed_students }}/{{ arc.total_students }} Passed
+              </span>
+            </td>
+            <td class="py-3 px-3 text-center font-bold text-brand-600 font-mono">{{ arc.overall_average }}%</td>
+            <td class="py-3 px-3 text-end">
+              <button onclick="viewArchiveSnapshot('{{ arc.id }}')" class="bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition text-[11px] inline-flex items-center gap-1">
+                <i class="fa-solid fa-eye"></i> Snapshot
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="py-8 text-center text-slate-400">
+              No historical semester archives captured yet. Archives are automatically created upon term close.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Rollover Modal -->
+<div id="rolloverModal" class="hidden modal-overlay" onclick="if(event.target===this)closeModal('rolloverModal')">
+  <div class="bg-white max-w-lg w-full rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-arrow-right-arrow-left text-brand-400 text-base"></i>
+        <h3 class="font-heading font-bold text-base">Term Rollover Wizard</h3>
+      </div>
+      <button onclick="closeModal('rolloverModal')" class="text-slate-400 hover:text-white text-base">✕</button>
+    </div>
+
+    <form method="POST" action="{% url 'academics:rollover_semester' %}" class="p-6 space-y-4">
+      {% csrf_token %}
+      <p class="text-xs text-slate-600 leading-relaxed">
+        This wizard locks and archives the outgoing semester and transitions the operational active term to the next semester.
+      </p>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Outgoing / Current Semester <span class="text-red-500">*</span></label>
+        <select name="current_period_id" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500" required>
+          {% for item in periods_data %}
+          <option value="{{ item.period.id }}" {% if item.period.is_current %}selected{% endif %}>
+            {{ item.period.name }} ({{ item.period.get_status_display }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Next Operational Semester <span class="text-red-500">*</span></label>
+        <select name="next_period_id" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500" required>
+          {% for item in periods_data %}
+          <option value="{{ item.period.id }}" {% if not item.period.is_current %}selected{% endif %}>
+            {{ item.period.name }} ({{ item.period.get_status_display }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="p-3.5 bg-indigo-50 rounded-2xl border border-indigo-100 text-xs text-indigo-900 space-y-1">
+        <p class="font-bold flex items-center gap-1.5 text-indigo-800">
+          <i class="fa-solid fa-circle-info text-indigo-600"></i> What happens during rollover:
+        </p>
+        <ul class="list-disc list-inside space-y-0.5 text-indigo-700 ps-1">
+          <li>Outgoing semester is locked to freeze mark alterations.</li>
+          <li>A complete immutable statistical snapshot is archived.</li>
+          <li>Next semester is marked as active across all teacher and student portals.</li>
+        </ul>
+      </div>
+
+      <div class="flex gap-3 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeModal('rolloverModal')" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
+          Cancel
+        </button>
+        <button type="submit" class="w-2/3 bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition text-xs">
+          Execute Term Rollover
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Reopen Modal -->
+<div id="reopenModal" class="hidden modal-overlay" onclick="if(event.target===this)closeModal('reopenModal')">
+  <div class="bg-white max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-unlock text-white text-base"></i>
+        <h3 class="font-heading font-bold text-base">Reopen Semester</h3>
+      </div>
+      <button onclick="closeModal('reopenModal')" class="text-white/80 hover:text-white text-base">✕</button>
+    </div>
+
+    <form id="reopenForm" method="POST" action="" class="p-6 space-y-4">
+      {% csrf_token %}
+      <p class="text-xs text-slate-600 leading-relaxed" id="reopenPeriodPrompt">
+        Reopening this semester allows teachers and registrars to make corrections to marks and records.
+      </p>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Administrative Justification Reason <span class="text-red-500">*</span></label>
+        <textarea name="reason" rows="3" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-amber-500 resize-none" required placeholder="e.g. Authorized grade adjustment for supplementary exam or clerical mark review by Academic Board."></textarea>
+      </div>
+
+      <p class="text-[11px] text-slate-400">
+        <i class="fa-solid fa-shield-halved text-emerald-500"></i> This action is logged permanently to the immutable administrative audit trail.
+      </p>
+
+      <div class="flex gap-3 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeModal('reopenModal')" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
+          Cancel
+        </button>
+        <button type="submit" class="w-2/3 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-amber-500/25 transition text-xs">
+          Confirm Reopen
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Close & Archive Modal -->
+<div id="closeModal" class="hidden modal-overlay" onclick="if(event.target===this)closeModal('closeModal')">
+  <div class="bg-white max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-flag-checkered text-brand-400 text-base"></i>
+        <h3 class="font-heading font-bold text-base">Close & Archive Semester</h3>
+      </div>
+      <button onclick="closeModal('closeModal')" class="text-slate-400 hover:text-white text-base">✕</button>
+    </div>
+
+    <form id="closeForm" method="POST" action="" class="p-6 space-y-4">
+      {% csrf_token %}
+      <p class="text-xs text-slate-600 leading-relaxed" id="closePeriodPrompt">
+        This executes the calculation of final student averages, section ranks, locks marks, and creates an immutable statistical archive.
+      </p>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Archival Notes / Remarks (optional)</label>
+        <textarea name="notes" rows="2" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3.5 py-2.5 focus:ring-2 focus:ring-brand-500 resize-none" placeholder="e.g. Regular semester close completed with 100% marks submitted."></textarea>
+      </div>
+
+      <div class="flex gap-3 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeModal('closeModal')" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
+          Cancel
+        </button>
+        <button type="submit" class="w-2/3 bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition text-xs">
+          Finalize & Archive
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Supplementary Exams Modal -->
+<div id="supplementaryModal" class="hidden modal-overlay" onclick="if(event.target===this)closeModal('supplementaryModal')">
+  <div class="bg-white max-w-md w-full rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-calendar-check text-amber-400 text-base"></i>
+        <h3 class="font-heading font-bold text-base">Schedule Supplementary Exams</h3>
+      </div>
+      <button onclick="closeModal('supplementaryModal')" class="text-slate-400 hover:text-white text-base">✕</button>
+    </div>
+
+    <form id="supplementaryForm" method="POST" action="" class="p-6 space-y-4">
+      {% csrf_token %}
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Start Date <span class="text-red-500">*</span></label>
+          <input type="date" name="supplementary_start_date" id="suppStartDate" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-brand-500" required>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">End Date <span class="text-red-500">*</span></label>
+          <input type="date" name="supplementary_end_date" id="suppEndDate" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-brand-500" required>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-500">
+        Automatically creates calendar events and enables supplementary grade entry rules.
+      </p>
+
+      <div class="flex gap-3 pt-3 border-t border-slate-100">
+        <button type="button" onclick="closeModal('supplementaryModal')" class="w-1/3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
+          Cancel
+        </button>
+        <button type="submit" class="w-2/3 bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-brand-500/25 transition text-xs">
+          Save Schedule
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Snapshot Detail Modal -->
+<div id="snapshotDetailModal" class="hidden modal-overlay" onclick="if(event.target===this)closeModal('snapshotDetailModal')">
+  <div class="bg-white max-w-lg w-full rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+    <div class="p-5 bg-gradient-to-r from-purple-900 to-indigo-950 text-white flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-box-archive text-purple-400 text-base"></i>
+        <h3 class="font-heading font-bold text-base" id="snapshotTitle">Semester Archive Snapshot</h3>
+      </div>
+      <button onclick="closeModal('snapshotDetailModal')" class="text-slate-400 hover:text-white text-base">✕</button>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <div class="grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <span class="text-[10px] text-slate-400 uppercase font-bold block">Evaluated</span>
+          <p class="text-lg font-black text-slate-800 font-mono" id="snapTotal">0</p>
+        </div>
+        <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+          <span class="text-[10px] text-emerald-600 uppercase font-bold block">Pass Rate</span>
+          <p class="text-lg font-black text-emerald-700 font-mono" id="snapPassRate">0%</p>
+        </div>
+        <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+          <span class="text-[10px] text-indigo-600 uppercase font-bold block">Average</span>
+          <p class="text-lg font-black text-indigo-700 font-mono" id="snapAverage">0%</p>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Top Ranked Students</label>
+        <div class="space-y-1.5" id="snapTopStudents"></div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 flex justify-end">
+        <button onclick="closeModal('snapshotDetailModal')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-4 py-2 rounded-xl transition">
+          Close Snapshot
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openReopenModal(periodId, periodName) {
+  document.getElementById('reopenForm').action = `/academics/lifecycle/reopen/${periodId}/`;
+  document.getElementById('reopenPeriodPrompt').innerHTML = `You are requesting to administratively reopen <strong>${periodName}</strong>. Please provide a mandatory reason.`;
+  openModal('reopenModal');
+}
+
+function openCloseModal(periodId, periodName) {
+  document.getElementById('closeForm').action = `/academics/lifecycle/close/${periodId}/`;
+  document.getElementById('closePeriodPrompt').innerHTML = `Finalize results and lock <strong>${periodName}</strong>. This will calculate ranks and write an archive snapshot.`;
+  openModal('closeModal');
+}
+
+function openSupplementaryModal(periodId, periodName, startVal, endVal) {
+  document.getElementById('supplementaryForm').action = `/academics/lifecycle/supplementary/${periodId}/`;
+  document.getElementById('suppStartDate').value = startVal || '';
+  document.getElementById('suppEndDate').value = endVal || '';
+  openModal('supplementaryModal');
+}
+
+function viewArchiveSnapshot(archiveId) {
+  fetch(`/academics/lifecycle/archive/${archiveId}/json/`)
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('snapshotTitle').textContent = `${data.period_name} (${data.academic_year})`;
+      document.getElementById('snapTotal').textContent = data.total_students;
+      
+      const snap = data.snapshot_data || {};
+      document.getElementById('snapPassRate').textContent = `${snap.pass_rate_percentage || 0}%`;
+      document.getElementById('snapAverage').textContent = `${data.overall_average}%`;
+
+      const topList = document.getElementById('snapTopStudents');
+      topList.innerHTML = '';
+      const topStudents = snap.top_performers || [];
+      if (topStudents.length === 0) {
+        topList.innerHTML = '<p class="text-xs text-slate-400">No student rank breakdown available.</p>';
+      } else {
+        topStudents.forEach((st, idx) => {
+          topList.innerHTML += `
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <span class="w-5 h-5 rounded-full bg-brand-600 text-white font-bold text-[10px] flex items-center justify-center">${idx + 1}</span>
+                <span class="font-bold text-slate-800">${st.enrollment__student__first_name} ${st.enrollment__student__last_name}</span>
+              </div>
+              <span class="font-mono font-bold text-brand-700">${st.average_score}%</span>
+            </div>
+          `;
+        });
+      }
+
+      openModal('snapshotDetailModal');
+    })
+    .catch(() => {
+      alert('Could not load archive snapshot data.');
+    });
+}
+</script>
+{% endblock %}
