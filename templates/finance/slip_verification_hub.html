@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Bank Deposit Slip Verification Hub | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8 animate-fade-in pb-12">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-r from-slate-900 via-cyan-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-32 -top-10 w-48 h-48 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-building-columns text-cyan-300"></i>
+                    <span>Cashier & Accounting Verification</span>
+                </div>
+                <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Bank Deposit Slip Verification Hub</h1>
+                <p class="text-cyan-200/80 text-sm mt-1 max-w-2xl">
+                    Verify paper bank deposit receipts and mobile banking transfer slips (CBE, Awash, Dashen, Telebirr, CBE Birr) submitted by parents. One-click invoice crediting and digital receipt issuance.
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="{% url 'finance:dashboard' %}" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition backdrop-blur-md flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Finance Dashboard</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-amber-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Pending Review</p>
+                    <p class="text-2xl font-black text-amber-600 mt-1 font-mono">{{ pending_count }} Slips</p>
+                    <p class="text-xs font-bold text-slate-600 font-mono mt-0.5">ETB {{ pending_amount|floatformat:2 }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation text-amber-500"></i>
+                <span>Awaiting cashier cross-check</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-emerald-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Approved & Credited</p>
+                    <p class="text-2xl font-black text-emerald-600 mt-1 font-mono">{{ approved_count }} Slips</p>
+                    <p class="text-xs font-bold text-slate-600 font-mono mt-0.5">ETB {{ approved_amount|floatformat:2 }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-receipt text-emerald-500"></i>
+                <span>Reconciled to school bank ledger</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-rose-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Rejected / Disputed</p>
+                    <p class="text-2xl font-black text-rose-600 mt-1 font-mono">{{ rejected_count }} Slips</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-ban text-rose-500"></i>
+                <span>Invalid or unverified transfers</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <form method="get" action="{% url 'finance:slip_verification_hub' %}" class="flex flex-wrap items-center gap-4 text-xs">
+            <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-700">Status:</span>
+                <div class="inline-flex rounded-xl bg-slate-100 p-1">
+                    <a href="?status=PENDING{% if bank_filter %}&bank={{ bank_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg font-semibold transition {% if status_filter == 'PENDING' %}bg-white text-slate-900 shadow-xs font-bold{% else %}text-slate-600 hover:text-slate-900{% endif %}">Pending</a>
+                    <a href="?status=APPROVED{% if bank_filter %}&bank={{ bank_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg font-semibold transition {% if status_filter == 'APPROVED' %}bg-white text-slate-900 shadow-xs font-bold{% else %}text-slate-600 hover:text-slate-900{% endif %}">Approved</a>
+                    <a href="?status=REJECTED{% if bank_filter %}&bank={{ bank_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg font-semibold transition {% if status_filter == 'REJECTED' %}bg-white text-slate-900 shadow-xs font-bold{% else %}text-slate-600 hover:text-slate-900{% endif %}">Rejected</a>
+                    <a href="?status=ALL{% if bank_filter %}&bank={{ bank_filter }}{% endif %}{% if query %}&q={{ query }}{% endif %}" class="px-3 py-1.5 rounded-lg font-semibold transition {% if status_filter == 'ALL' %}bg-white text-slate-900 shadow-xs font-bold{% else %}text-slate-600 hover:text-slate-900{% endif %}">All</a>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-700">Bank:</span>
+                <select name="bank" onchange="this.form.submit()" class="px-3 py-1.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-medium">
+                    <option value="">All Banks</option>
+                    {% for b in banks %}
+                    {% if b %}
+                    <option value="{{ b }}" {% if bank_filter == b %}selected{% endif %}>{{ b }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex-1 min-w-[220px] relative">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" name="q" value="{{ query }}" placeholder="Search by reference, student name, ID..." class="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-medium">
+            </div>
+
+            <button type="submit" class="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-semibold transition">
+                Filter
+            </button>
+            {% if bank_filter or query or status_filter != 'PENDING' %}
+            <a href="{% url 'finance:slip_verification_hub' %}" class="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition">
+                Reset
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Slips Listing Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice text-cyan-600"></i>
+                <span>Submitted Deposit Slips</span>
+            </h3>
+            <span class="text-xs text-slate-500 font-medium">{{ authorizations.count }} record(s)</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                        <th class="py-3.5 px-4">Bank Ref & Institution</th>
+                        <th class="py-3.5 px-4">Student & Invoice</th>
+                        <th class="py-3.5 px-4">Submitted Amount</th>
+                        <th class="py-3.5 px-4">Deposit Date</th>
+                        <th class="py-3.5 px-4">Receipt Slip Photo</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4 text-right">Verification Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for auth in authorizations %}
+                    {% with payment=auth.payment inv=auth.payment.invoice %}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <!-- Bank Info -->
+                        <td class="py-3.5 px-4">
+                            <span class="font-mono font-bold text-slate-900 block text-xs">{{ auth.bank_reference }}</span>
+                            <div class="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded mt-0.5">
+                                <i class="fa-solid fa-building-columns text-[10px]"></i>
+                                <span>{{ auth.bank_name }}</span>
+                            </div>
+                        </td>
+
+                        <!-- Student & Invoice -->
+                        <td class="py-3.5 px-4">
+                            <span class="font-semibold text-slate-900 block">{{ inv.student.full_name }}</span>
+                            <span class="text-[11px] text-slate-500 font-mono">ID: {{ inv.student.student_id }} · Inv #{{ inv.invoice_number }}</span>
+                        </td>
+
+                        <!-- Amount -->
+                        <td class="py-3.5 px-4 font-mono">
+                            <span class="font-bold text-slate-900 text-sm block">ETB {{ payment.amount_paid|floatformat:2 }}</span>
+                            <span class="text-[10px] text-slate-400">Balance: ETB {{ inv.remaining_balance|floatformat:2 }}</span>
+                        </td>
+
+                        <!-- Dates -->
+                        <td class="py-3.5 px-4 text-slate-600">
+                            {% if auth.deposit_date %}
+                            <span class="block font-semibold text-slate-800">{{ auth.deposit_date|date:"M d, Y" }}</span>
+                            {% else %}
+                            <span class="block text-slate-400 italic">Not specified</span>
+                            {% endif %}
+                            <span class="text-[10px] text-slate-400">Submitted: {{ auth.created_at|date:"M d, H:i" }}</span>
+                        </td>
+
+                        <!-- Deposit Slip Image Preview -->
+                        <td class="py-3.5 px-4">
+                            {% if auth.deposit_slip_image %}
+                            <a href="{{ auth.deposit_slip_image.url }}" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition" title="Click to view full receipt in new tab">
+                                <i class="fa-solid fa-image text-cyan-600"></i>
+                                <span>View Slip</span>
+                            </a>
+                            {% else %}
+                            <span class="text-slate-400 text-[11px] italic">No slip attached</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Status -->
+                        <td class="py-3.5 px-4">
+                            {% if auth.status == 'PENDING' %}
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-clock"></i> Pending
+                            </span>
+                            {% elif auth.status == 'APPROVED' %}
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-check"></i> Approved
+                            </span>
+                            <span class="block text-[10px] text-slate-400 mt-0.5">By {{ auth.authorized_by.first_name|default:"Cashier" }}</span>
+                            {% elif auth.status == 'REJECTED' %}
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-xmark"></i> Rejected
+                            </span>
+                            {% if auth.rejection_reason %}
+                            <p class="text-[10px] text-rose-600 mt-0.5 max-w-xs truncate" title="{{ auth.rejection_reason }}">{{ auth.rejection_reason }}</p>
+                            {% endif %}
+                            {% endif %}
+                        </td>
+
+                        <!-- Verification Actions -->
+                        <td class="py-3.5 px-4 text-right">
+                            {% if auth.status == 'PENDING' %}
+                            <div class="inline-flex items-center gap-2">
+                                <button type="button" onclick="openApproveModal('{{ auth.id }}', '{{ auth.bank_reference|escapejs }}', '{{ payment.amount_paid }}', '{{ inv.student.full_name|escapejs }}', '{{ inv.invoice_number|escapejs }}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shadow-xs flex items-center gap-1">
+                                    <i class="fa-solid fa-check"></i>
+                                    <span>Approve & Credit</span>
+                                </button>
+                                <button type="button" onclick="openRejectModal('{{ auth.id }}', '{{ auth.bank_reference|escapejs }}')" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition flex items-center gap-1">
+                                    <i class="fa-solid fa-ban"></i>
+                                    <span>Reject</span>
+                                </button>
+                            </div>
+                            {% elif auth.status == 'APPROVED' %}
+                            <span class="text-[11px] text-emerald-700 font-mono font-bold">
+                                {{ payment.receipt_no|default:"Receipt Issued" }}
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400 text-xs italic">Closed</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-12 text-center text-slate-400">
+                            <i class="fa-solid fa-receipt text-3xl mb-2 text-slate-300 block"></i>
+                            <span>No deposit slips matching current filters.</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Approve Deposit Slip -->
+<div id="approveSlipModal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="font-heading font-extrabold text-lg text-slate-900">Approve & Credit Deposit</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Verify funds in school account and issue receipt</p>
+            </div>
+            <button type="button" onclick="closeApproveModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+
+        <form method="post" id="approveForm" action="" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="approve">
+
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                <p class="text-slate-500 text-[11px]">Student: <strong id="approveStudentName" class="text-slate-800"></strong></p>
+                <p class="text-slate-500 text-[11px]">Invoice: <strong id="approveInvoiceNo" class="text-slate-800 font-mono"></strong></p>
+                <p class="text-slate-500 text-[11px]">Bank Ref: <strong id="approveBankRef" class="text-cyan-800 font-mono"></strong></p>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Confirmed Amount (ETB) *</label>
+                <input type="number" step="0.01" min="0.01" id="approveAmount" name="verified_amount" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold font-mono text-slate-900 text-sm">
+                <p class="text-[10px] text-slate-400 mt-1">Adjust only if the actual credited bank amount differs from the submission.</p>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Cashier Verification Notes</label>
+                <textarea name="notes" rows="2" placeholder="e.g. Cross-checked with CBE Internet Banking statement on 08/10/2026." class="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeApproveModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-check"></i>
+                    <span>Approve & Credit Now</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Reject Deposit Slip -->
+<div id="rejectSlipModal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="font-heading font-extrabold text-lg text-slate-900">Reject Deposit Slip</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Specify reason for transaction rejection</p>
+            </div>
+            <button type="button" onclick="closeRejectModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+
+        <form method="post" id="rejectForm" action="" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="reject">
+
+            <div class="p-3 bg-rose-50 rounded-xl border border-rose-100">
+                <p class="text-rose-800 text-[11px]">Rejecting Reference: <strong id="rejectBankRef" class="font-mono"></strong></p>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Rejection Reason *</label>
+                <textarea name="rejection_reason" rows="3" required placeholder="e.g. Reference number not found in bank statement; amount mismatch; blurry screenshot." class="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeRejectModal()" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-ban"></i>
+                    <span>Confirm Rejection</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openApproveModal(id, ref, amount, student, invoice) {
+    document.getElementById('approveForm').action = "/finance/slips/" + id + "/verify/";
+    document.getElementById('approveStudentName').innerText = student;
+    document.getElementById('approveInvoiceNo').innerText = invoice;
+    document.getElementById('approveBankRef').innerText = ref;
+    document.getElementById('approveAmount').value = amount;
+    document.getElementById('approveSlipModal').classList.remove('hidden');
+}
+
+function closeApproveModal() {
+    document.getElementById('approveSlipModal').classList.add('hidden');
+}
+
+function openRejectModal(id, ref) {
+    document.getElementById('rejectForm').action = "/finance/slips/" + id + "/verify/";
+    document.getElementById('rejectBankRef').innerText = ref;
+    document.getElementById('rejectSlipModal').classList.remove('hidden');
+}
+
+function closeRejectModal() {
+    document.getElementById('rejectSlipModal').classList.add('hidden');
+}
+</script>
+{% endblock %}

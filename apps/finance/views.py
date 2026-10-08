@@ -116,6 +116,8 @@ def finance_dashboard(request):
                             school=school, invoice=invoice, transaction_type=TransactionType.DEBIT,
                             amount=total, reference=f"DEBIT-{inv_no}", created_by=request.user
                         )
+                        from apps.finance.discount_service import DiscountService
+                        DiscountService.apply_discount_to_invoice(invoice, user=request.user)
                         generated_count += 1
 
                 messages.success(request, f"Successfully generated {generated_count} student invoice(s).")
@@ -265,7 +267,7 @@ def approve_manual_payment(request, auth_id):
 @login_required
 def parent_pay_view(request, invoice_id):
     from apps.payments.services import ChapaService
-    
+
     school = getattr(request, 'school', None)
     if not school and getattr(request.user, 'school', None):
         school = request.user.school
@@ -275,7 +277,7 @@ def parent_pay_view(request, invoice_id):
         return redirect('index')
 
     invoice = get_object_or_404(StudentInvoice, id=invoice_id, school=school)
-    
+
     # Check if parent is linked to this student
     try:
         from apps.parents.models import GuardianRelationship, ParentProfile
@@ -285,23 +287,119 @@ def parent_pay_view(request, invoice_id):
         messages.error(request, "You are not authorized to pay this invoice.")
         return redirect('parent_portal')
 
-    if invoice.remaining_balance <= 0:
+    if invoice.remaining_balance <= Decimal('0.00'):
         messages.success(request, "This invoice is already paid in full.")
         return redirect('parent_portal')
 
-    # Initialize Chapa Payment
-    try:
-        callback_url = request.build_absolute_uri('/') # Can be replaced with actual callback verification
-        res = ChapaService.initialize_payment(
-            school=school,
-            invoice=invoice,
-            amount=invoice.remaining_balance,
-            parent_email=request.user.email or "parent@school.com",
-            first_name=request.user.first_name or "Parent",
-            last_name=request.user.last_name or "User",
-            callback_url=callback_url
-        )
-        return redirect(res['checkout_url'])
-    except Exception as e:
-        messages.error(request, f"Error initializing payment: {str(e)}")
-        return redirect('parent_portal')
+    if request.method == 'POST':
+        method = request.POST.get('payment_method', 'CHAPA')
+
+        if method == 'CHAPA':
+            try:
+                callback_url = request.build_absolute_uri('/')
+                res = ChapaService.initialize_payment(
+                    school=school,
+                    invoice=invoice,
+                    amount=invoice.remaining_balance,
+                    parent_email=request.user.email or "parent@school.com",
+                    first_name=request.user.first_name or "Parent",
+                    last_name=request.user.last_name or "User",
+                    callback_url=callback_url
+                )
+                return redirect(res['checkout_url'])
+            except Exception as e:
+                messages.error(request, f"Error initializing Chapa payment: {str(e)}")
+                return redirect('finance:parent_pay', invoice_id=invoice.id)
+
+        elif method in ['TELEBIRR', 'CBE_BIRR']:
+            # Digital mobile wallet checkout request
+            phone = request.POST.get('payer_phone', request.user.parent_profile.phone or '')
+            prefix = "TEL" if method == 'TELEBIRR' else "CBEB"
+            tx_ref = f"{prefix}-{uuid.uuid4().hex[:10].upper()}"
+
+            amount_to_pay = invoice.remaining_balance
+            payment = Payment.objects.create(
+                school=school,
+                invoice=invoice,
+                tx_ref=tx_ref,
+                amount_paid=amount_to_pay,
+                payment_method=method,
+                status=PaymentStatus.PENDING,
+                notes=f"Mobile payment initiated via {method} for {phone}"
+            )
+
+            # Also create manual authorization record so cashiers can see pending mobile push
+            ManualPaymentAuthorization.objects.create(
+                school=school,
+                payment=payment,
+                bank_reference=tx_ref,
+                bank_name=method,
+                status=ManualPaymentStatus.PENDING,
+                submitted_by=request.user,
+                notes=f"Mobile money prompt sent to {phone}. Awaiting confirmation."
+            )
+
+            messages.success(
+                request,
+                f"{method} payment request initiated (Ref: {tx_ref})! "
+                f"Please authorize the prompt on phone number {phone} or show this reference to the school cashier."
+            )
+            return redirect('parent_portal')
+
+        elif method == 'BANK_TRANSFER':
+            bank_name = request.POST.get('bank_name', 'CBE').strip()
+            bank_reference = request.POST.get('bank_reference', '').strip()
+            deposit_date = request.POST.get('deposit_date')
+            amount_str = request.POST.get('amount_paid', str(invoice.remaining_balance))
+            deposit_slip_image = request.FILES.get('deposit_slip_image')
+            notes = request.POST.get('notes', '').strip()
+
+            if not bank_reference:
+                messages.error(request, "Please enter the bank deposit/transfer transaction reference.")
+                return redirect('finance:parent_pay', invoice_id=invoice.id)
+
+            try:
+                amount_dec = Decimal(amount_str)
+                if amount_dec <= Decimal('0.00'):
+                    messages.error(request, "Amount deposited must be greater than zero.")
+                    return redirect('finance:parent_pay', invoice_id=invoice.id)
+            except Exception:
+                messages.error(request, "Invalid amount entered.")
+                return redirect('finance:parent_pay', invoice_id=invoice.id)
+
+            tx_ref = f"SLIP-{uuid.uuid4().hex[:8].upper()}"
+            payment = Payment.objects.create(
+                school=school,
+                invoice=invoice,
+                tx_ref=tx_ref,
+                amount_paid=amount_dec,
+                payment_method=PaymentMethod.BANK_TRANSFER,
+                status=PaymentStatus.PENDING,
+                notes=notes
+            )
+
+            ManualPaymentAuthorization.objects.create(
+                school=school,
+                payment=payment,
+                bank_reference=bank_reference,
+                bank_name=bank_name,
+                deposit_date=deposit_date if deposit_date else None,
+                deposit_slip_image=deposit_slip_image,
+                status=ManualPaymentStatus.PENDING,
+                submitted_by=request.user,
+                notes=notes
+            )
+
+            messages.success(
+                request,
+                f"Bank deposit slip with reference '{bank_reference}' submitted successfully! "
+                f"Our school cashier/accountant will verify and issue your digital receipt."
+            )
+            return redirect('parent_portal')
+
+    return render(request, 'finance/parent_pay.html', {
+        'invoice': invoice,
+        'student': invoice.student,
+        'remaining_balance': invoice.remaining_balance,
+    })
+

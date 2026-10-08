@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Family Discounts & Scholarships | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8 animate-fade-in pb-12">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-32 -top-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-percent text-purple-300"></i>
+                    <span>Fee Optimization & Financial Aid</span>
+                </div>
+                <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Family Discounts & Scholarships</h1>
+                <p class="text-purple-200/80 text-sm mt-1 max-w-2xl">
+                    Configure multi-child sibling discounts (10% on 2nd, 20% on 3rd+), staff child waivers, academic merit scholarships, and need-based financial aid.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button" onclick="document.getElementById('assignDiscountModal').classList.remove('hidden')" class="px-4 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold text-xs transition shadow-lg shadow-purple-900/40 flex items-center gap-2">
+                    <i class="fa-solid fa-user-graduate"></i>
+                    <span>Award Scholarship</span>
+                </button>
+                <button type="button" onclick="document.getElementById('createPolicyModal').classList.remove('hidden')" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition backdrop-blur-md flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>New Discount Policy</span>
+                </button>
+                <form method="post" action="{% url 'finance:discounts_dashboard' %}" class="inline" onsubmit="return confirm('Recalculate sibling and staff discounts for all active invoices?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="batch_recalculate">
+                    <button type="submit" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition shadow-lg shadow-emerald-950/30 flex items-center gap-2">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>Batch Auto-Apply</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-purple-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Discounts Awarded</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1 font-mono">ETB {{ total_discounts_awarded|floatformat:2 }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-check-circle text-purple-500"></i>
+                <span>Direct fee reductions granted</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-indigo-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Discounted Invoices</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1 font-mono">{{ invoices_with_discount }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-info text-indigo-500"></i>
+                <span>Invoices benefiting from policies</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-emerald-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Policies</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1 font-mono">{{ policies.count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt text-emerald-500"></i>
+                <span>Rules evaluating automatically</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-amber-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Multi-Child Families</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1 font-mono">{{ family_groups|length }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-people-roof"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-user-group text-amber-500"></i>
+                <span>Households with 2+ enrolled students</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Active Discount Policies Section -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-award text-purple-600"></i>
+                    <span>Configured Discount & Scholarship Policies</span>
+                </h3>
+                <p class="text-slate-500 text-xs mt-0.5">Rules automatically matched against student demographics and assigned awards.</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                Academic Year: {{ current_ay.name|default:"Active Year" }}
+            </span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-slate-50/75 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                        <th class="py-3.5 px-4">Policy Name</th>
+                        <th class="py-3.5 px-4">Category</th>
+                        <th class="py-3.5 px-4">Value / Type</th>
+                        <th class="py-3.5 px-4">Trigger Condition</th>
+                        <th class="py-3.5 px-4">Target Fee</th>
+                        <th class="py-3.5 px-4">Auto-Apply</th>
+                        <th class="py-3.5 px-4">Status</th>
+                        <th class="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for p in policies %}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="py-3 px-4 font-semibold text-slate-900">
+                            {{ p.name }}
+                            {% if p.description %}
+                            <p class="text-[11px] font-normal text-slate-500 truncate max-w-xs">{{ p.description }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            {% if p.discount_category == 'SIBLING' %}
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-100 text-purple-800">Sibling</span>
+                            {% elif p.discount_category == 'STAFF_CHILD' %}
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800">Staff Child</span>
+                            {% elif p.discount_category == 'MERIT_SCHOLARSHIP' %}
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800">Merit Scholarship</span>
+                            {% elif p.discount_category == 'NEED_BASED' %}
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800">Need-Based Aid</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-800">{{ p.get_discount_category_display }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 font-mono font-bold text-slate-900">
+                            {% if p.discount_type == 'PERCENTAGE' %}
+                            <span class="text-purple-600 font-extrabold">{{ p.value }}%</span>
+                            {% else %}
+                            <span class="text-slate-800">ETB {{ p.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-slate-700">
+                            {% if p.sibling_order %}
+                            <span class="inline-flex items-center gap-1 font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                                <i class="fa-solid fa-ranking-star text-[10px]"></i>
+                                Child #{{ p.sibling_order }}{% if p.sibling_order == 3 %}+{% endif %}
+                            </span>
+                            {% elif p.discount_category == 'STAFF_CHILD' %}
+                            <span class="text-slate-600 italic">Teacher / Staff Parent</span>
+                            {% else %}
+                            <span class="text-slate-400 italic">Manual / Individual Award</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-slate-600">
+                            {{ p.fee_category.name|default:"All Invoice Fees" }}
+                        </td>
+                        <td class="py-3 px-4">
+                            {% if p.auto_apply %}
+                            <span class="text-emerald-600 font-bold flex items-center gap-1 text-[11px]">
+                                <i class="fa-solid fa-circle-check"></i> Auto
+                            </span>
+                            {% else %}
+                            <span class="text-slate-400 flex items-center gap-1 text-[11px]">
+                                <i class="fa-solid fa-circle"></i> Manual
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            {% if p.is_active %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Active</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <form method="post" action="{% url 'finance:discounts_dashboard' %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="toggle_policy">
+                                <input type="hidden" name="policy_id" value="{{ p.id }}">
+                                <button type="submit" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition {% if p.is_active %}text-rose-600 hover:bg-rose-50{% else %}text-emerald-600 hover:bg-emerald-50{% endif %}">
+                                    {% if p.is_active %}Disable{% else %}Enable{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="py-8 text-center text-slate-400">No discount policies configured.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Two-Column Layout: Multi-Child Families & Individual Student Scholarships -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Multi-Child Family Sibling Groups -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-people-roof text-indigo-600"></i>
+                        <span>Multi-Child Sibling Hierarchy</span>
+                    </h3>
+                    <p class="text-slate-500 text-xs">Households with 2 or more children eligible for stepped sibling discounts.</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold">
+                    {{ family_groups|length }} Families
+                </span>
+            </div>
+
+            <div class="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                {% for group in family_groups %}
+                <div class="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-2.5 hover:border-indigo-200 transition">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center">
+                                {{ group.parent.user.first_name|first|default:"P" }}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs text-slate-800">{{ group.parent.user.get_full_name|default:group.parent.user.username }}</h4>
+                                <p class="text-[11px] text-slate-500">{{ group.parent.phone }} · {{ group.children|length }} Children</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Children List with Order Badge -->
+                    <div class="grid grid-cols-1 gap-1.5 pt-1">
+                        {% for c in group.children %}
+                        <div class="flex items-center justify-between px-3 py-1.5 bg-white rounded-lg border border-slate-100 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold {% if c.order == 1 %}bg-slate-100 text-slate-700{% elif c.order == 2 %}bg-purple-100 text-purple-800 font-extrabold{% else %}bg-indigo-100 text-indigo-800 font-black{% endif %}">
+                                    {{ c.order }}
+                                </span>
+                                <span class="font-semibold text-slate-800">{{ c.student.full_name }}</span>
+                                <span class="text-[10px] text-slate-400">({{ c.student.student_id }})</span>
+                            </div>
+                            <div>
+                                {% if c.order == 1 %}
+                                <span class="text-[10px] text-slate-500 font-medium">1st Child (Standard Rate)</span>
+                                {% elif c.order == 2 %}
+                                <span class="text-[10px] text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded">2nd Child (-10% Sibling)</span>
+                                {% else %}
+                                <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded">3rd+ Child (-20% Sibling)</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-xs text-slate-400 italic text-center py-8">No multi-child families found in directory.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Student Scholarship & Individual Awards -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap text-purple-600"></i>
+                        <span>Individual Scholarships & Waivers</span>
+                    </h3>
+                    <p class="text-slate-500 text-xs">Awarded merit scholarships, need-based aid, and administrative overrides.</p>
+                </div>
+                <button type="button" onclick="document.getElementById('assignDiscountModal').classList.remove('hidden')" class="text-xs text-purple-600 hover:text-purple-700 font-bold">
+                    + Assign Student
+                </button>
+            </div>
+
+            <div class="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                {% for sd in student_discounts %}
+                <div class="p-3.5 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-3 text-xs">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-900">{{ sd.student.full_name }}</span>
+                            <span class="text-[10px] text-slate-400">({{ sd.student.student_id }})</span>
+                        </div>
+                        <p class="text-purple-700 font-semibold text-[11px] mt-0.5">
+                            {{ sd.discount_policy.name }}
+                        </p>
+                        {% if sd.notes %}
+                        <p class="text-slate-500 text-[10px] mt-0.5 italic truncate max-w-xs">{{ sd.notes }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="text-right">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 block mb-1">
+                            {{ sd.discount_policy.value }}{% if sd.discount_policy.discount_type == 'PERCENTAGE' %}%{% else %} ETB{% endif %}
+                        </span>
+                        <span class="text-[10px] text-slate-400 block">{{ sd.approved_at|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-xs text-slate-400 italic text-center py-8">No individual student scholarships assigned yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Create Discount Policy -->
+<div id="createPolicyModal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="font-heading font-extrabold text-lg text-slate-900">New Discount Policy</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Create a automated rule or scholarship tariff</p>
+            </div>
+            <button type="button" onclick="document.getElementById('createPolicyModal').classList.add('hidden')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'finance:discounts_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_policy">
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Policy Name *</label>
+                <input type="text" name="name" required placeholder="e.g. 2nd Child Sibling Discount (10%)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Discount Category *</label>
+                    <select name="discount_category" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                        {% for cat_val, cat_label in discount_categories %}
+                        <option value="{{ cat_val }}">{{ cat_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Value Type *</label>
+                    <select name="discount_type" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                        <option value="PERCENTAGE">Percentage (%)</option>
+                        <option value="FIXED_AMOUNT">Fixed Amount (ETB)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Discount Value *</label>
+                    <input type="number" step="0.01" min="0" name="value" required placeholder="e.g. 10 or 500" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium font-mono">
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Sibling Order (Optional)</label>
+                    <input type="number" min="1" max="10" name="sibling_order" placeholder="e.g. 2 or 3" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium font-mono">
+                    <p class="text-[10px] text-slate-400 mt-1">2 = 2nd child, 3 = 3rd+ child</p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Target Fee Category (Optional)</label>
+                <select name="fee_category_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                    <option value="">All Invoice Fees (Total Invoice Amount)</option>
+                    {% for cat in fee_categories %}
+                    <option value="{{ cat.id }}">{{ cat.name }} Only</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" id="auto_apply" name="auto_apply" checked class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300">
+                <label for="auto_apply" class="font-bold text-slate-700">Auto-Apply to matching student invoices</label>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Description / Notes</label>
+                <textarea name="description" rows="2" placeholder="Eligibility criteria or notes..." class="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="document.getElementById('createPolicyModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition">Save Policy</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 2: Assign Student Discount -->
+<div id="assignDiscountModal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+                <h3 class="font-heading font-extrabold text-lg text-slate-900">Award Scholarship / Discount</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Assign an individual discount or waiver to a student</p>
+            </div>
+            <button type="button" onclick="document.getElementById('assignDiscountModal').classList.add('hidden')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'finance:discounts_dashboard' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="assign_student_discount">
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Select Student *</label>
+                <select name="student_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                    <option value="">-- Choose Student --</option>
+                    {% for st in students %}
+                    <option value="{{ st.id }}">{{ st.full_name }} ({{ st.student_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Discount Policy / Scholarship *</label>
+                <select name="policy_id" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                    {% for p in policies %}
+                    <option value="{{ p.id }}">{{ p.name }} ({{ p.value }}{% if p.discount_type == 'PERCENTAGE' %}%{% else %} ETB{% endif %})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Academic Year *</label>
+                <select name="academic_year_id" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+                    {% for ay in academic_years %}
+                    <option value="{{ ay.id }}" {% if ay == current_ay %}selected{% endif %}>{{ ay.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold text-slate-700 mb-1">Reason / Approval Notes</label>
+                <textarea name="notes" rows="2" placeholder="e.g. Approved by School Board for 1st rank academic excellence" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="document.getElementById('assignDiscountModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition">Award Discount</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

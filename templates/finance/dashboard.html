@@ -9,6 +9,12 @@
         <p class="text-sm text-slate-500">Configure fee structures, generate student invoices, and record payments.</p>
     </div>
     <div class="flex flex-wrap gap-2">
+        <a href="{% url 'finance:discounts_dashboard' %}" class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold rounded-xl px-4 py-2.5 text-sm transition shadow-xs">
+            <i class="fa-solid fa-percent text-purple-600"></i>Discounts & Scholarships
+        </a>
+        <a href="{% url 'finance:slip_verification_hub' %}" class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 font-bold rounded-xl px-4 py-2.5 text-sm transition shadow-xs">
+            <i class="fa-solid fa-receipt text-cyan-600"></i>Deposit Slips Hub
+        </a>
         <button onclick="openModal('generateInvoicesModal')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 btn-primary bg-brand-600 hover:bg-brand-700 shadow-brand-600/30 text-sm px-4 py-2.5">
             <i class="fa-solid fa-file-invoice-dollar"></i>Generate Invoices
         </button>
@@ -44,9 +50,15 @@
 {% if pending_manual_auths %}
 <!-- Pending Manual Payments Authorization Alert -->
 <div class="bg-amber-50 rounded-2xl border border-amber-200 p-5 mb-8">
-    <h3 class="font-bold text-amber-800 text-sm mb-3 flex items-center">
-        <i class="fa-solid fa-clock-rotate-left mr-2 text-amber-600"></i>Pending Bank Verification ({{ pending_manual_auths.count }})
-    </h3>
+    <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-amber-800 text-sm flex items-center">
+            <i class="fa-solid fa-clock-rotate-left mr-2 text-amber-600"></i>Pending Bank Verification ({{ pending_manual_auths.count }})
+        </h3>
+        <a href="{% url 'finance:slip_verification_hub' %}" class="text-xs font-bold text-amber-700 hover:text-amber-900 underline flex items-center gap-1">
+            <span>Open Verification Hub</span>
+            <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        </a>
+    </div>
     <div class="space-y-3">
         {% for auth in pending_manual_auths %}
         <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-amber-100 shadow-sm">

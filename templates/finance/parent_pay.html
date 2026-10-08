@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Pay Invoice {{ invoice.invoice_number }} | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
+    <!-- Top Back Navigation -->
+    <div>
+        <a href="{% url 'parent_portal' %}" class="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-indigo-600 transition">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Return to Parent Portal</span>
+        </a>
+    </div>
+
+    <!-- Invoice Header & Summary Card -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Invoice #{{ invoice.invoice_number }}</span>
+                </span>
+                <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Tuition & School Fee Payment</h1>
+                <p class="text-indigo-200/80 text-xs sm:text-sm mt-1">
+                    Student: <strong class="text-white">{{ student.full_name }}</strong> (ID: {{ student.student_id }})
+                </p>
+            </div>
+            <div class="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 text-right sm:min-w-[180px]">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-200">Amount Due</p>
+                <p class="text-2xl sm:text-3xl font-black font-mono text-white mt-0.5">ETB {{ remaining_balance|floatformat:2 }}</p>
+                <p class="text-[10px] text-indigo-300 mt-1">Due Date: {{ invoice.due_date|date:"M d, Y" }}</p>
+            </div>
+        </div>
+
+        <!-- Breakdown strip -->
+        <div class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div>
+                <p class="text-indigo-300 text-[11px]">Gross Amount</p>
+                <p class="font-bold font-mono text-white mt-0.5">ETB {{ invoice.total_amount|floatformat:2 }}</p>
+            </div>
+            <div>
+                <p class="text-indigo-300 text-[11px]">Discounts / Scholarships</p>
+                {% if invoice.discount_amount > 0 %}
+                <p class="font-bold font-mono text-emerald-400 mt-0.5">-ETB {{ invoice.discount_amount|floatformat:2 }}</p>
+                <span class="text-[10px] text-emerald-300 block truncate" title="{{ invoice.discount_reason }}">
+                    {{ invoice.discount_reason|default:"Discount" }}
+                </span>
+                {% else %}
+                <p class="text-slate-400 font-mono mt-0.5">None</p>
+                {% endif %}
+            </div>
+            <div>
+                <p class="text-indigo-300 text-[11px]">Paid to Date</p>
+                <p class="font-bold font-mono text-white mt-0.5">ETB {{ invoice.paid_amount|floatformat:2 }}</p>
+            </div>
+            <div>
+                <p class="text-indigo-300 text-[11px]">Invoice Status</p>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase mt-1 inline-block {% if invoice.status == 'PAID' %}bg-emerald-500/20 text-emerald-300{% elif invoice.status == 'PARTIALLY_PAID' %}bg-amber-500/20 text-amber-300{% else %}bg-rose-500/20 text-rose-300{% endif %}">
+                    {{ invoice.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Methods Selection Tabs -->
+    <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 sm:p-8 space-y-6">
+        <div>
+            <h2 class="font-heading font-extrabold text-lg text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-credit-card text-indigo-600"></i>
+                <span>Choose Payment Channel</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Select an automated digital gateway or upload a bank transfer deposit slip.</p>
+        </div>
+
+        <!-- Method Buttons / Switcher -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button type="button" onclick="switchMethod('chapa')" id="tab_chapa" class="method-tab p-4 rounded-2xl border-2 border-indigo-600 bg-indigo-50/50 text-left transition flex items-center justify-between">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                        <h4 class="font-bold text-sm text-slate-900">Chapa Online</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">Cards, CBE debit & mobile</p>
+                </div>
+                <i class="fa-solid fa-bolt text-indigo-600 text-lg"></i>
+            </button>
+
+            <button type="button" onclick="switchMethod('mobile')" id="tab_mobile" class="method-tab p-4 rounded-2xl border-2 border-slate-200 hover:border-slate-300 text-left transition flex items-center justify-between">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-transparent"></span>
+                        <h4 class="font-bold text-sm text-slate-900">Telebirr / CBE Birr</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">Direct mobile money wallet</p>
+                </div>
+                <i class="fa-solid fa-mobile-screen text-slate-400 text-lg"></i>
+            </button>
+
+            <button type="button" onclick="switchMethod('slip')" id="tab_slip" class="method-tab p-4 rounded-2xl border-2 border-slate-200 hover:border-slate-300 text-left transition flex items-center justify-between">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-transparent"></span>
+                        <h4 class="font-bold text-sm text-slate-900">Bank Deposit Slip</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">CBE, Awash, Dashen transfer</p>
+                </div>
+                <i class="fa-solid fa-building-columns text-slate-400 text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Form 1: Chapa Gateway -->
+        <div id="method_chapa_panel" class="space-y-4 pt-2">
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-900 text-xs sm:text-sm">Secure Payment with Chapa</h4>
+                    <p class="text-slate-500 text-xs mt-0.5">Instant invoice clearance upon payment. Supported: Visa, Mastercard, CBE Debit, and Telebirr.</p>
+                </div>
+            </div>
+
+            <form method="post" action="{% url 'finance:parent_pay' invoice.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="payment_method" value="CHAPA">
+                <button type="submit" class="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Proceed to Chapa Checkout (ETB {{ remaining_balance|floatformat:2 }})</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Form 2: Mobile Money (Telebirr / CBE Birr) -->
+        <div id="method_mobile_panel" class="hidden space-y-4 pt-2">
+            <div class="p-4 bg-sky-50 rounded-2xl border border-sky-100 flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-sky-600 text-white flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-slate-900 text-xs sm:text-sm">Telebirr & CBE Birr Mobile Payment</h4>
+                    <p class="text-slate-500 text-xs mt-0.5">Enter your mobile phone number to receive a payment prompt or transaction reference.</p>
+                </div>
+            </div>
+
+            <form method="post" action="{% url 'finance:parent_pay' invoice.id %}" class="space-y-4 text-xs">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Select Gateway</label>
+                        <select name="payment_method" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold">
+                            <option value="TELEBIRR">Telebirr (Ethio Telecom)</option>
+                            <option value="CBE_BIRR">CBE Birr (Commercial Bank of Ethiopia)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Registered Phone Number</label>
+                        <input type="tel" name="payer_phone" value="{{ request.user.parent_profile.phone|default:'09' }}" required placeholder="0911..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono font-semibold">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3.5 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm transition shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Initiate Mobile Payment Prompt</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Form 3: Bank Deposit Slip Upload -->
+        <div id="method_slip_panel" class="hidden space-y-6 pt-2">
+            <!-- School Official Bank Accounts Notice -->
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <h4 class="font-bold text-xs uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                    <i class="fa-solid fa-building-columns text-cyan-600"></i>
+                    <span>Official School Bank Accounts</span>
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div class="p-3 bg-white rounded-xl border border-slate-100">
+                        <p class="font-bold text-slate-800">Commercial Bank of Ethiopia</p>
+                        <p class="font-mono font-bold text-cyan-800 text-sm mt-0.5">1000123456789</p>
+                        <p class="text-[10px] text-slate-400">Account Name: {{ school.name }}</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-xl border border-slate-100">
+                        <p class="font-bold text-slate-800">Awash Bank</p>
+                        <p class="font-mono font-bold text-cyan-800 text-sm mt-0.5">01320491823900</p>
+                        <p class="text-[10px] text-slate-400">Account Name: {{ school.name }}</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-xl border border-slate-100">
+                        <p class="font-bold text-slate-800">Telebirr Merchant Code</p>
+                        <p class="font-mono font-bold text-cyan-800 text-sm mt-0.5">882910</p>
+                        <p class="text-[10px] text-slate-400">Merchant: {{ school.name }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Form -->
+            <form method="post" action="{% url 'finance:parent_pay' invoice.id %}" enctype="multipart/form-data" class="space-y-4 text-xs">
+                {% csrf_token %}
+                <input type="hidden" name="payment_method" value="BANK_TRANSFER">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Deposited Bank *</label>
+                        <select name="bank_name" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-semibold">
+                            <option value="Commercial Bank of Ethiopia (CBE)">Commercial Bank of Ethiopia (CBE)</option>
+                            <option value="Awash Bank">Awash Bank</option>
+                            <option value="Dashen Bank">Dashen Bank</option>
+                            <option value="Bank of Abyssinia">Bank of Abyssinia</option>
+                            <option value="Cooperative Bank of Oromia">Cooperative Bank of Oromia</option>
+                            <option value="Telebirr Transfer">Telebirr Transfer</option>
+                            <option value="Other Bank">Other Bank</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Bank Reference / Transaction ID *</label>
+                        <input type="text" name="bank_reference" required placeholder="e.g. FT2409849201 or CBE998123" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono font-bold text-slate-900">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Amount Deposited (ETB) *</label>
+                        <input type="number" step="0.01" min="0.01" name="amount_paid" value="{{ remaining_balance }}" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono font-bold text-slate-900 text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Deposit Date *</label>
+                        <input type="date" name="deposit_date" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-semibold">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Deposit Slip Image / Transfer Screenshot *</label>
+                    <input type="file" name="deposit_slip_image" accept="image/*,application/pdf" required class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-cyan-600 file:text-white file:font-bold file:text-xs hover:file:bg-cyan-700 cursor-pointer">
+                    <p class="text-[10px] text-slate-400 mt-1">Upload a clear photo of the stamped bank receipt or mobile banking screenshot.</p>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Notes / Remarks (Optional)</label>
+                    <textarea name="notes" rows="2" placeholder="e.g. Deposited at Megenagna Branch" class="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-medium"></textarea>
+                </div>
+
+                <button type="submit" class="w-full py-3.5 rounded-2xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm transition shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span>Submit Deposit Slip for Verification</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchMethod(method) {
+    const tabs = ['chapa', 'mobile', 'slip'];
+    tabs.forEach(t => {
+        const panel = document.getElementById('method_' + t + '_panel');
+        const tab = document.getElementById('tab_' + t);
+        if (t === method) {
+            panel.classList.remove('hidden');
+            tab.classList.add('border-indigo-600', 'bg-indigo-50/50');
+            tab.classList.remove('border-slate-200');
+            tab.querySelector('span').classList.add('bg-indigo-600');
+            tab.querySelector('span').classList.remove('bg-transparent');
+        } else {
+            panel.classList.add('hidden');
+            tab.classList.remove('border-indigo-600', 'bg-indigo-50/50');
+            tab.classList.add('border-slate-200');
+            tab.querySelector('span').classList.remove('bg-indigo-600');
+            tab.querySelector('span').classList.add('bg-transparent');
+        }
+    });
+}
+</script>
+{% endblock %}

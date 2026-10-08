@@ -32,6 +32,64 @@ class FeeStructure(TenantAwareModel):
         return f"{self.grade.name} - {self.fee_category.name}: {self.amount} ETB"
 
 
+class DiscountType(models.TextChoices):
+    PERCENTAGE = 'PERCENTAGE', 'Percentage (%)'
+    FIXED_AMOUNT = 'FIXED_AMOUNT', 'Fixed Amount (ETB)'
+
+
+class DiscountCategory(models.TextChoices):
+    SIBLING = 'SIBLING', 'Sibling / Multi-Child Discount'
+    STAFF_CHILD = 'STAFF_CHILD', 'Staff Child Waiver'
+    MERIT_SCHOLARSHIP = 'MERIT_SCHOLARSHIP', 'Merit Academic Scholarship'
+    NEED_BASED = 'NEED_BASED', 'Need-Based Financial Aid'
+    EARLY_BIRD = 'EARLY_BIRD', 'Early Bird Discount'
+    CUSTOM = 'CUSTOM', 'Custom Rule / Waiver'
+
+
+class DiscountPolicy(TenantAwareModel):
+    name = models.CharField(max_length=150)
+    discount_category = models.CharField(max_length=30, choices=DiscountCategory.choices, default=DiscountCategory.SIBLING)
+    discount_type = models.CharField(max_length=20, choices=DiscountType.choices, default=DiscountType.PERCENTAGE)
+    value = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    sibling_order = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text="Sibling rank to trigger discount (e.g. 2 for 2nd child, 3 for 3rd and subsequent children)"
+    )
+    fee_category = models.ForeignKey(
+        FeeCategory, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='discount_policies',
+        help_text="Optional fee category constraint (e.g., Tuition only). Blank applies to total invoice."
+    )
+    is_active = models.BooleanField(default=True)
+    auto_apply = models.BooleanField(default=True, help_text="Automatically evaluate and apply during invoice generation")
+    description = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['discount_category', 'sibling_order', 'name']
+
+    def __str__(self):
+        val_str = f"{self.value}%" if self.discount_type == DiscountType.PERCENTAGE else f"{self.value} ETB"
+        return f"{self.name} ({val_str})"
+
+
+class StudentDiscount(TenantAwareModel):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='assigned_discounts')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='student_discounts')
+    discount_policy = models.ForeignKey(DiscountPolicy, on_delete=models.CASCADE, related_name='student_assignments')
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_discounts')
+    approved_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, default='')
+
+    class Meta:
+        unique_together = ('school', 'student', 'academic_year', 'discount_policy')
+        ordering = ['-approved_at']
+
+    def __str__(self):
+        return f"{self.student.full_name} - {self.discount_policy.name}"
+
+
 class InvoiceStatus(models.TextChoices):
     UNPAID = 'UNPAID', 'Unpaid'
     PARTIALLY_PAID = 'PARTIALLY_PAID', 'Partially Paid'
@@ -48,6 +106,8 @@ class StudentInvoice(TenantAwareModel):
     invoice_number = models.CharField(max_length=100)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    discount_policy = models.ForeignKey(DiscountPolicy, on_delete=models.SET_NULL, null=True, blank=True, related_name='applied_invoices')
+    discount_reason = models.CharField(max_length=255, blank=True, default='')
     paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     due_date = models.DateField()
     status = models.CharField(max_length=20, choices=InvoiceStatus.choices, default=InvoiceStatus.UNPAID)
@@ -60,6 +120,10 @@ class StudentInvoice(TenantAwareModel):
     def remaining_balance(self):
         net_total = max(Decimal('0.00'), self.total_amount - self.discount_amount)
         return max(Decimal('0.00'), net_total - self.paid_amount)
+
+    @property
+    def net_amount(self):
+        return max(Decimal('0.00'), self.total_amount - self.discount_amount)
 
     @property
     def is_overdue(self):
@@ -82,7 +146,9 @@ class InvoiceItem(models.Model):
 
 class PaymentMethod(models.TextChoices):
     CHAPA = 'CHAPA', 'Chapa Digital Payment'
-    BANK_TRANSFER = 'BANK_TRANSFER', 'Bank Transfer (CBE/Telebirr)'
+    TELEBIRR = 'TELEBIRR', 'Telebirr SuperApp / USSD'
+    CBE_BIRR = 'CBE_BIRR', 'CBE Birr'
+    BANK_TRANSFER = 'BANK_TRANSFER', 'Bank Transfer (CBE / Awash / Dashen)'
     CASH = 'CASH', 'Cash'
     MANUAL = 'MANUAL', 'Manual Receipt Adjustment'
 
@@ -140,11 +206,15 @@ class ManualPaymentAuthorization(TenantAwareModel):
     bank_reference = models.CharField(max_length=100)
     bank_name = models.CharField(max_length=100, default='CBE')
     deposit_slip_image = models.FileField(upload_to='deposit_slips/', blank=True, null=True)
+    deposit_date = models.DateField(null=True, blank=True)
+    verified_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, choices=ManualPaymentStatus.choices, default=ManualPaymentStatus.PENDING)
     submitted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='submitted_manual_payments')
     authorized_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='authorized_manual_payments')
     authorized_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.TextField(blank=True, null=True)
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     def __str__(self):
         return f"Manual Auth {self.bank_reference} ({self.status})"
