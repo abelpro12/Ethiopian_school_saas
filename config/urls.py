@@ -40,6 +40,7 @@ urlpatterns = [
     path('video-calls/', include('apps.video_calls.urls', namespace='video_calls')),
     path('examinations/', include('apps.examinations.urls', namespace='examinations')),
     path('audit/', include('apps.audit.urls', namespace='audit')),
+    path('communication/', include('apps.communication.urls', namespace='communication')),
 ]
 
 if settings.DEBUG:

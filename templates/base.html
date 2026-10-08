@@ -380,6 +380,15 @@
         <a href="{% url 'finance:slip_verification_hub' %}" class="nav-link {% if request.resolver_match.url_name == 'slip_verification_hub' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-receipt text-cyan-400"></i><span>Bank Deposit Slips</span>
         </a>
+        <a href="{% url 'communication:parent_meetings' %}" class="nav-link {% if request.resolver_match.app_name == 'communication' and 'parent_meetings' in request.resolver_match.url_name %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-handshake text-purple-400"></i><span>Parent Meetings</span>
+        </a>
+        <a href="{% url 'communication:sms_templates' %}" class="nav-link {% if request.resolver_match.url_name == 'sms_templates' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-message text-sky-400"></i><span>Bilingual SMS Templates</span>
+        </a>
+        <a href="{% url 'communication:payment_reminders' %}" class="nav-link {% if request.resolver_match.url_name == 'payment_reminders' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-bell text-amber-400"></i><span>Payment Due Warnings</span>
+        </a>
         <a href="{% url 'library:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library Dashboard</span>
         </a>
@@ -402,6 +411,9 @@
         </a>
         <a href="{% url 'finance:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-file-invoice-dollar text-brand-400"></i><span>Student Invoices</span>
+        </a>
+        <a href="{% url 'communication:payment_reminders' %}" class="nav-link {% if request.resolver_match.url_name == 'payment_reminders' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-bell text-amber-400"></i><span>Payment Due Warnings</span>
         </a>
         <a href="{% url 'students:lifecycle' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-users text-amber-400"></i><span>Student Directory</span>
@@ -468,6 +480,9 @@
         </a>
         <a href="{% url 'teachers:homeroom' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-users-rectangle text-brand-400"></i><span>Homeroom Portal</span>
+        </a>
+        <a href="{% url 'communication:parent_meetings' %}" class="nav-link {% if request.resolver_match.app_name == 'communication' and 'parent_meetings' in request.resolver_match.url_name %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-handshake text-purple-400"></i><span>Parent Meetings</span>
         </a>
         <a href="{% url 'attendance:tutorial_attendance' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-graduation-cap text-purple-400"></i><span>Tutorial Attendance</span>

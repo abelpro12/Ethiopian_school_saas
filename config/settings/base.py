@@ -95,6 +95,8 @@ MIDDLEWARE = [
 
     # Security: Redirect users with must_change_password=True to password change page
     'apps.accounts.middleware.ForcePasswordChangeMiddleware',
+    # User Active Presence Tracking
+    'apps.accounts.middleware.UserPresenceMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

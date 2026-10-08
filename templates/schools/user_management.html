@@ -118,29 +118,35 @@
                         <p class="text-[11px] font-mono text-slate-500">{{ target_user.username }}</p>
                     </div>
                 </div>
-                {% if current_role == 'STUDENT' %}
-                    {% with enrollments=target_user.student_profile.current_enrollment_list %}
-                        {% if enrollments and enrollments.0.status == 'GRADUATED' %}
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                            <i class="fa-solid fa-graduation-cap text-purple-600"></i> Graduated
-                        </span>
-                        {% elif enrollments and enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                            <i class="fa-solid fa-clock text-amber-600"></i> Pending Placement
-                        </span>
-                        {% elif target_user.is_active %}
+                <div class="flex flex-col items-end gap-1">
+                    {% if current_role == 'STUDENT' %}
+                        {% with enrollments=target_user.student_profile.current_enrollment_list %}
+                            {% if enrollments and enrollments.0.status == 'GRADUATED' %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                <i class="fa-solid fa-graduation-cap text-purple-600"></i> Graduated
+                            </span>
+                            {% elif enrollments and enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                <i class="fa-solid fa-clock text-amber-600"></i> Pending Placement
+                            </span>
+                            {% elif target_user.is_active %}
+                            <span class="badge badge-green flex-shrink-0">Active</span>
+                            {% else %}
+                            <span class="badge badge-red flex-shrink-0">Suspended</span>
+                            {% endif %}
+                        {% endwith %}
+                    {% else %}
+                        {% if target_user.is_active %}
                         <span class="badge badge-green flex-shrink-0">Active</span>
                         {% else %}
                         <span class="badge badge-red flex-shrink-0">Suspended</span>
                         {% endif %}
-                    {% endwith %}
-                {% else %}
-                    {% if target_user.is_active %}
-                    <span class="badge badge-green flex-shrink-0">Active</span>
-                    {% else %}
-                    <span class="badge badge-red flex-shrink-0">Suspended</span>
                     {% endif %}
-                {% endif %}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium {{ target_user.presence_badge_classes }}">
+                        <span class="w-1.5 h-1.5 rounded-full {{ target_user.presence_dot_class }}"></span>
+                        {{ target_user.presence_label }}
+                    </span>
+                </div>
             </div>
 
             <!-- Password Badge -->
@@ -349,37 +355,48 @@
                         {% endif %}
 
                         <td class="py-3 px-4">
-                            {% if current_role == 'STUDENT' %}
-                                {% with enrollments=target_user.student_profile.current_enrollment_list %}
-                                    {% if enrollments and enrollments.0.status == 'GRADUATED' %}
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-                                        <i class="fa-solid fa-graduation-cap text-purple-600"></i> Graduated
-                                    </span>
-                                    {% elif enrollments and enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                        <i class="fa-solid fa-clock text-amber-600"></i> Pending Placement
-                                    </span>
-                                    {% elif target_user.is_active %}
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                            <div class="flex flex-col gap-1 items-start">
+                                {% if current_role == 'STUDENT' %}
+                                    {% with enrollments=target_user.student_profile.current_enrollment_list %}
+                                        {% if enrollments and enrollments.0.status == 'GRADUATED' %}
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                            <i class="fa-solid fa-graduation-cap text-purple-600"></i> Graduated
+                                        </span>
+                                        {% elif enrollments and enrollments.0.status == 'PROMOTED' and enrollments.0.academic_year != filter_ay %}
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                            <i class="fa-solid fa-clock text-amber-600"></i> Pending Placement
+                                        </span>
+                                        {% elif target_user.is_active %}
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                        </span>
+                                        {% else %}
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspended
+                                        </span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    {% if target_user.is_active %}
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                         <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
                                     </span>
                                     {% else %}
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
                                         <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspended
                                     </span>
                                     {% endif %}
-                                {% endwith %}
-                            {% else %}
-                                {% if target_user.is_active %}
-                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
-                                </span>
-                                {% else %}
-                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Suspended
-                                </span>
                                 {% endif %}
-                            {% endif %}
+
+                                <!-- Active Presence Badge -->
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium {{ target_user.presence_badge_classes }}" title="Last seen: {{ target_user.last_seen_display }}">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ target_user.presence_dot_class }}"></span>
+                                    <span>{{ target_user.presence_label }}</span>
+                                    {% if target_user.last_seen %}
+                                    <span class="text-[10px] opacity-75">({{ target_user.last_seen_display }})</span>
+                                    {% endif %}
+                                </span>
+                            </div>
                         </td>
                         <td class="py-3 px-4">
                             <div class="flex items-center gap-2">

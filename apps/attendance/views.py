@@ -179,8 +179,11 @@ class SectionAttendanceView(LoginRequiredMixin, View):
                     }
                 )
                 
-                # Check for absence to send notification via Messaging
+                # Check for absence to send automated SMS alert and in-app message
                 if rec.status == AttendanceStatus.ABSENT:
+                    from apps.communication.services import send_student_absence_alert
+                    send_student_absence_alert(school, student, date, reason=reason_val, recorded_by=request.user)
+
                     parents = student.parents.all()
                     for parent in parents:
                         convo = Conversation.objects.filter(

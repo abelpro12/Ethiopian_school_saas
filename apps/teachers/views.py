@@ -372,7 +372,7 @@ def homeroom_portal(request):
             for enrollment in enrollments:
                 status_value = request.POST.get(f'attendance_{enrollment.student.id}')
                 if status_value in dict(AttendanceStatus.choices):
-                    AttendanceRecord.objects.update_or_create(
+                    rec, _ = AttendanceRecord.objects.update_or_create(
                         school=school,
                         section=homeroom,
                         student=enrollment.student,
@@ -382,6 +382,9 @@ def homeroom_portal(request):
                             'recorded_by': request.user
                         }
                     )
+                    if status_value == AttendanceStatus.ABSENT:
+                        from apps.communication.services import send_student_absence_alert
+                        send_student_absence_alert(school, enrollment.student, selected_date, recorded_by=request.user)
             messages.success(request, f"Attendance for {selected_date.strftime('%b %d, %Y')} saved successfully.")
             return redirect(f"{reverse('teachers:homeroom')}?date={selected_date.strftime('%Y-%m-%d')}")
             

@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Parent Meeting Requests | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8 animate-fade-in pb-12">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-32 -top-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-handshake text-purple-300"></i>
+                    <span>Family & Community Engagement</span>
+                </div>
+                <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Parent Meeting Requests</h1>
+                <p class="text-purple-200/80 text-sm mt-1 max-w-2xl">
+                    Formal parent conferences and meeting invitations with automated SMS alerts, category tracking (academic, conduct, attendance, health), and recorded discussion outcomes.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button" onclick="document.getElementById('scheduleMeetingModal').classList.remove('hidden')" class="px-4 py-2.5 rounded-xl bg-purple-500 hover:bg-purple-600 text-white font-semibold text-xs transition shadow-lg shadow-purple-900/40 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                    <span>Schedule Meeting</span>
+                </button>
+                <a href="{% url 'communication:sms_templates' %}" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition backdrop-blur-md flex items-center gap-2">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>SMS Templates</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-purple-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Meetings</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1 font-mono">{{ total_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-check-circle text-purple-500"></i>
+                <span>All recorded invitations</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-amber-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Scheduled / Pending</p>
+                    <p class="text-2xl font-black text-amber-600 mt-1 font-mono">{{ scheduled_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-hourglass-half text-amber-500"></i>
+                <span>Awaiting conference</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-emerald-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Completed Conferences</p>
+                    <p class="text-2xl font-black text-emerald-600 mt-1 font-mono">{{ completed_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-file-lines text-emerald-500"></i>
+                <span>Outcomes documented</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-red-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Cancelled / Missed</p>
+                    <p class="text-2xl font-black text-red-600 mt-1 font-mono">{{ cancelled_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-ban"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+                <span>Closed without completion</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Filters & Search Bar -->
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+        <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Search Student or Staff</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Student name, code, contact..."
+                       class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Category</label>
+                <select name="category" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <option value="">All Categories</option>
+                    {% for cat_val, cat_label in category_choices %}
+                    <option value="{{ cat_val }}" {% if selected_category == cat_val %}selected{% endif %}>{{ cat_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Status</label>
+                <select name="status" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <option value="">All Statuses</option>
+                    {% for st_val, st_label in status_choices %}
+                    <option value="{{ st_val }}" {% if selected_status == st_val %}selected{% endif %}>{{ st_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Date From</label>
+                <input type="date" name="date_from" value="{{ date_from }}"
+                       class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>Apply</span>
+                </button>
+                <a href="{% url 'communication:parent_meetings' %}" class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Meeting Requests Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider border-b border-slate-100">
+                    <tr>
+                        <th class="py-3 px-4">Student &amp; Parent</th>
+                        <th class="py-3 px-4">Category</th>
+                        <th class="py-3 px-4">Date &amp; Time</th>
+                        <th class="py-3 px-4">Location &amp; Host</th>
+                        <th class="py-3 px-4">SMS Notice</th>
+                        <th class="py-3 px-4">Status</th>
+                        <th class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for m in meetings %}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="py-3 px-4">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center font-bold text-white text-xs flex-shrink-0">
+                                    {{ m.student.first_name|first|upper }}
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-slate-800 text-xs">{{ m.student.full_name }} <span class="text-slate-400 font-mono">({{ m.student.student_id }})</span></p>
+                                    <p class="text-[11px] text-slate-500">
+                                        {% if m.parent %}
+                                        {{ m.parent.user.get_full_name|default:m.parent.relationship }}: <span class="font-mono text-slate-700">{{ m.parent.phone }}</span>
+                                        {% else %}
+                                        <span class="text-amber-600 italic">No parent linked</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
+                                {% if m.category == 'ACADEMIC' %}bg-blue-50 text-blue-700 border border-blue-200
+                                {% elif m.category == 'CONDUCT' or m.category == 'DISCIPLINARY' %}bg-red-50 text-red-700 border border-red-200
+                                {% elif m.category == 'ATTENDANCE' %}bg-amber-50 text-amber-700 border border-amber-200
+                                {% elif m.category == 'HEALTH' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                                {% else %}bg-purple-50 text-purple-700 border border-purple-200{% endif %}">
+                                {{ m.get_category_display }}
+                            </span>
+                            <p class="text-[11px] text-slate-500 mt-1 max-w-xs truncate" title="{{ m.reason }}">{{ m.reason }}</p>
+                        </td>
+                        <td class="py-3 px-4 text-xs font-medium text-slate-700">
+                            <div><i class="fa-solid fa-calendar mr-1 text-slate-400"></i>{{ m.meeting_date|date:"M d, Y" }}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5"><i class="fa-solid fa-clock mr-1 text-slate-400"></i>{{ m.meeting_time|time:"g:i A" }}</div>
+                        </td>
+                        <td class="py-3 px-4 text-xs">
+                            <p class="font-semibold text-slate-800">{{ m.location }}</p>
+                            <p class="text-[11px] text-slate-500">{{ m.contact_person }} {% if m.contact_phone %}({{ m.contact_phone }}){% endif %}</p>
+                        </td>
+                        <td class="py-3 px-4">
+                            {% if m.sms_sent %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <i class="fa-solid fa-paper-plane text-[10px]"></i> Dispatched
+                            </span>
+                            {% else %}
+                            <form method="post" action="{% url 'communication:resend_parent_meeting_sms' m.id %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition">
+                                    <i class="fa-solid fa-bell text-[10px]"></i> Send SMS
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4">
+                            {% if m.status == 'SCHEDULED' %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Scheduled
+                            </span>
+                            {% elif m.status == 'COMPLETED' %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Completed
+                            </span>
+                            {% elif m.status == 'CANCELLED' %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Cancelled
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                Rescheduled
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <button type="button" onclick="openOutcomeModal('{{ m.id }}', '{{ m.student.full_name|escapejs }}', '{{ m.status }}', '{{ m.outcome_notes|escapejs }}')"
+                                    class="px-2.5 py-1.5 bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-700 font-bold text-xs rounded-lg border border-slate-200 transition">
+                                <i class="fa-solid fa-pen-to-square mr-1"></i> Update Status
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="py-16 text-center text-slate-400">
+                            <i class="fa-solid fa-calendar-xmark text-4xl mb-3 block opacity-25"></i>
+                            <p class="text-sm font-medium">No parent meetings match your criteria.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Schedule Parent Meeting -->
+<div id="scheduleMeetingModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative animate-scale-in">
+        <button type="button" onclick="document.getElementById('scheduleMeetingModal').classList.add('hidden')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 text-lg">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg">
+                <i class="fa-solid fa-handshake"></i>
+            </div>
+            <div>
+                <h2 class="font-bold text-slate-900 text-lg">Schedule Parent Meeting</h2>
+                <p class="text-xs text-slate-500">Dispatch official meeting invitation and SMS notice</p>
+            </div>
+        </div>
+
+        <form method="post" action="{% url 'communication:create_parent_meeting' %}" class="space-y-4">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Select Student *</label>
+                <select name="student_id" required class="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    <option value="">-- Choose student --</option>
+                    {% for st in students %}
+                    <option value="{{ st.id }}">{{ st.full_name }} ({{ st.student_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Topic / Category *</label>
+                    <select name="category" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                        {% for cat_val, cat_label in category_choices %}
+                        <option value="{{ cat_val }}">{{ cat_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Location *</label>
+                    <input type="text" name="location" value="Principal Office" required
+                           class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Meeting Date *</label>
+                    <input type="date" name="meeting_date" required
+                           class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Meeting Time *</label>
+                    <input type="time" name="meeting_time" value="09:30" required
+                           class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Reason &amp; Agenda Details *</label>
+                <textarea name="reason" rows="2" required placeholder="Specify discussion agenda..."
+                          class="w-full text-xs border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-purple-500 focus:outline-none"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Host / Staff Contact</label>
+                    <input type="text" name="contact_person" value="{{ request.user.get_full_name|default:request.user.username }}" required
+                           class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Contact Phone</label>
+                    <input type="text" name="contact_phone" value="{{ request.user.phone|default:'' }}"
+                           placeholder="0911..."
+                           class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" name="send_sms" id="send_sms" checked
+                       class="rounded border-slate-300 text-purple-600 focus:ring-purple-500">
+                <label for="send_sms" class="text-xs font-medium text-slate-700 cursor-pointer">
+                    Dispatch SMS invitation to parent immediately
+                </label>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="document.getElementById('scheduleMeetingModal').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                    Schedule &amp; Dispatch
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Update Meeting Outcome -->
+<div id="outcomeModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative animate-scale-in">
+        <button type="button" onclick="document.getElementById('outcomeModal').classList.add('hidden')" class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 text-lg">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <h2 class="font-bold text-slate-900 text-base mb-1">Update Meeting Status</h2>
+        <p class="text-xs text-slate-500 mb-4" id="outcomeStudentTitle"></p>
+
+        <form id="outcomeForm" method="post" action="" class="space-y-4">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Status *</label>
+                <select name="status" id="modalStatusSelect" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                    {% for st_val, st_label in status_choices %}
+                    <option value="{{ st_val }}">{{ st_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Discussion Outcomes &amp; Action Items</label>
+                <textarea name="outcome_notes" id="modalOutcomeNotes" rows="3" placeholder="Enter notes discussed with parent..."
+                          class="w-full text-xs border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-purple-500 focus:outline-none"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="document.getElementById('outcomeModal').classList.add('hidden')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openOutcomeModal(meetingId, studentName, status, notes) {
+    document.getElementById('outcomeStudentTitle').textContent = 'Conference with parent of ' + studentName;
+    document.getElementById('modalStatusSelect').value = status;
+    document.getElementById('modalOutcomeNotes').value = notes || '';
+    document.getElementById('outcomeForm').action = '/communication/parent-meetings/' + meetingId + '/status/';
+    document.getElementById('outcomeModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

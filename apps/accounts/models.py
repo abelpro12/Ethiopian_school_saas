@@ -23,6 +23,7 @@ class User(AbstractUser):
     phone = models.CharField(max_length=50, blank=True, null=True)
     role = models.CharField(max_length=50, choices=UserRole.choices, default=UserRole.STUDENT)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
+    last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
 
     # Security: must_change_password forces a password reset on first login.
     # NEVER store raw passwords in the database.
@@ -41,6 +42,65 @@ class User(AbstractUser):
         super().set_password(raw_password)
         if raw_password:
             self.current_password_plain = raw_password
+
+    @property
+    def presence_status(self):
+        """
+        Returns 'online' (<5m), 'away' (<30m), or 'offline'.
+        """
+        if not self.last_seen:
+            return 'offline'
+        from django.utils import timezone
+        import datetime
+        diff = timezone.now() - self.last_seen
+        if diff < datetime.timedelta(minutes=5):
+            return 'online'
+        elif diff < datetime.timedelta(minutes=30):
+            return 'away'
+        return 'offline'
+
+    @property
+    def presence_label(self):
+        status = self.presence_status
+        if status == 'online':
+            return 'Online'
+        elif status == 'away':
+            return 'Recently Active'
+        return 'Offline'
+
+    @property
+    def presence_badge_classes(self):
+        status = self.presence_status
+        if status == 'online':
+            return 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+        elif status == 'away':
+            return 'bg-amber-50 text-amber-700 border border-amber-200'
+        return 'bg-slate-100 text-slate-500 border border-slate-200'
+
+    @property
+    def presence_dot_class(self):
+        status = self.presence_status
+        if status == 'online':
+            return 'bg-emerald-500'
+        elif status == 'away':
+            return 'bg-amber-500'
+        return 'bg-slate-400'
+
+    @property
+    def last_seen_display(self):
+        if not self.last_seen:
+            return 'Never'
+        from django.utils import timezone
+        import datetime
+        diff = timezone.now() - self.last_seen
+        seconds = int(diff.total_seconds())
+        if seconds < 60:
+            return 'Just now'
+        elif seconds < 3600:
+            return f"{seconds // 60}m ago"
+        elif seconds < 86400:
+            return f"{seconds // 3600}h ago"
+        return self.last_seen.strftime('%b %d, %Y')
 
     @property
     def current_password(self):

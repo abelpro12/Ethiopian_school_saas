@@ -54,3 +54,28 @@ class ForcePasswordChangeMiddleware:
             return redirect('/accounts/change-password/')
 
         return self.get_response(request)
+
+
+class UserPresenceMiddleware:
+    """
+    Tracks user active presence in EthioSchool SaaS.
+    Throttles database writes to once every 2 minutes per user.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            try:
+                import datetime
+                from django.utils import timezone
+                now = timezone.now()
+                last = getattr(request.user, 'last_seen', None)
+                if not last or (now - last).total_seconds() > 120:
+                    request.user.last_seen = now
+                    request.user.save(update_fields=['last_seen'])
+            except Exception:
+                pass
+
+        return self.get_response(request)

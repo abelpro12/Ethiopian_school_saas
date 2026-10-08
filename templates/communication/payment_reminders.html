@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Payment Due-Date Reminders | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-8 animate-fade-in pb-12">
+    <!-- Header Banner -->
+    <div class="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-32 -top-10 w-48 h-48 bg-teal-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-xs font-semibold mb-3">
+                    <i class="fa-solid fa-clock-rotate-left text-emerald-300"></i>
+                    <span>Automated Fee Collection Engine</span>
+                </div>
+                <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Payment Due-Date Warnings</h1>
+                <p class="text-emerald-200/80 text-sm mt-1 max-w-2xl">
+                    Automated multi-stage SMS notifications dispatched 7 days prior, 3 days prior, on due date, and when overdue to ensure timely tuition collection.
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <form method="post" action="{% url 'communication:trigger_payment_reminders' %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-xs transition shadow-lg shadow-emerald-950/40 flex items-center gap-2">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>Run Reminder Engine Now</span>
+                    </button>
+                </form>
+                <a href="{% url 'finance:invoices' %}" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs border border-white/20 transition backdrop-blur-md flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Manage Invoices</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Metrics Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-emerald-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">7-Day Warnings Due</p>
+                    <p class="text-2xl font-black text-slate-900 mt-1 font-mono">{{ in7days_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-calendar-check"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-info-circle text-blue-500"></i>
+                <span>Due in exactly 7 days</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-amber-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">3-Day Warnings Due</p>
+                    <p class="text-2xl font-black text-amber-600 mt-1 font-mono">{{ in3days_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-bell text-amber-500"></i>
+                <span>Due in exactly 3 days</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-purple-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Due Today</p>
+                    <p class="text-2xl font-black text-purple-600 mt-1 font-mono">{{ due_today_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-calendar-day"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-exclamation text-purple-500"></i>
+                <span>Deadline reached today</span>
+            </p>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-red-300 transition group">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Overdue Invoices</p>
+                    <p class="text-2xl font-black text-red-600 mt-1 font-mono">{{ overdue_count }}</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation text-red-500"></i>
+                <span>Past due date with balance</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Recent Dispatches Table -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <h2 class="text-sm font-bold text-slate-800">Recent Automated SMS Reminders Dispatched</h2>
+            </div>
+            <span class="text-xs text-slate-400 font-mono">Deduplication Guard Active</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wider border-b border-slate-100">
+                    <tr>
+                        <th class="py-3 px-4">Invoice &amp; Student</th>
+                        <th class="py-3 px-4">Reminder Stage</th>
+                        <th class="py-3 px-4">Recipient Phone</th>
+                        <th class="py-3 px-4">Dispatched Message Body</th>
+                        <th class="py-3 px-4">Sent At</th>
+                        <th class="py-3 px-4 text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for log in recent_logs %}
+                    <tr class="hover:bg-slate-50/50 transition">
+                        <td class="py-3 px-4">
+                            <div>
+                                <a href="{% url 'finance:invoice_detail' log.invoice.id %}" class="font-mono font-bold text-xs text-brand-600 hover:text-brand-800">
+                                    #{{ log.invoice.invoice_number }}
+                                </a>
+                                <p class="text-xs text-slate-700 font-semibold">{{ log.invoice.student.full_name }}</p>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
+                                {% if log.reminder_stage == '7_DAYS_BEFORE' %}bg-blue-50 text-blue-700 border border-blue-200
+                                {% elif log.reminder_stage == '3_DAYS_BEFORE' %}bg-amber-50 text-amber-700 border border-amber-200
+                                {% elif log.reminder_stage == 'DUE_DATE' %}bg-purple-50 text-purple-700 border border-purple-200
+                                {% else %}bg-red-50 text-red-700 border border-red-200{% endif %}">
+                                {{ log.get_reminder_stage_display }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-xs text-slate-700">
+                            {{ log.recipient_phone }}
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-600 max-w-sm truncate" title="{{ log.message }}">
+                            {{ log.message }}
+                        </td>
+                        <td class="py-3 px-4 text-xs text-slate-500">
+                            {{ log.sent_at|date:"M d, Y H:i" }}
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <i class="fa-solid fa-check text-[10px]"></i> {{ log.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="py-16 text-center text-slate-400">
+                            <i class="fa-solid fa-bell-slash text-4xl mb-3 block opacity-25"></i>
+                            <p class="text-sm font-medium">No payment reminders recorded yet. Click "Run Reminder Engine Now" to trigger evaluation.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
