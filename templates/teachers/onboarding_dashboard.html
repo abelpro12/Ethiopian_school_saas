@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Recruitment & Onboarding | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800 flex items-center gap-2.5">
+            <i class="fa-solid fa-user-tie text-brand-600"></i>
+            Teacher Recruitment & Onboarding Pipeline
+        </h1>
+        <p class="text-sm text-slate-500">End-to-end faculty recruitment, document verification, background checks, and active staff onboarding.</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition shadow-sm">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Upload Staff Document</span>
+        </button>
+    </div>
+</div>
+
+<!-- Pipeline Stage KPI Cards -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+    <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Staff</p>
+        <p class="text-xl font-bold text-slate-800 mt-1">{{ total_count }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-sky-200/80 shadow-sm text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-sky-600">1. Applied</p>
+        <p class="text-xl font-bold text-sky-700 mt-1">{{ applied_count }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-indigo-200/80 shadow-sm text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">2. Interviewed</p>
+        <p class="text-xl font-bold text-indigo-700 mt-1">{{ interviewed_count }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-purple-200/80 shadow-sm text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-purple-600">3. Offered</p>
+        <p class="text-xl font-bold text-purple-700 mt-1">{{ offered_count }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-amber-200/80 shadow-sm text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-amber-600">4. Onboarding</p>
+        <p class="text-xl font-bold text-amber-700 mt-1">{{ onboarding_count }}</p>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-emerald-200/80 shadow-sm text-center">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">5. Active Staff</p>
+        <p class="text-xl font-bold text-emerald-700 mt-1">{{ active_count }}</p>
+    </div>
+</div>
+
+<!-- Filters & Search -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 mb-6 space-y-4">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- Stage Filter Tabs -->
+        <div class="flex flex-wrap items-center gap-1.5">
+            <a href="?stage=" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if not stage_filter %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                All Stages
+            </a>
+            <a href="?stage=APPLIED" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if stage_filter == 'APPLIED' %}bg-sky-600 text-white{% else %}bg-sky-50 text-sky-700 hover:bg-sky-100{% endif %}">
+                Applied
+            </a>
+            <a href="?stage=INTERVIEWED" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if stage_filter == 'INTERVIEWED' %}bg-indigo-600 text-white{% else %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100{% endif %}">
+                Interviewed
+            </a>
+            <a href="?stage=OFFERED" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if stage_filter == 'OFFERED' %}bg-purple-600 text-white{% else %}bg-purple-50 text-purple-700 hover:bg-purple-100{% endif %}">
+                Offered
+            </a>
+            <a href="?stage=ONBOARDING" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if stage_filter == 'ONBOARDING' %}bg-amber-600 text-white{% else %}bg-amber-50 text-amber-700 hover:bg-amber-100{% endif %}">
+                Onboarding
+            </a>
+            <a href="?stage=ACTIVE" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if stage_filter == 'ACTIVE' %}bg-emerald-600 text-white{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}">
+                Active Staff
+            </a>
+            <a href="?stage=REJECTED" class="px-3 py-1.5 rounded-xl text-xs font-semibold transition {% if stage_filter == 'REJECTED' %}bg-rose-600 text-white{% else %}bg-rose-50 text-rose-700 hover:bg-rose-100{% endif %}">
+                Rejected
+            </a>
+        </div>
+
+        <!-- Search Bar -->
+        <form method="get" class="flex items-center gap-2">
+            {% if stage_filter %}<input type="hidden" name="stage" value="{{ stage_filter }}">{% endif %}
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search by name, employee ID, specialization..." class="pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 w-64 md:w-72 bg-slate-50 focus:bg-white transition">
+            </div>
+            <button type="submit" class="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl hover:bg-slate-900 transition">Search</button>
+            {% if search_query or stage_filter %}
+                <a href="{% url 'teachers:onboarding_dashboard' %}" class="px-2.5 py-1.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded-xl hover:bg-slate-200 transition" title="Clear Filters">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Teachers Pipeline List -->
+<div class="space-y-4">
+    {% for t in teachers %}
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 hover:border-slate-300 transition">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div class="flex items-start gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-brand-50 text-brand-700 font-bold text-base flex items-center justify-center shrink-0 border border-brand-100">
+                    {{ t.user.first_name|first }}{{ t.user.last_name|first }}
+                </div>
+                <div>
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <h3 class="text-base font-bold text-slate-800">{{ t.user.get_full_name }}</h3>
+                        <span class="font-mono text-xs text-slate-400">({{ t.employee_id }})</span>
+                        
+                        <!-- Onboarding Stage Badge -->
+                        {% if t.onboarding_status == 'ACTIVE' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                                <i class="fa-solid fa-circle-check text-[9px]"></i> Active Faculty
+                            </span>
+                        {% elif t.onboarding_status == 'ONBOARDING' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
+                                <i class="fa-solid fa-clock-rotate-left text-[9px]"></i> Onboarding
+                            </span>
+                        {% elif t.onboarding_status == 'OFFERED' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800">
+                                <i class="fa-solid fa-envelope-open-text text-[9px]"></i> Offer Extended
+                            </span>
+                        {% elif t.onboarding_status == 'INTERVIEWED' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
+                                <i class="fa-solid fa-comments text-[9px]"></i> Interviewed
+                            </span>
+                        {% elif t.onboarding_status == 'APPLIED' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">
+                                <i class="fa-solid fa-file-lines text-[9px]"></i> Applied
+                            </span>
+                        {% elif t.onboarding_status == 'REJECTED' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">
+                                <i class="fa-solid fa-ban text-[9px]"></i> Rejected
+                            </span>
+                        {% endif %}
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+                        <span><i class="fa-solid fa-building text-slate-400 mr-1"></i> {{ t.department_obj.name|default:t.department|default:"General Academics" }}</span>
+                        <span><i class="fa-solid fa-book-open text-slate-400 mr-1"></i> {{ t.specialization|default:"Specialization Not Set" }}</span>
+                        {% if t.user.email %}<span><i class="fa-solid fa-envelope text-slate-400 mr-1"></i> {{ t.user.email }}</span>{% endif %}
+                        {% if t.phone_number %}<span><i class="fa-solid fa-phone text-slate-400 mr-1"></i> {{ t.phone_number }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stage Update Form -->
+            <form method="post" action="{% url 'teachers:update_stage' t.id %}" class="flex flex-wrap items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                {% csrf_token %}
+                <div class="flex items-center gap-1.5">
+                    <label class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Stage:</label>
+                    <select name="onboarding_status" class="text-xs font-semibold rounded-lg border border-slate-200 py-1 px-2 bg-white focus:outline-none focus:border-brand-500">
+                        <option value="APPLIED" {% if t.onboarding_status == 'APPLIED' %}selected{% endif %}>Applied</option>
+                        <option value="INTERVIEWED" {% if t.onboarding_status == 'INTERVIEWED' %}selected{% endif %}>Interviewed</option>
+                        <option value="OFFERED" {% if t.onboarding_status == 'OFFERED' %}selected{% endif %}>Offered</option>
+                        <option value="ONBOARDING" {% if t.onboarding_status == 'ONBOARDING' %}selected{% endif %}>Onboarding</option>
+                        <option value="ACTIVE" {% if t.onboarding_status == 'ACTIVE' %}selected{% endif %}>Active</option>
+                        <option value="REJECTED" {% if t.onboarding_status == 'REJECTED' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-3 text-xs">
+                    <label class="inline-flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" name="background_check_completed" value="1" {% if t.background_check_completed %}checked{% endif %} class="rounded text-brand-600 focus:ring-brand-500">
+                        <span class="text-slate-700 font-medium">Bkg Check</span>
+                    </label>
+                    <label class="inline-flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" name="contract_signed" value="1" {% if t.contract_signed %}checked{% endif %} class="rounded text-brand-600 focus:ring-brand-500">
+                        <span class="text-slate-700 font-medium">Contract Signed</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs transition">
+                    Save
+                </button>
+            </form>
+        </div>
+
+        <!-- Documents & Emergency Contact Section -->
+        <div class="pt-4 grid grid-cols-1 lg:grid-cols-3 gap-4 text-xs">
+            <!-- Uploaded Documents List (2 cols) -->
+            <div class="lg:col-span-2 space-y-2">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                        <i class="fa-solid fa-folder-closed text-slate-400"></i>
+                        Staff Credentials &amp; Documents ({{ t.staff_documents.count }})
+                    </span>
+                    <button type="button" onclick="openUploadForTeacher('{{ t.id }}', '{{ t.user.get_full_name }}')" class="text-brand-600 hover:text-brand-700 font-semibold inline-flex items-center gap-1">
+                        <i class="fa-solid fa-plus text-[10px]"></i> Add Document
+                    </button>
+                </div>
+
+                {% if t.staff_documents.exists %}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {% for doc in t.staff_documents.all %}
+                        <div class="p-2.5 rounded-xl border border-slate-200/90 bg-slate-50 flex items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <div class="font-semibold text-slate-800 truncate" title="{{ doc.title }}">{{ doc.title }}</div>
+                                <div class="text-[10px] text-slate-500 mt-0.5">{{ doc.get_document_type_display }}</div>
+                                {% if doc.file %}
+                                    <a href="{{ doc.file.url }}" target="_blank" class="text-[11px] text-brand-600 hover:underline inline-flex items-center gap-1 mt-1 font-medium">
+                                        <i class="fa-solid fa-file-arrow-down text-[10px]"></i> View File
+                                    </a>
+                                {% endif %}
+                            </div>
+
+                            <div class="text-right shrink-0">
+                                {% if doc.verification_status == 'VERIFIED' %}
+                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                        <i class="fa-solid fa-check text-[8px]"></i> Verified
+                                    </span>
+                                {% elif doc.verification_status == 'REJECTED' %}
+                                    <span class="inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                                        <i class="fa-solid fa-xmark text-[8px]"></i> Rejected
+                                    </span>
+                                {% else %}
+                                    <div class="flex items-center gap-1 mt-1">
+                                        <form method="post" action="{% url 'teachers:verify_document' doc.id %}" class="inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="verify">
+                                            <button type="submit" class="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition" title="Approve & Verify">
+                                                Verify
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{% url 'teachers:verify_document' doc.id %}" class="inline">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="reject">
+                                            <button type="submit" class="px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold transition border border-rose-200" title="Reject">
+                                                Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-slate-400 text-center">
+                        No credentials uploaded yet.
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Emergency Contact & Onboarding Checklist (1 col) -->
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-2">
+                <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px] block">Emergency & Checklist</span>
+                <div class="flex justify-between py-1 border-b border-slate-200/60 text-slate-600">
+                    <span>Emergency Contact:</span>
+                    <span class="font-semibold text-slate-800">{{ t.emergency_contact_name|default:"Not Provided" }}</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-200/60 text-slate-600">
+                    <span>Emergency Phone:</span>
+                    <span class="font-semibold text-slate-800">{{ t.emergency_contact_phone|default:"Not Provided" }}</span>
+                </div>
+                <div class="flex justify-between py-1 text-slate-600">
+                    <span>Joined / Applied:</span>
+                    <span class="font-semibold text-slate-800">{{ t.user.date_joined|date:"M d, Y" }}</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    {% empty %}
+    <div class="bg-white rounded-2xl p-12 text-center text-slate-400 border border-slate-200/80">
+        <i class="fa-solid fa-users text-4xl mb-3 text-slate-300"></i>
+        <p class="font-medium text-sm">No teacher records found matching criteria.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Upload Staff Document Modal -->
+<div id="uploadModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-cloud-arrow-up text-brand-600"></i> Upload Staff Document
+            </h3>
+            <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'teachers:upload_document' %}" enctype="multipart/form-data" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Staff Member <span class="text-rose-500">*</span></label>
+                <select name="teacher_id" id="modalTeacherSelect" required class="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500">
+                    <option value="">-- Select Teacher --</option>
+                    {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.user.get_full_name }} ({{ t.employee_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Document Type <span class="text-rose-500">*</span></label>
+                <select name="document_type" required class="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500">
+                    {% for code, label in document_types %}
+                        <option value="{{ code }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Document Title <span class="text-rose-500">*</span></label>
+                <input type="text" name="title" placeholder="e.g. Bachelor Degree in Mathematics / Signed Contract 2026" required class="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">File Attachment (PDF, Image) <span class="text-rose-500">*</span></label>
+                <input type="file" name="file" required class="w-full text-xs rounded-xl border border-slate-200 p-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Expiry Date (optional)</label>
+                <input type="date" name="expiry_date" class="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Notes / Remarks</label>
+                <textarea name="notes" rows="2" placeholder="Verification notes or document reference..." class="w-full text-xs rounded-xl border border-slate-200 p-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" class="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold transition shadow-sm">
+                    Upload &amp; Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openUploadForTeacher(teacherId, teacherName) {
+    var select = document.getElementById('modalTeacherSelect');
+    if (select) {
+        select.value = teacherId;
+    }
+    document.getElementById('uploadModal').classList.remove('hidden');
+}
+</script>
+{% endblock %}

@@ -208,7 +208,24 @@ class SectionAttendanceView(LoginRequiredMixin, View):
 
 class StaffAttendanceView(LoginRequiredMixin, View):
     template_name = 'attendance/staff_attendance.html'
-    
+
+    def get_staff_users(self, school, staff_category='all'):
+        from apps.teachers.models import StaffProfile
+        teaching_users = User.objects.filter(school=school, role=UserRole.TEACHER)
+        non_teaching_roles = [UserRole.SCHOOL_ADMIN, UserRole.REGISTRAR, UserRole.ACCOUNTANT]
+        staff_profile_user_ids = StaffProfile.objects.filter(school=school).values_list('user_id', flat=True)
+        non_teaching_users = User.objects.filter(school=school).filter(
+            Q(role__in=non_teaching_roles) | Q(id__in=staff_profile_user_ids)
+        )
+
+        if staff_category == 'teaching':
+            return teaching_users.distinct().order_by('first_name', 'last_name')
+        elif staff_category == 'non_teaching':
+            return non_teaching_users.exclude(role=UserRole.TEACHER).distinct().order_by('first_name', 'last_name')
+        else:
+            all_user_ids = set(teaching_users.values_list('id', flat=True)).union(set(non_teaching_users.values_list('id', flat=True)))
+            return User.objects.filter(id__in=all_user_ids, school=school).order_by('first_name', 'last_name')
+
     def get(self, request):
         if request.user.role not in [UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.PRINCIPAL]:
             messages.error(request, 'You do not have permission to record staff attendance.')
@@ -216,12 +233,16 @@ class StaffAttendanceView(LoginRequiredMixin, View):
 
         school = get_school(request)
         date_str = request.GET.get('date', datetime.date.today().isoformat())
-        date = datetime.date.fromisoformat(date_str)
+        staff_category = request.GET.get('category', 'all').strip().lower()
+        if staff_category not in ['all', 'teaching', 'non_teaching']:
+            staff_category = 'all'
 
-        staff_members = User.objects.filter(
-            school=school, 
-            role__in=[UserRole.TEACHER, UserRole.SCHOOL_ADMIN, UserRole.REGISTRAR, UserRole.ACCOUNTANT]
-        ).order_by('first_name', 'last_name')
+        try:
+            date = datetime.date.fromisoformat(date_str)
+        except ValueError:
+            date = datetime.date.today()
+
+        staff_members = self.get_staff_users(school, staff_category)
 
         for staff in staff_members:
             StaffAttendanceRecord.objects.get_or_create(
@@ -231,13 +252,20 @@ class StaffAttendanceView(LoginRequiredMixin, View):
                 defaults={'status': StaffAttendanceStatus.PRESENT, 'recorded_by': request.user}
             )
 
-        queryset = StaffAttendanceRecord.objects.filter(school=school, date=date).select_related('staff_user').order_by('staff_user__first_name', 'staff_user__last_name')
-        
+        queryset = StaffAttendanceRecord.objects.filter(
+            school=school, date=date, staff_user__in=staff_members
+        ).select_related('staff_user', 'staff_user__staff_profile').order_by('staff_user__first_name', 'staff_user__last_name')
+
         formset = StaffAttendanceFormSet(queryset=queryset)
 
+        # Monthly metrics for modal/export helper
+        today = datetime.date.today()
         context = {
             'date': date,
             'formset': formset,
+            'staff_category': staff_category,
+            'current_month': today.month,
+            'current_year': today.year,
             'title': f'Staff Attendance for {date}'
         }
         return render(request, self.template_name, context)
@@ -249,9 +277,17 @@ class StaffAttendanceView(LoginRequiredMixin, View):
 
         school = get_school(request)
         date_str = request.POST.get('date', datetime.date.today().isoformat())
-        date = datetime.date.fromisoformat(date_str)
+        staff_category = request.POST.get('category', 'all').strip().lower()
+        if staff_category not in ['all', 'teaching', 'non_teaching']:
+            staff_category = 'all'
 
-        queryset = StaffAttendanceRecord.objects.filter(school=school, date=date)
+        try:
+            date = datetime.date.fromisoformat(date_str)
+        except ValueError:
+            date = datetime.date.today()
+
+        staff_members = self.get_staff_users(school, staff_category)
+        queryset = StaffAttendanceRecord.objects.filter(school=school, date=date, staff_user__in=staff_members)
         formset = StaffAttendanceFormSet(request.POST, queryset=queryset)
 
         if formset.is_valid():
@@ -259,16 +295,140 @@ class StaffAttendanceView(LoginRequiredMixin, View):
             for instance in instances:
                 instance.recorded_by = request.user
                 instance.save()
-            
-            messages.success(request, 'Staff attendance saved successfully.')
-            return redirect('attendance:staff_attendance')
-        
+
+            messages.success(request, f'Staff attendance for {date.strftime("%b %d, %Y")} saved successfully.')
+            return redirect(f"{request.path}?date={date.isoformat()}&category={staff_category}")
+
         context = {
             'date': date,
             'formset': formset,
+            'staff_category': staff_category,
             'title': f'Staff Attendance for {date}'
         }
         return render(request, self.template_name, context)
+
+
+class StaffAttendanceExportView(LoginRequiredMixin, View):
+    """
+    Exports monthly staff attendance records for teaching & non-teaching staff in CSV or Excel format.
+    """
+    def get(self, request):
+        if request.user.role not in [UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN, UserRole.PRINCIPAL, UserRole.HR_MANAGER]:
+            messages.error(request, 'Permission denied.')
+            return redirect('core:home')
+
+        school = get_school(request)
+        month_str = request.GET.get('month')
+        year_str = request.GET.get('year')
+        category = request.GET.get('category', 'all').strip().lower()
+        fmt = request.GET.get('format', 'csv').lower()
+
+        today = datetime.date.today()
+        month = int(month_str) if month_str and month_str.isdigit() else today.month
+        year = int(year_str) if year_str and year_str.isdigit() else today.year
+
+        import calendar
+        _, last_day = calendar.monthrange(year, month)
+        start_date = datetime.date(year, month, 1)
+        end_date = datetime.date(year, month, last_day)
+
+        staff_helper = StaffAttendanceView()
+        staff_members = staff_helper.get_staff_users(school, category).select_related('staff_profile')
+
+        records = StaffAttendanceRecord.objects.filter(
+            school=school,
+            date__gte=start_date,
+            date__lte=end_date,
+            staff_user__in=staff_members
+        )
+
+        summary_rows = []
+        for s in staff_members:
+            user_recs = records.filter(staff_user=s)
+            total = user_recs.count()
+            pres = user_recs.filter(status=StaffAttendanceStatus.PRESENT).count()
+            absent = user_recs.filter(status=StaffAttendanceStatus.ABSENT).count()
+            late = user_recs.filter(status=StaffAttendanceStatus.LATE).count()
+            leave = user_recs.filter(status=StaffAttendanceStatus.LEAVE).count()
+            excused = user_recs.filter(status=StaffAttendanceStatus.EXCUSED).count()
+
+            pct = round(((pres + (late * 0.5) + excused) / total) * 100, 1) if total > 0 else 100.0
+
+            emp_id = "N/A"
+            position = s.get_role_display() if hasattr(s, 'get_role_display') else s.role
+            staff_type = "Teaching" if s.role == UserRole.TEACHER else "Non-Teaching"
+
+            # Check teacher profile
+            t_prof = getattr(s, 'teacher_profile', None)
+            s_prof = getattr(s, 'staff_profile', None)
+            if t_prof:
+                emp_id = t_prof.employee_id
+                position = f"Teacher ({t_prof.department or 'Academics'})"
+            elif s_prof:
+                emp_id = s_prof.employee_id
+                position = s_prof.get_position_display()
+                staff_type = "Non-Teaching"
+
+            summary_rows.append({
+                'employee_id': emp_id,
+                'name': s.get_full_name() or s.username,
+                'staff_type': staff_type,
+                'position': position,
+                'total_days': total,
+                'present': pres,
+                'absent': absent,
+                'late': late,
+                'leave': leave,
+                'excused': excused,
+                'rate': f"{pct}%"
+            })
+
+        month_label = f"{calendar.month_name[month]}_{year}"
+        filename = f"Staff_Attendance_Report_{month_label}_{category}"
+
+        if fmt == 'xlsx':
+            import openpyxl
+            from django.http import HttpResponse
+
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Staff Attendance"
+
+            ws.append([f"Staff Attendance Monthly Report - {school.name if school else 'School'}"])
+            ws.append([f"Month: {calendar.month_name[month]} {year} | Staff Category: {category.upper()}"])
+            ws.append([])
+            headers = ["Employee ID", "Staff Name", "Staff Type", "Department / Position", "Logged Days", "Present", "Absent", "Late", "On Leave", "Excused", "Attendance %"]
+            ws.append(headers)
+
+            for r in summary_rows:
+                ws.append([
+                    r['employee_id'], r['name'], r['staff_type'], r['position'],
+                    r['total_days'], r['present'], r['absent'], r['late'], r['leave'], r['excused'], r['rate']
+                ])
+
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+            wb.save(response)
+            return response
+        else:
+            import csv
+            from django.http import HttpResponse
+
+            response = HttpResponse(content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+            writer = csv.writer(response)
+
+            writer.writerow([f"Staff Attendance Monthly Report - {school.name if school else 'School'}"])
+            writer.writerow([f"Month: {calendar.month_name[month]} {year}", f"Category: {category.upper()}"])
+            writer.writerow([])
+            writer.writerow(["Employee ID", "Staff Name", "Staff Type", "Department / Position", "Logged Days", "Present", "Absent", "Late", "On Leave", "Excused", "Attendance %"])
+
+            for r in summary_rows:
+                writer.writerow([
+                    r['employee_id'], r['name'], r['staff_type'], r['position'],
+                    r['total_days'], r['present'], r['absent'], r['late'], r['leave'], r['excused'], r['rate']
+                ])
+            return response
 
 
 @method_decorator(school_context_required, name='dispatch')

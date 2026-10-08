@@ -66,6 +66,23 @@ class TeacherProfile(TenantAwareModel):
         default=6,
         help_text="Maximum allowed teaching periods per single day"
     )
+    # Teacher Recruitment & Onboarding (Priority 2)
+    onboarding_status = models.CharField(
+        max_length=30,
+        default='ACTIVE',
+        choices=[
+            ('APPLIED', 'Application Received'),
+            ('INTERVIEWED', 'Interviewed'),
+            ('OFFERED', 'Offer Made'),
+            ('ONBOARDING', 'Onboarding & Document Submission'),
+            ('ACTIVE', 'Fully Onboarded & Active'),
+            ('REJECTED', 'Application Rejected')
+        ]
+    )
+    background_check_completed = models.BooleanField(default=True)
+    contract_signed = models.BooleanField(default=True)
+    emergency_contact_name = models.CharField(max_length=100, blank=True, null=True)
+    emergency_contact_phone = models.CharField(max_length=50, blank=True, null=True)
 
     class Meta:
         unique_together = ('school', 'employee_id')
@@ -210,22 +227,38 @@ class StaffProfile(TenantAwareModel):
 
 class StaffDocumentType(models.TextChoices):
     EMPLOYMENT = 'EMPLOYMENT', 'Employment Document'
-    CERTIFICATE = 'CERTIFICATE', 'Professional Certificate'
+    CERTIFICATE = 'CERTIFICATE', 'Professional Certificate / Degree'
     CONTRACT = 'CONTRACT', 'Employment Contract'
     IDENTIFICATION = 'IDENTIFICATION', 'Identification Document (ID/Passport)'
+    RECOMMENDATION = 'RECOMMENDATION', 'Letter of Recommendation'
     HR_OTHER = 'HR_OTHER', 'Other HR Document'
 
 
 class StaffDocument(TenantAwareModel):
-    staff = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, related_name='documents')
+    staff = models.ForeignKey(StaffProfile, on_delete=models.CASCADE, related_name='documents', null=True, blank=True)
+    teacher = models.ForeignKey(TeacherProfile, on_delete=models.CASCADE, null=True, blank=True, related_name='staff_documents')
     document_type = models.CharField(max_length=50, choices=StaffDocumentType.choices, default=StaffDocumentType.EMPLOYMENT)
     title = models.CharField(max_length=200)
     file = models.FileField(upload_to='staff_documents/')
-    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    verification_status = models.CharField(
+        max_length=20,
+        default='PENDING',
+        choices=[
+            ('PENDING', 'Pending Verification'),
+            ('VERIFIED', 'Verified / Approved'),
+            ('REJECTED', 'Rejected'),
+        ]
+    )
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_staff_documents')
+    verified_at = models.DateTimeField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.title} ({self.get_document_type_display()}) for {self.staff.employee_id}"
+        owner = self.teacher.employee_id if self.teacher else (self.staff.employee_id if self.staff else 'Unknown')
+        return f"{self.title} ({self.get_document_type_display()}) for {owner}"
 
 
 # --- Staff Leave Management Module (Requirement 10) ---

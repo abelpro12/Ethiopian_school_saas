@@ -339,6 +339,9 @@
         <a href="{% url 'students:lifecycle' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-user-graduate text-amber-400"></i><span>Student Directory & Alumni</span>
         </a>
+        <a href="{% url 'students:clearance_dashboard' %}" class="nav-link {% if request.resolver_match.app_name == 'students' and 'clearance' in request.resolver_match.url_name %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-file-signature text-rose-400"></i><span>Clearance & Withdrawal</span>
+        </a>
         <a href="{% url 'enrollment:promote_students' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-graduation-cap text-indigo-400"></i><span>Enrollment & Promotion</span>
         </a>
@@ -355,6 +358,9 @@
         <div class="nav-section mt-3">Operations & Finance</div>
         <a href="{% url 'teachers:management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-chalkboard-user text-brand-400"></i><span>Teachers & Staff</span>
+        </a>
+        <a href="{% url 'teachers:onboarding_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'onboarding_dashboard' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-user-plus text-sky-400"></i><span>Recruitment & Onboarding</span>
         </a>
         <a href="{% url 'teachers:workload_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'workload_dashboard' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-business-time text-emerald-400"></i><span>Teacher Workloads & Capacity</span>

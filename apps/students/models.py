@@ -1,4 +1,5 @@
 import uuid
+import datetime
 from django.db import models
 from apps.tenants.models import TenantAwareModel
 from apps.accounts.models import User
@@ -82,7 +83,8 @@ class StudentProfile(TenantAwareModel):
 
     @property
     def full_name(self):
-        return f"{self.first_name} {self.middle_name} {self.last_name}".strip()
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(p.strip() for p in parts if p and p.strip())
 
     @property
     def primary_guardian(self):
@@ -139,3 +141,105 @@ class StudentApplication(TenantAwareModel):
 
     def __str__(self):
         return f"Application {self.application_number}: {self.first_name} {self.last_name} ({self.status})"
+
+
+# --- Student Clearance & Withdrawal System (Priority 2) ---
+
+class WithdrawalReason(models.TextChoices):
+    TRANSFER = 'TRANSFER', 'Transfer to Another School'
+    RELOCATION = 'RELOCATION', 'Family Relocation / Moving'
+    FINANCIAL = 'FINANCIAL', 'Financial Reasons'
+    MEDICAL = 'MEDICAL', 'Health / Medical Reasons'
+    GRADUATION = 'GRADUATION', 'Graduation / Completed Studies'
+    PERSONAL = 'PERSONAL', 'Personal / Family Reasons'
+    DISCIPLINARY = 'DISCIPLINARY', 'Disciplinary Expulsion'
+    OTHER = 'OTHER', 'Other'
+
+
+class ClearanceStatus(models.TextChoices):
+    INITIATED = 'INITIATED', 'Initiated (Pending Clearances)'
+    UNDER_REVIEW = 'UNDER_REVIEW', 'Under Department Review'
+    APPROVED = 'APPROVED', 'Fully Cleared & Approved'
+    REJECTED = 'REJECTED', 'Clearance Rejected / Blocked'
+    WITHDRAWN = 'WITHDRAWN', 'Official Withdrawal Finalized'
+
+
+class StudentClearance(TenantAwareModel):
+    student = models.ForeignKey('StudentProfile', on_delete=models.CASCADE, related_name='clearances')
+    enrollment = models.ForeignKey('enrollment.StudentEnrollment', on_delete=models.SET_NULL, null=True, blank=True, related_name='clearances')
+    academic_year = models.ForeignKey('academics.AcademicYear', on_delete=models.CASCADE, related_name='clearances')
+
+    clearance_number = models.CharField(max_length=50)
+    withdrawal_reason = models.CharField(max_length=30, choices=WithdrawalReason.choices, default=WithdrawalReason.TRANSFER)
+    reason_details = models.TextField(blank=True, null=True)
+    destination_school = models.CharField(max_length=200, blank=True, null=True, help_text="Destination school transferred to")
+    effective_date = models.DateField(default=datetime.date.today)
+
+    status = models.CharField(max_length=30, choices=ClearanceStatus.choices, default=ClearanceStatus.INITIATED)
+
+    # 1. Library Clearance (Book return check)
+    library_cleared = models.BooleanField(default=False)
+    library_cleared_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cleared_library_clearances')
+    library_cleared_at = models.DateTimeField(null=True, blank=True)
+    library_remarks = models.TextField(blank=True, null=True)
+
+    # 2. Finance Clearance (Fee & invoice balance settlement)
+    finance_cleared = models.BooleanField(default=False)
+    finance_cleared_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cleared_finance_clearances')
+    finance_cleared_at = models.DateTimeField(null=True, blank=True)
+    outstanding_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    finance_remarks = models.TextField(blank=True, null=True)
+
+    # 3. Class Teacher / Academic Clearance (Textbooks, lockers, grades submitted)
+    academic_cleared = models.BooleanField(default=False)
+    academic_cleared_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cleared_academic_clearances')
+    academic_cleared_at = models.DateTimeField(null=True, blank=True)
+    academic_remarks = models.TextField(blank=True, null=True)
+
+    # 4. Property & Sports Store Clearance (Uniforms, athletic gear, laboratory items)
+    property_cleared = models.BooleanField(default=False)
+    property_cleared_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cleared_property_clearances')
+    property_cleared_at = models.DateTimeField(null=True, blank=True)
+    property_remarks = models.TextField(blank=True, null=True)
+
+    # 5. Final Registrar / Principal Approval
+    final_approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_final_clearances')
+    final_approved_at = models.DateTimeField(null=True, blank=True)
+    final_remarks = models.TextField(blank=True, null=True)
+
+    # Certificate Tracking
+    certificate_issued = models.BooleanField(default=False)
+    certificate_number = models.CharField(max_length=50, blank=True, null=True)
+    certificate_issued_at = models.DateTimeField(null=True, blank=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='initiated_clearances')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('school', 'clearance_number')
+        ordering = ['-created_at']
+
+    @classmethod
+    def generate_next_clearance_number(cls, school):
+        if not school:
+            return "CLR-0001"
+        code = school.code.upper().strip() if school.code else "SCH"
+        year = datetime.date.today().year
+        count = cls.objects.filter(school=school).count() + 1
+        candidate = f"{code}-CLR-{year}-{count:04d}"
+        while cls.objects.filter(school=school, clearance_number=candidate).exists():
+            count += 1
+            candidate = f"{code}-CLR-{year}-{count:04d}"
+        return candidate
+
+    @property
+    def all_departments_cleared(self):
+        return self.library_cleared and self.finance_cleared and self.academic_cleared and self.property_cleared
+
+    @property
+    def cleared_departments_count(self):
+        return sum([self.library_cleared, self.finance_cleared, self.academic_cleared, self.property_cleared])
+
+    def __str__(self):
+        return f"{self.clearance_number} - {self.student.full_name} ({self.get_status_display()})"

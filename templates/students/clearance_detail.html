@@ -1,0 +1,442 @@
+{% extends 'base.html' %}
+
+{% block title %}Clearance {{ clearance.clearance_number }} | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 mb-2">
+        <a href="{% url 'students:clearance_dashboard' %}" class="text-xs font-semibold text-slate-500 hover:text-slate-800 transition inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-arrow-left"></i> Back to Clearance Hub
+        </a>
+    </div>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-3">
+                <h1 class="font-heading text-2xl font-bold text-slate-800">{{ clearance.clearance_number }}</h1>
+                {% if clearance.status == 'APPROVED' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                        <i class="fa-solid fa-circle-check"></i> Approved & Cleared
+                    </span>
+                {% elif clearance.status == 'UNDER_REVIEW' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Under Department Review
+                    </span>
+                {% elif clearance.status == 'INITIATED' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800">
+                        <i class="fa-solid fa-circle-dot"></i> Initiated
+                    </span>
+                {% elif clearance.status == 'REJECTED' %}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                        <i class="fa-solid fa-ban"></i> Rejected / Blocked
+                    </span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-slate-500 mt-0.5">
+                Clearance for <span class="font-semibold text-slate-800">{{ student.full_name }}</span> (ID: {{ student.student_id }}) &bull; Reason: {{ clearance.get_withdrawal_reason_display }}
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            {% if clearance.status == 'APPROVED' %}
+                <a href="{% url 'students:clearance_certificate' clearance.id %}" target="_blank" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition shadow-sm">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Print Official Certificate</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Department Progress Tracker -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 mb-6">
+    <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Clearance Completion Progress</span>
+        <span class="text-xs font-bold text-slate-800">{{ clearance.cleared_departments_count }} of 4 Departments Cleared</span>
+    </div>
+    <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+        <div class="bg-brand-600 h-2.5 rounded-full transition-all duration-500" style="width: {% widthratio clearance.cleared_departments_count 4 100 %}%;"></div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left 2 Cols: 4 Department Sign-Off Cards -->
+    <div class="lg:col-span-2 space-y-4">
+        
+        <!-- 1. Library Clearance -->
+        <div class="bg-white rounded-2xl border {% if clearance.library_cleared %}border-emerald-200/80 bg-emerald-50/20{% else %}border-slate-200/80{% endif %} p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl {% if clearance.library_cleared %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %} flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-book"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">1. Library Department Clearance</h3>
+                        <p class="text-xs text-slate-500">Check for returned books, library fines, and damaged items.</p>
+                    </div>
+                </div>
+                <div>
+                    {% if clearance.library_cleared %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                            <i class="fa-solid fa-check"></i> Cleared
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            <i class="fa-solid fa-clock"></i> Pending Sign-off
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 text-xs space-y-2 text-slate-600">
+                {% if summary.unreturned_books_count > 0 %}
+                    <div class="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center gap-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Student has <strong>{{ summary.unreturned_books_count }}</strong> unreturned library books on record!</span>
+                    </div>
+                {% else %}
+                    <div class="text-slate-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-check text-emerald-500"></i> No outstanding books borrowed in library database.
+                    </div>
+                {% endif %}
+
+                {% if clearance.library_cleared %}
+                    <div class="text-slate-500">
+                        Signed off by <strong class="text-slate-800">{{ clearance.library_cleared_by.get_full_name|default:clearance.library_cleared_by.username }}</strong> on {{ clearance.library_cleared_at|date:"M d, Y H:i" }}
+                    </div>
+                {% endif %}
+
+                {% if clearance.library_remarks %}
+                    <div class="bg-slate-50 p-2.5 rounded-xl text-slate-700 italic border border-slate-100">
+                        "{{ clearance.library_remarks }}"
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if can_sign_library and clearance.status != 'APPROVED' %}
+            <div class="mt-4 pt-3 border-t border-slate-100">
+                <form method="post" action="{% url 'students:clearance_sign' clearance.id %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="department" value="library">
+                    <input type="text" name="remarks" placeholder="Library notes / book return confirmation..." value="{{ clearance.library_remarks|default:'' }}" class="flex-1 text-xs rounded-xl border border-slate-200 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">
+                    <div class="flex items-center gap-2">
+                        <button type="submit" name="cleared" value="1" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition inline-flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-check"></i> Sign as Cleared
+                        </button>
+                        {% if clearance.library_cleared %}
+                        <button type="submit" name="cleared" value="0" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition">
+                            Un-sign
+                        </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 2. Finance Clearance -->
+        <div class="bg-white rounded-2xl border {% if clearance.finance_cleared %}border-emerald-200/80 bg-emerald-50/20{% elif clearance.outstanding_balance > 0 %}border-rose-200/80 bg-rose-50/10{% else %}border-slate-200/80{% endif %} p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl {% if clearance.finance_cleared %}bg-emerald-100 text-emerald-700{% elif clearance.outstanding_balance > 0 %}bg-rose-100 text-rose-700{% else %}bg-slate-100 text-slate-600{% endif %} flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-money-bill-wave"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">2. Finance & Accounts Clearance</h3>
+                        <p class="text-xs text-slate-500">Settlement of tuition fees, transport charges, lab fees, and outstanding balances.</p>
+                    </div>
+                </div>
+                <div>
+                    {% if clearance.finance_cleared %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                            <i class="fa-solid fa-check"></i> Cleared
+                        </span>
+                    {% elif clearance.outstanding_balance > 0 %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800">
+                            <i class="fa-solid fa-circle-exclamation"></i> {{ clearance.outstanding_balance|floatformat:2 }} ETB Due
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            <i class="fa-solid fa-clock"></i> Pending Sign-off
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 text-xs space-y-2 text-slate-600">
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <span class="text-slate-600 font-medium">Recorded Outstanding Balance:</span>
+                    <span class="text-sm font-bold {% if clearance.outstanding_balance > 0 %}text-rose-600{% else %}text-emerald-700{% endif %}">
+                        {{ clearance.outstanding_balance|floatformat:2 }} ETB
+                    </span>
+                </div>
+
+                {% if clearance.finance_cleared %}
+                    <div class="text-slate-500">
+                        Signed off by <strong class="text-slate-800">{{ clearance.finance_cleared_by.get_full_name|default:clearance.finance_cleared_by.username }}</strong> on {{ clearance.finance_cleared_at|date:"M d, Y H:i" }}
+                    </div>
+                {% endif %}
+
+                {% if clearance.finance_remarks %}
+                    <div class="bg-slate-50 p-2.5 rounded-xl text-slate-700 italic border border-slate-100">
+                        "{{ clearance.finance_remarks }}"
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if can_sign_finance and clearance.status != 'APPROVED' %}
+            <div class="mt-4 pt-3 border-t border-slate-100">
+                <form method="post" action="{% url 'students:clearance_sign' clearance.id %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="department" value="finance">
+                    <input type="text" name="remarks" placeholder="Finance notes / receipt voucher reference..." value="{{ clearance.finance_remarks|default:'' }}" class="flex-1 text-xs rounded-xl border border-slate-200 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">
+                    <div class="flex items-center gap-2">
+                        <button type="submit" name="cleared" value="1" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition inline-flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-check"></i> Sign as Cleared
+                        </button>
+                        {% if clearance.finance_cleared %}
+                        <button type="submit" name="cleared" value="0" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition">
+                            Un-sign
+                        </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 3. Academic & Homeroom Clearance -->
+        <div class="bg-white rounded-2xl border {% if clearance.academic_cleared %}border-emerald-200/80 bg-emerald-50/20{% else %}border-slate-200/80{% endif %} p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl {% if clearance.academic_cleared %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %} flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">3. Academic & Class Teacher Clearance</h3>
+                        <p class="text-xs text-slate-500">Curriculum textbooks returned, cumulative grades compiled, and academic files updated.</p>
+                    </div>
+                </div>
+                <div>
+                    {% if clearance.academic_cleared %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                            <i class="fa-solid fa-check"></i> Cleared
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            <i class="fa-solid fa-clock"></i> Pending Sign-off
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 text-xs space-y-2 text-slate-600">
+                {% if clearance.academic_cleared %}
+                    <div class="text-slate-500">
+                        Signed off by <strong class="text-slate-800">{{ clearance.academic_cleared_by.get_full_name|default:clearance.academic_cleared_by.username }}</strong> on {{ clearance.academic_cleared_at|date:"M d, Y H:i" }}
+                    </div>
+                {% endif %}
+
+                {% if clearance.academic_remarks %}
+                    <div class="bg-slate-50 p-2.5 rounded-xl text-slate-700 italic border border-slate-100">
+                        "{{ clearance.academic_remarks }}"
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if can_sign_academic and clearance.status != 'APPROVED' %}
+            <div class="mt-4 pt-3 border-t border-slate-100">
+                <form method="post" action="{% url 'students:clearance_sign' clearance.id %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="department" value="academic">
+                    <input type="text" name="remarks" placeholder="Textbooks returned, marks record complete..." value="{{ clearance.academic_remarks|default:'' }}" class="flex-1 text-xs rounded-xl border border-slate-200 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">
+                    <div class="flex items-center gap-2">
+                        <button type="submit" name="cleared" value="1" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition inline-flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-check"></i> Sign as Cleared
+                        </button>
+                        {% if clearance.academic_cleared %}
+                        <button type="submit" name="cleared" value="0" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition">
+                            Un-sign
+                        </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 4. Property & Store Clearance -->
+        <div class="bg-white rounded-2xl border {% if clearance.property_cleared %}border-emerald-200/80 bg-emerald-50/20{% else %}border-slate-200/80{% endif %} p-5 shadow-sm">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl {% if clearance.property_cleared %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %} flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">4. Property, Sports & Store Clearance</h3>
+                        <p class="text-xs text-slate-500">Locker keys, sports uniforms, athletic gear, and science lab apparatus returned in good condition.</p>
+                    </div>
+                </div>
+                <div>
+                    {% if clearance.property_cleared %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                            <i class="fa-solid fa-check"></i> Cleared
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            <i class="fa-solid fa-clock"></i> Pending Sign-off
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 text-xs space-y-2 text-slate-600">
+                {% if clearance.property_cleared %}
+                    <div class="text-slate-500">
+                        Signed off by <strong class="text-slate-800">{{ clearance.property_cleared_by.get_full_name|default:clearance.property_cleared_by.username }}</strong> on {{ clearance.property_cleared_at|date:"M d, Y H:i" }}
+                    </div>
+                {% endif %}
+
+                {% if clearance.property_remarks %}
+                    <div class="bg-slate-50 p-2.5 rounded-xl text-slate-700 italic border border-slate-100">
+                        "{{ clearance.property_remarks }}"
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if can_sign_property and clearance.status != 'APPROVED' %}
+            <div class="mt-4 pt-3 border-t border-slate-100">
+                <form method="post" action="{% url 'students:clearance_sign' clearance.id %}" class="flex flex-col sm:flex-row gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="department" value="property">
+                    <input type="text" name="remarks" placeholder="Locker key returned, sports gear verified..." value="{{ clearance.property_remarks|default:'' }}" class="flex-1 text-xs rounded-xl border border-slate-200 px-3 py-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">
+                    <div class="flex items-center gap-2">
+                        <button type="submit" name="cleared" value="1" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition inline-flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-check"></i> Sign as Cleared
+                        </button>
+                        {% if clearance.property_cleared %}
+                        <button type="submit" name="cleared" value="0" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition">
+                            Un-sign
+                        </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Right Col: Administrative Finalization & Metadata -->
+    <div class="space-y-5">
+        
+        <!-- Administrative Finalization Card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+            <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-stamp text-brand-600"></i> Final Administrative Approval
+            </h3>
+
+            <div class="space-y-2 mb-4">
+                <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500">1. Library Sign-off</span>
+                    {% if clearance.library_cleared %}<span class="font-bold text-emerald-600"><i class="fa-solid fa-check"></i> Cleared</span>{% else %}<span class="text-amber-600 font-semibold">Pending</span>{% endif %}
+                </div>
+                <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500">2. Finance Settlement</span>
+                    {% if clearance.finance_cleared %}<span class="font-bold text-emerald-600"><i class="fa-solid fa-check"></i> Cleared</span>{% else %}<span class="text-amber-600 font-semibold">Pending</span>{% endif %}
+                </div>
+                <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500">3. Academic Sign-off</span>
+                    {% if clearance.academic_cleared %}<span class="font-bold text-emerald-600"><i class="fa-solid fa-check"></i> Cleared</span>{% else %}<span class="text-amber-600 font-semibold">Pending</span>{% endif %}
+                </div>
+                <div class="flex items-center justify-between text-xs py-1.5 border-b border-slate-100">
+                    <span class="text-slate-500">4. Property & Store Sign-off</span>
+                    {% if clearance.property_cleared %}<span class="font-bold text-emerald-600"><i class="fa-solid fa-check"></i> Cleared</span>{% else %}<span class="text-amber-600 font-semibold">Pending</span>{% endif %}
+                </div>
+            </div>
+
+            {% if clearance.status == 'APPROVED' %}
+                <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1 text-emerald-900">
+                    <div class="font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-check"></i> Clearance Officially Approved
+                    </div>
+                    <div>Approved by: <strong>{{ clearance.final_approved_by.get_full_name|default:clearance.final_approved_by.username }}</strong></div>
+                    <div>Date: {{ clearance.final_approved_at|date:"M d, Y H:i" }}</div>
+                    <div>Certificate Ref: <strong>{{ clearance.certificate_number }}</strong></div>
+                    {% if clearance.final_remarks %}
+                        <div class="mt-1 pt-1 border-t border-emerald-200/60 italic">"{{ clearance.final_remarks }}"</div>
+                    {% endif %}
+                </div>
+                <div class="mt-4">
+                    <a href="{% url 'students:clearance_certificate' clearance.id %}" target="_blank" class="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl py-2.5 text-xs transition shadow-sm">
+                        <i class="fa-solid fa-print"></i>
+                        <span>View / Print Certificate</span>
+                    </a>
+                </div>
+
+            {% elif can_finalize %}
+                <form method="post" action="{% url 'students:clearance_finalize' clearance.id %}" class="space-y-3">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Administrative Remarks</label>
+                        <textarea name="final_remarks" rows="2" placeholder="Registrar / Principal remarks..." class="w-full text-xs rounded-xl border border-slate-200 p-2 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">{{ clearance.final_remarks|default:'' }}</textarea>
+                    </div>
+
+                    {% if clearance.all_departments_cleared %}
+                        <button type="submit" name="action" value="approve" class="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl py-2.5 text-xs transition shadow-sm">
+                            <i class="fa-solid fa-check-double"></i>
+                            <span>Approve & Issue Certificate</span>
+                        </button>
+                    {% else %}
+                        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                            <i class="fa-solid fa-circle-info mr-1"></i> Final approval will be enabled once all 4 departments have completed sign-off.
+                        </div>
+                        <button type="button" disabled class="w-full flex items-center justify-center gap-2 bg-slate-200 text-slate-400 font-bold rounded-xl py-2.5 text-xs cursor-not-allowed">
+                            <i class="fa-solid fa-lock"></i>
+                            <span>Approve Clearance (Locked)</span>
+                        </button>
+                    {% endif %}
+
+                    <button type="submit" name="action" value="reject" onclick="return confirm('Are you sure you want to block/reject this clearance request?');" class="w-full flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl py-2 text-xs transition border border-rose-200">
+                        <i class="fa-solid fa-ban"></i>
+                        <span>Reject / Block Clearance</span>
+                    </button>
+                </form>
+            {% else %}
+                <p class="text-xs text-slate-400 italic">You do not have administrative permission to finalize this clearance.</p>
+            {% endif %}
+        </div>
+
+        <!-- Clearance Record Details -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 text-xs space-y-2.5">
+            <h4 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2">Clearance Summary</h4>
+            <div class="flex justify-between py-1 border-b border-slate-100">
+                <span class="text-slate-500">Academic Year</span>
+                <span class="font-semibold text-slate-800">{{ clearance.academic_year.name }}</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-100">
+                <span class="text-slate-500">Effective Date</span>
+                <span class="font-semibold text-slate-800">{{ clearance.effective_date|date:"M d, Y" }}</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-100">
+                <span class="text-slate-500">Destination School</span>
+                <span class="font-semibold text-slate-800">{{ clearance.destination_school|default:"N/A" }}</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-100">
+                <span class="text-slate-500">Initiated By</span>
+                <span class="font-semibold text-slate-800">{{ clearance.created_by.get_full_name|default:clearance.created_by.username|default:"System" }}</span>
+            </div>
+            <div class="flex justify-between py-1">
+                <span class="text-slate-500">Initiated On</span>
+                <span class="font-semibold text-slate-800">{{ clearance.created_at|date:"M d, Y H:i" }}</span>
+            </div>
+
+            {% if clearance.reason_details %}
+            <div class="pt-2 border-t border-slate-100">
+                <span class="text-slate-400 font-medium block mb-1">Reason Details:</span>
+                <p class="text-slate-700 bg-slate-50 p-2 rounded-lg italic">{{ clearance.reason_details }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}
