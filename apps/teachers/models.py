@@ -11,6 +11,36 @@ class EmploymentStatus(models.TextChoices):
     INACTIVE = 'INACTIVE', 'Inactive'
 
 
+class Department(TenantAwareModel):
+    name = models.CharField(max_length=100)  # e.g. "Mathematics & ICT", "Natural Sciences"
+    code = models.CharField(max_length=20)   # e.g. "MATH", "SCI"
+    description = models.TextField(blank=True, null=True)
+    head_of_department = models.ForeignKey(
+        'TeacherProfile',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='headed_departments'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('school', 'code')
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+    @property
+    def teacher_count(self):
+        return self.teachers.count()
+
+    @property
+    def subject_count(self):
+        return self.subjects.count()
+
+
 class TeacherProfile(TenantAwareModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
     employee_id = models.CharField(max_length=50)
@@ -19,8 +49,23 @@ class TeacherProfile(TenantAwareModel):
     phone = models.CharField(max_length=50, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('M', 'Male'), ('F', 'Female')], blank=True, null=True)
     department = models.CharField(max_length=100, blank=True, null=True)
+    department_obj = models.ForeignKey(
+        Department,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='teachers'
+    )
     hire_date = models.DateField(blank=True, null=True)
     employment_status = models.CharField(max_length=20, choices=EmploymentStatus.choices, default=EmploymentStatus.FULL_TIME)
+    max_weekly_periods = models.PositiveIntegerField(
+        default=25,
+        help_text="Maximum allowed teaching periods per week (Standard Ethiopian curriculum: 20-30)"
+    )
+    max_daily_periods = models.PositiveIntegerField(
+        default=6,
+        help_text="Maximum allowed teaching periods per single day"
+    )
 
     class Meta:
         unique_together = ('school', 'employee_id')
@@ -58,11 +103,27 @@ class TeacherProfile(TenantAwareModel):
     @property
     def total_weekly_periods(self):
         from apps.academics.models import TimetableSlot
-        slots = TimetableSlot.objects.filter(teacher=self).count()
+        slots = TimetableSlot.objects.filter(school=self.school, teacher=self).count()
         if slots > 0:
             return slots
         assign_count = self.assignments.count()
         return assign_count * 4 if assign_count > 0 else 0
+
+    @property
+    def workload_percentage(self):
+        assigned = self.total_weekly_periods
+        if not self.max_weekly_periods:
+            return 0
+        return round((assigned / self.max_weekly_periods) * 100, 1)
+
+    @property
+    def workload_status(self):
+        pct = self.workload_percentage
+        if pct > 100:
+            return 'OVER'
+        elif pct < 60:
+            return 'UNDER'
+        return 'OPTIMAL'
 
     @property
     def assigned_subjects(self):
@@ -71,6 +132,11 @@ class TeacherProfile(TenantAwareModel):
     @property
     def assigned_sections(self):
         return self.assignments.values_list('section__name', flat=True).distinct()
+
+    def save(self, *args, **kwargs):
+        if self.department_obj and not self.department:
+            self.department = self.department_obj.name
+        super().save(*args, **kwargs)
 
 
 class TeacherAssignment(TenantAwareModel):

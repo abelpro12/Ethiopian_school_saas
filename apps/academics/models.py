@@ -289,6 +289,31 @@ class Subject(TenantAwareModel):
     amharic_name = models.CharField(max_length=100, blank=True, null=True)  # e.g. "ፊዚክስ"
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name='subjects')
     stream = models.ForeignKey(Stream, on_delete=models.CASCADE, related_name='subjects')
+    weekly_periods = models.PositiveIntegerField(
+        default=4,
+        help_text="Standard weekly periods for this subject in the curriculum (e.g. 5 for Math/English, 4 for Sciences, 2 for PE)"
+    )
+    is_core = models.BooleanField(
+        default=False,
+        help_text="Core academic subjects (Maths, English, Sciences) prioritized for morning slots"
+    )
+    department = models.ForeignKey(
+        'teachers.Department',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='subjects'
+    )
+    preferred_room_type = models.CharField(
+        max_length=50,
+        default='CLASSROOM',
+        choices=[
+            ('CLASSROOM', 'General Classroom'),
+            ('SCIENCE_LAB', 'Science Laboratory'),
+            ('COMPUTER_LAB', 'Computer Laboratory'),
+            ('SPORTS_FIELD', 'Sports Field / Gymnasium')
+        ]
+    )
 
     class Meta:
         unique_together = ('school', 'code', 'grade', 'stream')
@@ -320,12 +345,23 @@ class PeriodSlot(TenantAwareModel):
 
 
 class TimetableSlot(TenantAwareModel):
+    academic_year = models.ForeignKey(
+        AcademicYear,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='timetable_slots'
+    )
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='timetable_slots')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='timetable_slots')
     teacher = models.ForeignKey('teachers.TeacherProfile', on_delete=models.SET_NULL, null=True, blank=True, related_name='timetable_slots')
     day_of_week = models.CharField(max_length=20, choices=DayOfWeek.choices)
     period_slot = models.ForeignKey(PeriodSlot, on_delete=models.CASCADE, related_name='timetable_slots')
     room = models.CharField(max_length=50, blank=True, null=True)
+    is_locked = models.BooleanField(
+        default=False,
+        help_text="Locked slots are pinned and protected from automated timetable regeneration"
+    )
 
     class Meta:
         unique_together = ('school', 'section', 'day_of_week', 'period_slot')

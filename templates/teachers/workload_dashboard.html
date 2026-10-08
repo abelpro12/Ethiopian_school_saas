@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Teacher Workload & Capacity Hub | {{ active_school.name|default:"School" }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
+
+  <!-- Breadcrumbs & Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
+    <div>
+      <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+        <a href="{% url 'teachers:management' %}" class="hover:text-brand-600 transition">Faculty Management</a>
+        <span>/</span>
+        <span class="text-brand-600">Workload & Capacity Management</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
+        <span class="p-2.5 bg-gradient-to-tr from-brand-600 to-indigo-600 text-white rounded-2xl shadow-md shadow-brand-500/20">
+          <i class="fa-solid fa-business-time"></i>
+        </span>
+        Teacher Workload & Capacity Hub
+      </h1>
+      <p class="text-sm text-slate-600 mt-1">
+        Monitor faculty teaching period limits, department structures, workload equity, and daily period distribution.
+      </p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2.5">
+      <button onclick="openModal('addDeptModal')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm transition">
+        <i class="fa-solid fa-folder-plus text-indigo-500"></i> New Department
+      </button>
+      <a href="{% url 'teachers:assignments' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm transition">
+        <i class="fa-solid fa-user-plus text-brand-600"></i> Section Assignments
+      </a>
+      <a href="{% url 'timetable:manage' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-brand-600 to-indigo-600 text-white shadow-md shadow-brand-500/25 hover:opacity-95 transition">
+        <i class="fa-solid fa-calendar-check"></i> Timetable Hub
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Overview Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Faculty</span>
+        <span class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-chalkboard-user"></i>
+        </span>
+      </div>
+      <div class="mt-3 flex items-baseline gap-2">
+        <span class="text-3xl font-black text-slate-900">{{ total_teachers }}</span>
+        <span class="text-xs font-medium text-slate-400">teachers</span>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-1">Average: <strong>{{ average_workload }}</strong> periods/week</p>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Optimal Workload</span>
+        <span class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-circle-check"></i>
+        </span>
+      </div>
+      <div class="mt-3 flex items-baseline gap-2">
+        <span class="text-3xl font-black text-emerald-600">{{ optimal_count }}</span>
+        <span class="text-xs font-medium text-slate-400">in target range</span>
+      </div>
+      <p class="text-[11px] text-emerald-700 mt-1">60% – 100% capacity utilization</p>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Over-Allocated</span>
+        <span class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </span>
+      </div>
+      <div class="mt-3 flex items-baseline gap-2">
+        <span class="text-3xl font-black text-rose-600">{{ overloaded_count }}</span>
+        <span class="text-xs font-medium text-slate-400">exceeding limits</span>
+      </div>
+      <p class="text-[11px] text-rose-600 font-semibold mt-1">> 100% weekly or daily overload</p>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Under-Allocated</span>
+        <span class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-battery-quarter"></i>
+        </span>
+      </div>
+      <div class="mt-3 flex items-baseline gap-2">
+        <span class="text-3xl font-black text-amber-600">{{ underallocated_count }}</span>
+        <span class="text-xs font-medium text-slate-400">available capacity</span>
+      </div>
+      <p class="text-[11px] text-amber-600 mt-1">< 60% capacity utilized</p>
+    </div>
+  </div>
+
+  <!-- Academic Departments Grid -->
+  <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-sitemap text-indigo-500"></i> Academic Departments
+        </h2>
+        <p class="text-xs text-slate-500">Departmental faculties and leadership oversight</p>
+      </div>
+      <button onclick="openModal('addDeptModal')" class="text-xs font-bold text-brand-600 hover:text-brand-700">
+        + Create Department
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {% for dept_item in department_summaries %}
+      <div class="p-4 rounded-2xl border border-slate-200/80 hover:border-brand-300 transition bg-slate-50/50 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="px-2 py-0.5 rounded-lg bg-indigo-100/70 text-indigo-700 font-mono font-bold text-[11px]">
+              {{ dept_item.department.code }}
+            </span>
+            <button onclick="editDepartment('{{ dept_item.department.id }}', '{{ dept_item.department.name|escapejs }}', '{{ dept_item.department.code|escapejs }}', '{{ dept_item.department.description|default:''|escapejs }}', '{{ dept_item.department.head_of_department_id|default:'' }}')" class="text-slate-400 hover:text-slate-600 text-xs">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+          </div>
+          <h3 class="font-bold text-slate-900 text-sm mt-2">{{ dept_item.department.name }}</h3>
+          <p class="text-xs text-slate-500 mt-0.5">
+            <i class="fa-solid fa-user-tie mr-1 text-slate-400"></i> HOD: <strong>{{ dept_item.head_name }}</strong>
+          </p>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-600">
+          <span><strong>{{ dept_item.teacher_count }}</strong> Teachers</span>
+          <span><strong>{{ dept_item.total_periods }}</strong> Periods/wk</span>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-span-4 p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+        <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-300"></i>
+        <p class="text-sm font-semibold">No academic departments defined yet.</p>
+        <button onclick="openModal('addDeptModal')" class="mt-2 btn-primary text-xs">
+          Create First Department
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Status:</span>
+      <a href="?{% if selected_dept %}department_id={{ selected_dept }}&{% endif %}" class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if not selected_status %}bg-slate-900 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+        All Faculty
+      </a>
+      <a href="?status=OVER{% if selected_dept %}&department_id={{ selected_dept }}{% endif %}" class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if selected_status == 'OVER' %}bg-rose-600 text-white{% else %}bg-rose-50 text-rose-700 hover:bg-rose-100{% endif %}">
+        Over-Allocated ({{ overloaded_count }})
+      </a>
+      <a href="?status=OPTIMAL{% if selected_dept %}&department_id={{ selected_dept }}{% endif %}" class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if selected_status == 'OPTIMAL' %}bg-emerald-600 text-white{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}">
+        Optimal ({{ optimal_count }})
+      </a>
+      <a href="?status=UNDER{% if selected_dept %}&department_id={{ selected_dept }}{% endif %}" class="px-3 py-1.5 rounded-xl text-xs font-bold transition {% if selected_status == 'UNDER' %}bg-amber-600 text-white{% else %}bg-amber-50 text-amber-700 hover:bg-amber-100{% endif %}">
+        Under-Allocated ({{ underallocated_count }})
+      </a>
+    </div>
+
+    <form method="GET" class="flex items-center gap-2">
+      {% if selected_status %}<input type="hidden" name="status" value="{{ selected_status }}">{% endif %}
+      <select name="department_id" onchange="this.form.submit()" class="input-field text-xs py-1.5 pr-8">
+        <option value="">All Departments</option>
+        {% for dept in departments %}
+        <option value="{{ dept.id }}" {% if selected_dept == dept.id %}selected{% endif %}>
+          {{ dept.name }} ({{ dept.code }})
+        </option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <!-- Faculty Workload Table -->
+  <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead>
+          <tr class="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+            <th class="py-3.5 px-4">Faculty Member</th>
+            <th class="py-3.5 px-4">Department</th>
+            <th class="py-3.5 px-4">Weekly Capacity & Load</th>
+            <th class="py-3.5 px-4 text-center">Daily Limits</th>
+            <th class="py-3.5 px-4 text-center">Daily Distribution (M–F)</th>
+            <th class="py-3.5 px-4">Assigned Subjects & Classes</th>
+            <th class="py-3.5 px-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for item in teacher_metrics %}
+          <tr class="hover:bg-slate-50/60 transition group">
+            <!-- Faculty Member -->
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">
+                  {{ item.teacher.user.first_name|slice:":1" }}{{ item.teacher.user.last_name|slice:":1" }}
+                </div>
+                <div>
+                  <a href="#" class="font-bold text-slate-900 group-hover:text-brand-600 transition">
+                    {{ item.teacher.user.get_full_name|default:item.teacher.user.username }}
+                  </a>
+                  <div class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+                    <span>{{ item.teacher.employee_id }}</span>
+                    {% if item.homeroom_section %}
+                    <span class="px-1.5 py-0.2 bg-purple-100 text-purple-700 rounded font-bold font-sans">HR: {{ item.homeroom_section.name }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Department -->
+            <td class="py-3.5 px-4">
+              {% if item.teacher.department_obj %}
+              <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold text-[11px]">
+                {{ item.teacher.department_obj.name }}
+              </span>
+              {% else %}
+              <span class="text-slate-400 italic">{{ item.teacher.department|default:"General" }}</span>
+              {% endif %}
+            </td>
+
+            <!-- Weekly Load Meter -->
+            <td class="py-3.5 px-4 w-60">
+              <div class="flex items-center justify-between font-bold mb-1">
+                <span class="text-slate-800">
+                  <span class="font-black text-sm">{{ item.total_periods }}</span> / {{ item.max_weekly_periods }} periods
+                </span>
+                {% if item.status == 'OVER' %}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700">
+                  {{ item.workload_percentage }}% Overloaded
+                </span>
+                {% elif item.status == 'OPTIMAL' %}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">
+                  {{ item.workload_percentage }}% Optimal
+                </span>
+                {% else %}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700">
+                  {{ item.workload_percentage }}% Under
+                </span>
+                {% endif %}
+              </div>
+
+              <!-- Meter Bar -->
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div class="h-2 rounded-full transition-all duration-500 {% if item.status == 'OVER' %}bg-rose-500{% elif item.status == 'OPTIMAL' %}bg-emerald-500{% else %}bg-amber-400{% endif %}"
+                     style="width: {% if item.workload_percentage > 100 %}100{% else %}{{ item.workload_percentage }}{% endif %}%;">
+                </div>
+              </div>
+            </td>
+
+            <!-- Daily Limits -->
+            <td class="py-3.5 px-4 text-center">
+              <span class="inline-block px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg font-bold text-xs">
+                Max {{ item.max_daily_periods }}/day
+              </span>
+            </td>
+
+            <!-- Daily Breakdown Heatmap -->
+            <td class="py-3.5 px-4">
+              <div class="flex items-center justify-center gap-1">
+                {% for day_name, count in item.daily_breakdown.items %}
+                <div class="text-center" title="{{ day_name }}: {{ count }} periods">
+                  <span class="block text-[9px] font-bold text-slate-400 uppercase">{{ day_name|slice:":1" }}</span>
+                  <span class="inline-block w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs {% if count > item.max_daily_periods %}bg-rose-600 text-white shadow-sm shadow-rose-500/30{% elif count > 0 %}bg-slate-100 text-slate-800{% else %}bg-slate-50 text-slate-300{% endif %}">
+                    {{ count }}
+                  </span>
+                </div>
+                {% endfor %}
+              </div>
+            </td>
+
+            <!-- Subjects & Classes -->
+            <td class="py-3.5 px-4">
+              <div class="flex flex-wrap gap-1 max-w-xs">
+                {% for subj in item.assigned_subjects %}
+                <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded font-semibold text-[10px]">
+                  {{ subj }}
+                </span>
+                {% empty %}
+                <span class="text-slate-400 italic">No subjects assigned</span>
+                {% endfor %}
+              </div>
+              {% if item.assigned_sections %}
+              <div class="text-[10px] text-slate-400 mt-1">
+                Sections: {{ item.assigned_sections|join:", " }}
+              </div>
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td class="py-3.5 px-4 text-right">
+              <button onclick="editCapacity('{{ item.teacher.id }}', '{{ item.teacher.user.get_full_name|escapejs }}', '{{ item.max_weekly_periods }}', '{{ item.max_daily_periods }}', '{{ item.teacher.department_obj_id|default:'' }}')" class="p-2 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition" title="Configure Capacity Limits">
+                <i class="fa-solid fa-sliders text-sm"></i>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="py-12 text-center text-slate-400">
+              <i class="fa-solid fa-user-xmark text-3xl mb-2 text-slate-300"></i>
+              <p class="font-bold">No teachers match the current filters.</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal: Edit Teacher Capacity Limits -->
+<div id="capacityModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 max-w-md w-full animate-scale-up">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-brand-600"></i> Configure Capacity Limits
+      </h3>
+      <button type="button" onclick="closeModal('capacityModal')" class="text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'teachers:update_capacity' %}" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="teacher_id" id="capTeacherId">
+
+      <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs">
+        <span class="text-slate-400 font-bold block uppercase tracking-wider text-[10px]">Faculty Member</span>
+        <p class="font-bold text-slate-900 text-sm mt-0.5" id="capTeacherName"></p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Max Weekly Periods</label>
+          <input type="number" name="max_weekly_periods" id="capMaxWeekly" min="1" max="40" required class="input-field text-xs">
+          <span class="text-[10px] text-slate-400">Standard: 20–30 periods</span>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Max Daily Periods</label>
+          <input type="number" name="max_daily_periods" id="capMaxDaily" min="1" max="10" required class="input-field text-xs">
+          <span class="text-[10px] text-slate-400">Standard: 5–6 / day</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Department</label>
+        <select name="department_id" id="capDept" class="input-field text-xs">
+          <option value="">No Department Assigned</option>
+          {% for dept in departments %}
+          <option value="{{ dept.id }}">{{ dept.name }} ({{ dept.code }})</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeModal('capacityModal')" class="btn-secondary text-xs">Cancel</button>
+        <button type="submit" class="btn-primary text-xs">Save Limits</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Add / Edit Department -->
+<div id="addDeptModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 max-w-md w-full animate-scale-up">
+    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+      <h3 class="text-base font-bold text-slate-900 flex items-center gap-2" id="deptModalTitle">
+        <i class="fa-solid fa-folder-plus text-indigo-600"></i> New Academic Department
+      </h3>
+      <button type="button" onclick="closeModal('addDeptModal')" class="text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'teachers:manage_departments' %}" class="space-y-4" id="deptForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="deptAction" value="create_department">
+      <input type="hidden" name="department_id" id="editDeptId">
+
+      <div class="grid grid-cols-3 gap-3">
+        <div class="col-span-2">
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Department Name *</label>
+          <input type="text" name="name" id="deptName" placeholder="e.g. Natural Sciences" required class="input-field text-xs">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Code *</label>
+          <input type="text" name="code" id="deptCode" placeholder="e.g. SCI" required class="input-field text-xs uppercase">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Head of Department (HOD)</label>
+        <select name="head_of_department_id" id="deptHod" class="input-field text-xs">
+          <option value="">None / To Be Appointed</option>
+          {% for t in teacher_metrics %}
+          <option value="{{ t.teacher.id }}">{{ t.teacher.user.get_full_name|default:t.teacher.user.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Description / Mandate</label>
+        <textarea name="description" id="deptDesc" rows="2" placeholder="Mandate, curriculum disciplines, or focus areas..." class="input-field text-xs"></textarea>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeModal('addDeptModal')" class="btn-secondary text-xs">Cancel</button>
+        <button type="submit" class="btn-primary text-xs" id="deptSubmitBtn">Create Department</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function editCapacity(id, name, maxWeekly, maxDaily, deptId) {
+  document.getElementById('capTeacherId').value = id;
+  document.getElementById('capTeacherName').innerText = name;
+  document.getElementById('capMaxWeekly').value = maxWeekly;
+  document.getElementById('capMaxDaily').value = maxDaily;
+  document.getElementById('capDept').value = deptId || '';
+  openModal('capacityModal');
+}
+
+function editDepartment(id, name, code, desc, hodId) {
+  document.getElementById('deptModalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-indigo-600"></i> Edit Department';
+  document.getElementById('deptAction').value = 'edit_department';
+  document.getElementById('editDeptId').value = id;
+  document.getElementById('deptName').value = name;
+  document.getElementById('deptCode').value = code;
+  document.getElementById('deptDesc').value = desc;
+  document.getElementById('deptHod').value = hodId || '';
+  document.getElementById('deptSubmitBtn').innerText = 'Save Changes';
+  openModal('addDeptModal');
+}
+</script>
+{% endblock %}

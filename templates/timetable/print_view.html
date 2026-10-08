@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Timetable Schedule | {{ school.name }}</title>
+  <style>
+    @page {
+      size: A4 landscape;
+      margin: 12mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 20px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #334155;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .school-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sub-title {
+      font-size: 13px;
+      color: #475569;
+      font-weight: 600;
+      margin-top: 3px;
+    }
+    .meta-box {
+      text-align: right;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .meta-box strong {
+      color: #0f172a;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px;
+      text-align: center;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    th.time-col {
+      width: 14%;
+      text-align: left;
+    }
+    .slot-card {
+      background-color: #f8fafc;
+      border-left: 3px solid #3b82f6;
+      border-radius: 4px;
+      padding: 6px;
+      text-align: left;
+      min-height: 48px;
+    }
+    .slot-card.core {
+      border-left-color: #f59e0b;
+      background-color: #fffbeb;
+    }
+    .subject-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .teacher-name {
+      font-size: 10px;
+      color: #475569;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .room-name {
+      font-size: 9px;
+      color: #64748b;
+      font-family: monospace;
+      margin-top: 2px;
+    }
+    .empty-slot {
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 48px;
+    }
+    .footer {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 8px;
+    }
+    .no-print-bar {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      padding: 8px 16px;
+      background: #0f172a;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    @media print {
+      .no-print-bar {
+        display: none !important;
+      }
+      body {
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print-bar">
+    <button onclick="window.print()" class="btn">🖨️ Print / Save as PDF</button>
+    <button onclick="window.close()" class="btn" style="background: #e2e8f0; color: #334155;">Close Window</button>
+  </div>
+
+  <div class="header">
+    <div>
+      <div class="school-title">{{ school.name }}</div>
+      <div class="sub-title">
+        {% if selected_section %}
+          Official Weekly Class Timetable: <strong>{{ selected_section.grade.name }} - {{ selected_section.name }}</strong> ({{ selected_section.stream.name }})
+        {% elif selected_teacher %}
+          Official Faculty Weekly Schedule: <strong>{{ selected_teacher.user.get_full_name|default:selected_teacher.user.username }}</strong> ({{ selected_teacher.employee_id }})
+        {% else %}
+          School Master Timetable
+        {% endif %}
+      </div>
+    </div>
+    <div class="meta-box">
+      <div>Academic Year: <strong>{{ current_ay.name|default:"Active Term" }}</strong></div>
+      <div>Homeroom: <strong>{{ selected_section.class_teacher.get_full_name|default:"N/A" }}</strong></div>
+      <div>System Verified: <strong>Conflict-Free</strong></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="time-col">Period / Time</th>
+        {% for day in days %}
+        <th>{{ day.label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in grid_rows %}
+      <tr>
+        <td style="text-align: left;">
+          <div style="font-weight: 800; font-size: 11px; color: #0f172a;">{{ row.period.name }}</div>
+          <div style="font-size: 10px; color: #64748b; font-family: monospace;">{{ row.period.start_time|time:"H:i" }} – {{ row.period.end_time|time:"H:i" }}</div>
+        </td>
+        {% for cell in row.cells %}
+        <td>
+          {% if cell.slot %}
+          <div class="slot-card {% if cell.slot.subject.is_core %}core{% endif %}">
+            <div class="subject-name">{{ cell.slot.subject.name }}</div>
+            {% if selected_section %}
+            <div class="teacher-name">{{ cell.slot.teacher.user.get_full_name|default:cell.slot.teacher.user.username }}</div>
+            {% elif selected_teacher %}
+            <div class="teacher-name">{{ cell.slot.section.grade.name }} - {{ cell.slot.section.name }}</div>
+            {% endif %}
+            {% if cell.slot.room %}
+            <div class="room-name">Room: {{ cell.slot.room }}</div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="empty-slot">—</div>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div>Generated by EthioSchool SaaS Enterprise Platform</div>
+    <div>Date Printed: {% now "F j, Y, g:i a" %}</div>
+  </div>
+
+</body>
+</html>

@@ -356,6 +356,9 @@
         <a href="{% url 'teachers:management' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-chalkboard-user text-brand-400"></i><span>Teachers & Staff</span>
         </a>
+        <a href="{% url 'teachers:workload_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'workload_dashboard' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-business-time text-emerald-400"></i><span>Teacher Workloads & Capacity</span>
+        </a>
         <a href="{% url 'hr:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-calculator text-indigo-400"></i><span>HR & Payroll</span>
         </a>
