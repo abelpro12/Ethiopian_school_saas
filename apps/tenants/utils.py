@@ -17,3 +17,20 @@ def verify_tenant_ownership(request, obj):
         raise PermissionDenied("Access denied. This object belongs to a different tenant.")
     
     return True
+
+
+def get_school(request):
+    """
+    Resolves the active tenant/school from the request, user context, or session.
+    Falls back to active school or default 'SEA' school.
+    """
+    school = getattr(request, 'school', None) or getattr(request.user, 'school', None) or getattr(request, 'active_school', None)
+    if not school and hasattr(request, 'session'):
+        school_id = request.session.get('school_id')
+        if school_id:
+            from apps.schools.models import School
+            school = School.objects.filter(id=school_id).first()
+    if not school:
+        from apps.schools.models import School
+        school = School.objects.filter(code='SEA').first() or School.objects.first()
+    return school

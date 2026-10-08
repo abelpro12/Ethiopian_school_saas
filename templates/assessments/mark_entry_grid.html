@@ -31,16 +31,50 @@
         </div>
         
         <div class="flex flex-wrap items-center gap-2">
+            <!-- Section Mark-List Lock Toggle -->
+            {% if section_subject_lock_active %}
+            <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="target_type" value="section_subject">
+                <input type="hidden" name="target_id" value="{{ subject.id }}">
+                <input type="hidden" name="section_id" value="{{ section.id }}">
+                <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition shadow-xs" title="Click to unlock mark entry for this section and subject">
+                    <i class="fa-solid fa-lock text-rose-200"></i> Section Locked (Unlock)
+                </button>
+            </form>
+            {% else %}
+            <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="target_type" value="section_subject">
+                <input type="hidden" name="target_id" value="{{ subject.id }}">
+                <input type="hidden" name="section_id" value="{{ section.id }}">
+                <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-xs" title="Lock mark entry for this section and subject">
+                    <i class="fa-solid fa-lock-open text-slate-400"></i> Lock Section
+                </button>
+            </form>
+            {% endif %}
+
+            <!-- Interventions Hub Quick Link -->
+            <a href="{% url 'assessments:interventions' %}?section={{ section.id }}&subject={{ subject.id }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition shadow-xs">
+                <i class="fa-solid fa-hand-holding-heart text-rose-500"></i> Interventions Hub
+            </a>
+
+            {% if user.role == 'SCHOOL_ADMIN' or user.role == 'SUPER_ADMIN' or user.role == 'PRINCIPAL' %}
+            <a href="{% url 'assessments:grading_scales' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition shadow-xs">
+                <i class="fa-solid fa-scale-balanced text-indigo-500"></i> Grading Policy
+            </a>
+            {% endif %}
+
             {% if is_locked %}
-                <span class="inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 shadow-xs" title="{{ lock_reason }}">
-                    <i class="fa-solid fa-lock mr-1.5 text-rose-600"></i> Locked: {{ lock_reason|default:"Mark entry is currently locked" }}
+                <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200 shadow-xs" title="{{ lock_reason }}">
+                    <i class="fa-solid fa-lock mr-1.5 text-rose-600"></i> Locked: {{ lock_reason|default:"Mark entry locked" }}
                 </span>
                 {% if user.role == 'SCHOOL_ADMIN' or user.role == 'SUPER_ADMIN' or user.role == 'PRINCIPAL' %}
                     {% if is_period_locked and sem %}
                     <form method="POST" action="{% url 'assessments:toggle_period_lock' sem.id %}" class="inline">
                         {% csrf_token %}
                         <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 transition shadow-xs">
-                            <i class="fa-solid fa-lock-open text-amber-700"></i> Unlock Term Mark Entry
+                            <i class="fa-solid fa-lock-open text-amber-700"></i> Unlock Term
                         </button>
                     </form>
                     {% endif %}
@@ -65,12 +99,43 @@
         </div>
     </div>
 
+    <!-- GRADING POLICY & SCALE INDICATOR BANNER -->
+    <div class="mb-4 bg-gradient-to-r from-indigo-50/80 via-white to-slate-50 border border-indigo-100 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div class="flex items-center gap-3 flex-wrap text-xs">
+            <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid fa-scale-balanced text-indigo-600 text-sm"></i> Active Scale:
+                <span class="text-indigo-700 font-extrabold">{{ scale.name|default:"Standard Grading Scale" }}</span>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">{{ scale.get_scale_type_display|default:"Percentage (0-100%)" }}</span>
+            </span>
+            <span class="text-slate-300">|</span>
+            <span class="text-slate-600">Pass Mark: <strong class="text-slate-900">{{ scale.min_passing_mark|default:50|floatformat:1 }}%</strong></span>
+            <span class="text-slate-300">|</span>
+            <span class="inline-flex items-center gap-1 text-rose-700 font-semibold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span> Below-Avg Alert: &lt;{{ below_thresh|floatformat:0 }}%
+            </span>
+            <span class="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> High-Perf Star: &ge;{{ high_thresh|floatformat:0 }}%
+            </span>
+        </div>
+        <div class="text-[11px]">
+            {% if scale.scale_type == 'LETTER_GRADE' %}
+            <span class="inline-flex items-center gap-1 bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md border border-amber-200 font-medium">
+                <i class="fa-solid fa-keyboard text-amber-600"></i> Option B: Input letter grades (A+, A, B, C...) or numerical marks
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 text-slate-500 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
+                <i class="fa-solid fa-keyboard text-indigo-500"></i> Option A: Input numerical marks (auto-evaluated to letter grades & GPA)
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
     {% if user.role == 'SCHOOL_ADMIN' or user.role == 'SUPER_ADMIN' or user.role == 'PRINCIPAL' %}
     <!-- ADMIN QUICK LOCK CONTROLS -->
     <div class="mb-4 bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div class="flex items-center gap-2 flex-wrap text-xs">
             <span class="font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 mr-2">
-                <i class="fa-solid fa-shield-halved text-indigo-600"></i> Quick Lock Controls:
+                <i class="fa-solid fa-shield-halved text-indigo-600"></i> Granular Locks:
             </span>
             
             <!-- Grade Lock Toggle -->
@@ -129,18 +194,18 @@
                 <i class="fa-solid fa-users"></i> All Students (<span id="countAll">0</span>)
             </button>
             <button type="button" onclick="setPerformanceFilter('below')" id="btnFilterBelow" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-700 border border-gray-200 hover:border-red-300">
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span> Below Average (&lt;60%) (<span id="countBelow">0</span>)
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span> Below Average (&lt;{{ below_thresh|floatformat:0 }}%) (<span id="countBelow">0</span>)
             </button>
             <button type="button" onclick="setPerformanceFilter('high')" id="btnFilterHigh" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-gray-100 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 border border-gray-200 hover:border-emerald-300">
-                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span> ⭐ High Scorers (&ge;85%) (<span id="countHigh">0</span>)
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span> ⭐ High Scorers (&ge;{{ high_thresh|floatformat:0 }}%) (<span id="countHigh">0</span>)
             </button>
         </div>
         <div class="flex items-center gap-2 text-xs text-gray-600">
             <span class="inline-flex items-center gap-1.5 text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-md font-semibold text-[11px]">
-                <span class="w-2 h-2 rounded-full bg-red-500"></span> Red Mark: &lt;60% of Max
+                <span class="w-2 h-2 rounded-full bg-red-500"></span> Red: &lt;{{ below_thresh|floatformat:0 }}% of Max
             </span>
             <span class="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md font-semibold text-[11px]">
-                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Green Mark: &ge;85% of Max
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Green: &ge;{{ high_thresh|floatformat:0 }}% of Max
             </span>
         </div>
     </div>
@@ -157,9 +222,34 @@
                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-16">#</th>
                             <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-64">Student Name</th>
                             {% for comp in components %}
-                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">
-                                {{ comp.name }}
-                                <div class="text-[10px] text-gray-400 font-normal mt-1">Max: {{ comp.max_marks }} | Wt: {{ comp.weight }}%</div>
+                            <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider w-40 {% if comp.is_locked %}bg-rose-50/70 border-b-2 border-rose-400{% endif %}">
+                                <div class="flex items-center justify-center gap-1 flex-wrap">
+                                    <span>{{ comp.name }}</span>
+                                    {% if comp.assessment_type %}
+                                    <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 normal-case">{{ comp.get_assessment_type_display }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-[10px] text-gray-400 font-normal mt-0.5">
+                                    Max: {{ comp.max_marks }} | Wt: {{ comp.weight }}%
+                                </div>
+                                <!-- Individual Component Lock Toggle Button -->
+                                <div class="mt-1.5">
+                                    <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="inline-block">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="target_type" value="component">
+                                        <input type="hidden" name="target_id" value="{{ comp.id }}">
+                                        <input type="hidden" name="section_id" value="{{ section.id }}">
+                                        {% if comp.is_locked %}
+                                            <button type="submit" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-300 transition shadow-2xs" title="{{ comp.lock_reason|default:'Locked' }} (Click to Unlock)">
+                                                <i class="fa-solid fa-lock text-rose-600"></i> Locked
+                                            </button>
+                                        {% else %}
+                                            <button type="submit" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-white text-slate-600 hover:bg-slate-100 border border-slate-300 transition shadow-2xs" title="Click to lock {{ comp.name }} for this section">
+                                                <i class="fa-solid fa-lock-open text-slate-400"></i> Lock
+                                            </button>
+                                        {% endif %}
+                                    </form>
+                                </div>
                             </th>
                             {% endfor %}
                             <th class="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Total</th>
@@ -176,18 +266,39 @@
                             
                             {% for comp in components %}
                                 {% with mark=mark_dict|dict_get:enrollment.id|dict_get:comp.id %}
-                                <td class="px-4 py-3 text-center">
-                                    <input type="number" 
-                                           step="0.01" 
-                                           min="0" 
-                                           max="{{ comp.max_marks|stringformat:'s' }}"
-                                           name="mark_{{ enrollment.id }}_{{ comp.id }}"
-                                           value="{{ mark.mark_value|default_if_none:'' }}"
-                                           class="mark-input block w-full text-center border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-colors
-                                            {% if is_locked %}bg-gray-100 cursor-not-allowed text-gray-500{% endif %}"
-                                           data-max="{{ comp.max_marks|stringformat:'s' }}"
-                                           data-row="{{ enrollment.id }}"
-                                           {% if is_locked %}readonly disabled{% endif %}>
+                                <td class="px-3 py-3 text-center align-middle {% if comp.is_locked %}bg-rose-50/30{% endif %}">
+                                    <div class="flex flex-col items-center gap-1">
+                                        <input {% if scale.scale_type == 'LETTER_GRADE' %}type="text"{% else %}type="number" step="0.01" min="0" max="{{ comp.max_marks|stringformat:'s' }}"{% endif %}
+                                               name="mark_{{ enrollment.id }}_{{ comp.id }}"
+                                               value="{% if mark %}{% if scale.scale_type == 'LETTER_GRADE' and mark.letter_grade %}{{ mark.letter_grade }}{% else %}{{ mark.mark_value|default_if_none:'' }}{% endif %}{% endif %}"
+                                               class="mark-input block w-24 mx-auto text-center border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-semibold transition-colors
+                                                {% if is_locked or comp.is_locked %}bg-gray-100 cursor-not-allowed text-gray-500{% endif %}"
+                                               data-max="{{ comp.max_marks|stringformat:'s' }}"
+                                               data-row="{{ enrollment.id }}"
+                                               data-comp-id="{{ comp.id }}"
+                                               placeholder="{% if scale.scale_type == 'LETTER_GRADE' %}A/B or Score{% else %}0-{{ comp.max_marks }}{% endif %}"
+                                               {% if is_locked or comp.is_locked %}readonly disabled title="{{ comp.lock_reason|default:lock_reason }}"{% endif %}>
+                                        
+                                        <!-- Performance / Letter Badges -->
+                                        <div class="flex items-center justify-center gap-1 flex-wrap">
+                                            {% if mark and mark.letter_grade and scale.scale_type != 'LETTER_GRADE' %}
+                                                <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700" title="Letter Grade">{{ mark.letter_grade }}</span>
+                                            {% endif %}
+
+                                            {% if mark and mark.performance_tier == 'BELOW_AVERAGE' %}
+                                                <span class="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded shadow-2xs" title="Below Average (&lt;{{ below_thresh|floatformat:0 }}%)">
+                                                    <i class="fa-solid fa-triangle-exclamation text-rose-500"></i> &lt;{{ below_thresh|floatformat:0 }}%
+                                                </span>
+                                                <a href="{% url 'assessments:interventions' %}?student={{ enrollment.student.id }}&component={{ comp.id }}&subject={{ subject.id }}" target="_blank" class="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-700 hover:text-white hover:bg-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded transition shadow-2xs" title="Schedule Remedial Intervention / Parent Alert">
+                                                    <i class="fa-solid fa-plus text-[8px]"></i> Intervene
+                                                </a>
+                                            {% elif mark and mark.performance_tier == 'HIGH_PERFORMANCE' %}
+                                                <span class="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded shadow-2xs" title="High Performance (&ge;{{ high_thresh|floatformat:0 }}%)">
+                                                    <i class="fa-solid fa-star text-amber-500"></i> &ge;{{ high_thresh|floatformat:0 }}%
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 </td>
                                 {% endwith %}
                             {% endfor %}
@@ -215,7 +326,7 @@
             {% if not is_locked %}
             <div class="px-4 sm:px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                 <div class="text-xs text-gray-500">
-                    <i class="fa-solid fa-circle-info mr-1 text-indigo-400"></i> Edit mode active. Save or Publish to update portals.
+                    <i class="fa-solid fa-circle-info mr-1 text-indigo-400"></i> Edit mode active. Save or Submit to record student marks.
                 </div>
                 <div class="flex flex-col sm:flex-row gap-2">
                     <button type="submit" onclick="document.getElementById('formAction').value='save'" class="flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm">
@@ -238,6 +349,8 @@
 
 <script>
     let currentFilter = 'all';
+    const belowThresholdPct = {{ below_thresh|default:60 }} / 100.0;
+    const highThresholdPct = {{ high_thresh|default:90 }} / 100.0;
 
     function setPerformanceFilter(filterType) {
         currentFilter = filterType;
@@ -290,9 +403,9 @@
             if (visibleCount === 0 && rows.length > 0) {
                 emptyRow.style.display = '';
                 if (currentFilter === 'below') {
-                    emptyText.innerText = "No students scored below 60% in this assessment component set — excellent performance!";
+                    emptyText.innerText = "No students scored below {{ below_thresh|floatformat:0 }}% in this assessment component set.";
                 } else if (currentFilter === 'high') {
-                    emptyText.innerText = "No students have scored 85% or higher yet.";
+                    emptyText.innerText = "No students have reached high performance (≥{{ high_thresh|floatformat:0 }}%) yet.";
                 } else {
                     emptyText.innerText = "No students found.";
                 }
@@ -315,8 +428,21 @@
             inputs.forEach(input => {
                 const rowId = input.getAttribute('data-row');
                 const maxVal = parseFloat(input.getAttribute('data-max')) || 0;
-                const rawVal = input.value.trim();
-                const val = parseFloat(rawVal);
+                const rawVal = input.value.trim().toUpperCase();
+                let val = parseFloat(rawVal);
+
+                // Option B letter grade fallback estimation for dynamic total calculation
+                if (isNaN(val) && rawVal) {
+                    const letterMap = {
+                        'A+': 0.95 * maxVal, 'A': 0.85 * maxVal, 'A-': 0.80 * maxVal,
+                        'B+': 0.75 * maxVal, 'B': 0.70 * maxVal, 'B-': 0.65 * maxVal,
+                        'C+': 0.60 * maxVal, 'C': 0.55 * maxVal, 'C-': 0.50 * maxVal,
+                        'D': 0.45 * maxVal, 'F': 0.30 * maxVal
+                    };
+                    if (letterMap[rawVal] !== undefined) {
+                        val = letterMap[rawVal];
+                    }
+                }
 
                 if (!rowTotals[rowId]) {
                     rowTotals[rowId] = 0;
@@ -336,16 +462,15 @@
                     rowTotals[rowId] += val;
                     rowEnteredCount[rowId] += 1;
 
-                    // Below average definition: below 60% of component max marks
+                    // Below average definition: below configured threshold
                     const pct = maxVal > 0 ? (val / maxVal) : 0;
-                    if (pct < 0.60) {
+                    if (pct < belowThresholdPct) {
                         input.classList.add('bg-red-50', 'border-red-400', 'text-red-700', 'font-bold');
-                        input.title = `Below 60% (${val} / ${maxVal})`;
+                        input.title = `Below Average (<${(belowThresholdPct*100).toFixed(0)}%: ${val.toFixed(1)} / ${maxVal})`;
                         rowBelowCount[rowId] += 1;
-                    } else if (pct >= 0.85) {
-                        // High scorer definition: >= 85% of component max marks
+                    } else if (pct >= highThresholdPct) {
                         input.classList.add('bg-emerald-50', 'border-emerald-400', 'text-emerald-700', 'font-bold');
-                        input.title = `High Scorer (≥85%: ${val} / ${maxVal})`;
+                        input.title = `High Scorer (≥${(highThresholdPct*100).toFixed(0)}%: ${val.toFixed(1)} / ${maxVal})`;
                         rowHighCount[rowId] += 1;
                     }
                 }
@@ -390,11 +515,11 @@
         inputs.forEach(input => {
             input.addEventListener('input', calculateTotalsAndHighlights);
             
-            // Validate max marks on blur
+            // Validate max marks on blur (only for numerical entries)
             input.addEventListener('blur', function() {
                 const max = parseFloat(this.getAttribute('data-max'));
                 const val = parseFloat(this.value);
-                if (val > max) {
+                if (!isNaN(val) && val > max) {
                     alert(`Mark ${val} exceeds maximum allowed (${max})`);
                     this.value = max;
                     calculateTotalsAndHighlights();
@@ -413,3 +538,4 @@
     }
 </script>
 {% endblock %}
+

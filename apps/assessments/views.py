@@ -9,7 +9,8 @@ from django.db import transaction
 from apps.accounts.models import User, UserRole
 from apps.academics.models import Subject, Section, AcademicYear, AcademicPeriod, Grade, Stream
 from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
-from apps.assessments.models import AssessmentComponent, StudentMark, MarkStatus, AcademicPeriodResult, MarkEntryLock
+from apps.assessments.models import AssessmentComponent, StudentMark, MarkStatus, AcademicPeriodResult, MarkEntryLock, GradingScale
+from apps.assessments.grading_service import GradingService
 from apps.teachers.models import TeacherAssignment
 from apps.platform_management.decorators import school_context_required
 from apps.attendance.models import AttendanceRecord, AttendanceStatus
@@ -824,7 +825,7 @@ def mark_entry_grid(request, section_id, subject_id):
         teacher_to_check = assigned_tch.teacher.user
 
     from apps.academics.models import PeriodStatus
-    is_period_locked = (sem and sem.status == PeriodStatus.LOCKED)
+    is_period_locked = (sem and sem.status in [PeriodStatus.LOCKED, PeriodStatus.CLOSED, PeriodStatus.ARCHIVED])
 
     # Granular Lock check (by Grade, Subject, Teacher, Section)
     rule_locked, lock_reason, lock_obj = MarkEntryLock.check_lock(
@@ -837,6 +838,23 @@ def mark_entry_grid(request, section_id, subject_id):
         section=section
     )
 
+    # Annotate each component with its individual lock status
+    component_list = list(components)
+    for comp in component_list:
+        comp_locked, comp_reason, comp_obj = MarkEntryLock.check_lock(
+            school=school,
+            academic_year=ay,
+            period=sem,
+            grade=section.grade,
+            subject=subject,
+            teacher=teacher_to_check,
+            section=section,
+            assessment_component=comp
+        )
+        comp.is_locked = is_period_locked or rule_locked or comp_locked
+        comp.lock_reason = comp_reason if comp_locked else lock_reason
+        comp.lock_obj = comp_obj or lock_obj
+
     is_locked = is_period_locked or rule_locked or any(m.status == MarkStatus.LOCKED for m in existing_marks)
     if not lock_reason:
         if is_period_locked:
@@ -846,25 +864,41 @@ def mark_entry_grid(request, section_id, subject_id):
         elif not is_locked:
             lock_reason = ""
 
-    # Status of lock toggles for this section/subject for admin toolbar
+    # Status of lock toggles for this section/subject for admin/teacher toolbar
     grade_lock_active = MarkEntryLock.objects.filter(school=school, grade=section.grade, subject__isnull=True, teacher__isnull=True, section__isnull=True, is_active=True).exists()
     subject_lock_active = MarkEntryLock.objects.filter(school=school, subject=subject, grade__isnull=True, teacher__isnull=True, section__isnull=True, is_active=True).exists()
+    section_subject_lock_active = MarkEntryLock.objects.filter(school=school, subject=subject, section=section, is_active=True).exists()
     teacher_lock_active = False
     if teacher_to_check:
         teacher_lock_active = MarkEntryLock.objects.filter(school=school, teacher=teacher_to_check, grade__isnull=True, subject__isnull=True, is_active=True).exists()
     
+    # Grading Scale and Thresholds (<60% Below Avg, >=90% High Perf)
+    scale = GradingScale.get_effective_scale(school, grade=section.grade)
+    below_thresh = float(scale.below_average_threshold) if scale else 60.0
+    high_thresh = float(scale.high_performance_threshold) if scale else 90.0
+
     # Map for easy rendering: mark_dict[enrollment_id][component_id] = mark
     mark_dict = {e.id: {} for e in enrollments}
     status = MarkStatus.DRAFT
     
     for mark in existing_marks:
+        max_m = float(mark.assessment_component.max_marks or 100.0)
+        pct = (float(mark.mark_value) / max_m * 100.0) if max_m > 0 else 0.0
+        mark.percentage = round(pct, 2)
+        if pct < below_thresh:
+            mark.performance_tier = 'BELOW_AVERAGE'
+        elif pct >= high_thresh:
+            mark.performance_tier = 'HIGH_PERFORMANCE'
+        else:
+            mark.performance_tier = 'NORMAL'
+
         mark_dict[mark.enrollment.id][mark.assessment_component.id] = mark
         status = mark.status
 
     return render(request, 'assessments/mark_entry_grid.html', {
         'section': section,
         'subject': subject,
-        'components': components,
+        'components': component_list,
         'enrollments': enrollments,
         'mark_dict': mark_dict,
         'status': status,
@@ -874,8 +908,12 @@ def mark_entry_grid(request, section_id, subject_id):
         'lock_obj': lock_obj,
         'grade_lock_active': grade_lock_active,
         'subject_lock_active': subject_lock_active,
+        'section_subject_lock_active': section_subject_lock_active,
         'teacher_lock_active': teacher_lock_active,
         'teacher_to_check': teacher_to_check,
+        'scale': scale,
+        'below_thresh': below_thresh,
+        'high_thresh': high_thresh,
         'MarkStatus': MarkStatus,
         'ay': ay,
         'sem': sem
@@ -911,14 +949,27 @@ def save_marks(request):
                             messages.error(request, err_msg)
                             return redirect(request.META.get('HTTP_REFERER', 'assessments:mark_entry'))
 
-                        if value.strip() == "":
-                            continue
-                            
-                        try:
-                            mark_val = float(value)
-                        except ValueError:
-                            continue
-                        
+                        enrollment = StudentEnrollment.objects.get(id=enrollment_id, school=school)
+
+                        # Support Option B (Direct Letter Grade Entry e.g. A+, A, B, C, D, F)
+                        val_str = str(value).strip().upper()
+                        letters = {'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F', 'P'}
+                        given_letter = None
+                        if val_str in letters:
+                            converted_score = GradingService.convert_letter_to_score(
+                                school=school,
+                                letter_grade=val_str,
+                                max_marks=float(comp.max_marks or 100.0),
+                                grade=enrollment.grade
+                            )
+                            mark_val = float(converted_score or 0.0)
+                            given_letter = val_str
+                        else:
+                            try:
+                                mark_val = float(value)
+                            except ValueError:
+                                continue
+
                         if mark_val < 0:
                             err_msg = f"Error: Mark cannot be negative (got {mark_val} for {comp.name})"
                             if is_htmx:
@@ -932,10 +983,8 @@ def save_marks(request):
                                 return HttpResponse(f"<div class='p-2 bg-red-100 text-red-800 rounded'>{err_msg}</div>", status=400)
                             messages.error(request, err_msg)
                             return redirect(request.META.get('HTTP_REFERER', 'assessments:mark_entry'))
-                            
-                        enrollment = StudentEnrollment.objects.get(id=enrollment_id, school=school)
 
-                        # Granular Lock check (by Grade, Subject, Teacher, Section)
+                        # Granular Lock check (by Grade, Subject, Teacher, Section, and Assessment Component)
                         rule_locked, lock_reason, _ = MarkEntryLock.check_lock(
                             school=school,
                             academic_year=comp.academic_year,
@@ -943,7 +992,8 @@ def save_marks(request):
                             grade=enrollment.grade,
                             subject=comp.subject,
                             teacher=request.user if request.user.role == UserRole.TEACHER else None,
-                            section=enrollment.section
+                            section=enrollment.section,
+                            assessment_component=comp
                         )
                         if rule_locked and not check_admin_access(request.user):
                             err_msg = lock_reason or "Error: Mark entry is locked for this class by School Administration."
@@ -952,14 +1002,18 @@ def save_marks(request):
                             messages.error(request, err_msg)
                             return redirect(request.META.get('HTTP_REFERER', 'assessments:mark_entry'))
                         
+                        defaults_dict = {
+                            'mark_value': mark_val,
+                            'entered_by': request.user,
+                        }
+                        if given_letter:
+                            defaults_dict['letter_grade'] = given_letter
+
                         mark_obj, created = StudentMark.objects.update_or_create(
                             school=school,
                             enrollment=enrollment,
                             assessment_component=comp,
-                            defaults={
-                                'mark_value': mark_val,
-                                'entered_by': request.user,
-                            }
+                            defaults=defaults_dict
                         )
                         saved_count += 1
                         saved_students.add(enrollment_id)
@@ -1462,42 +1516,161 @@ def delete_mark_lock(request, lock_id):
 @login_required
 def quick_toggle_grid_lock(request):
     """
-    Instant lock/unlock toggle directly from the mark entry grid toolbar for Grade, Subject, or Teacher.
+    Instant lock/unlock toggle directly from the mark entry grid toolbar:
+    - Assessment Component (individual component lock e.g. Midterm only)
+    - Section & Subject (class mark-list lock)
+    - Grade, Subject, or Teacher
+    Teachers can lock/unlock their own assigned classes or components.
     """
-    if not check_admin_access(request.user) or request.method != 'POST':
-        return HttpResponse("Unauthorized", status=403)
+    if request.method != 'POST':
+        return HttpResponse("Method not allowed", status=405)
 
     school = get_school(request)
     ay, sem = get_active_term(request)
-    target_type = request.POST.get('target_type')  # 'grade', 'subject', 'teacher'
+    target_type = request.POST.get('target_type')  # 'component', 'section_subject', 'grade', 'subject', 'teacher'
     target_id = request.POST.get('target_id')
+    section_id = request.POST.get('section_id')
+    reason = request.POST.get('reason', '').strip()
     referer = request.POST.get('referer') or request.META.get('HTTP_REFERER')
 
-    if target_type == 'grade':
+    is_admin = check_admin_access(request.user)
+    is_teacher = (request.user.role == UserRole.TEACHER)
+
+    from django.utils import timezone
+
+    if target_type == 'component':
+        comp_obj = get_object_or_404(AssessmentComponent, id=target_id, school=school)
+        sec_obj = get_object_or_404(Section, id=section_id, school=school) if section_id else None
+
+        if is_teacher and not is_admin:
+            is_assigned = TeacherAssignment.objects.filter(
+                school=school, teacher__user=request.user, section=sec_obj, subject=comp_obj.subject
+            ).exists()
+            if not is_assigned:
+                return HttpResponse("Unauthorized: You are not assigned to this class.", status=403)
+
+        existing = MarkEntryLock.objects.filter(
+            school=school, assessment_component=comp_obj, section=sec_obj
+        ).first()
+
+        if existing and existing.is_active:
+            existing.is_active = False
+            existing.unlocked_by = request.user
+            existing.unlocked_at = timezone.now()
+            existing.unlock_reason = reason or "Unlocked by authorized user"
+            existing.save(update_fields=['is_active', 'unlocked_by', 'unlocked_at', 'unlock_reason'])
+            AuditService.log_action(
+                school=school, user=request.user, action="MARK_LOCK_COMPONENT_UNLOCKED",
+                object_type="AssessmentComponent", object_id=str(comp_obj.id),
+                after_val={'component': comp_obj.name, 'reason': existing.unlock_reason},
+                ip_address=AuditService.get_client_ip(request)
+            )
+            messages.success(request, f"Component '{comp_obj.name}' mark entry UNLOCKED.")
+        else:
+            lock_obj, _ = MarkEntryLock.objects.update_or_create(
+                school=school, assessment_component=comp_obj, section=sec_obj,
+                defaults={
+                    'lock_type': 'COMPONENT',
+                    'academic_year': ay,
+                    'period': sem,
+                    'subject': comp_obj.subject,
+                    'grade': sec_obj.grade if sec_obj else comp_obj.subject.grade,
+                    'is_active': True,
+                    'reason': reason or f"Component '{comp_obj.name}' locked by {request.user.get_full_name() or request.user.username}",
+                    'locked_by': request.user
+                }
+            )
+            AuditService.log_action(
+                school=school, user=request.user, action="MARK_LOCK_COMPONENT_LOCKED",
+                object_type="AssessmentComponent", object_id=str(comp_obj.id),
+                after_val={'component': comp_obj.name, 'reason': lock_obj.reason},
+                ip_address=AuditService.get_client_ip(request)
+            )
+            messages.success(request, f"Component '{comp_obj.name}' mark entry LOCKED.")
+
+    elif target_type == 'section_subject':
+        subj_obj = get_object_or_404(Subject, id=target_id, school=school)
+        sec_obj = get_object_or_404(Section, id=section_id, school=school)
+
+        if is_teacher and not is_admin:
+            is_assigned = TeacherAssignment.objects.filter(
+                school=school, teacher__user=request.user, section=sec_obj, subject=subj_obj
+            ).exists()
+            if not is_assigned:
+                return HttpResponse("Unauthorized: You are not assigned to this class.", status=403)
+
+        existing = MarkEntryLock.objects.filter(
+            school=school, subject=subj_obj, section=sec_obj, assessment_component__isnull=True
+        ).first()
+
+        if existing and existing.is_active:
+            existing.is_active = False
+            existing.unlocked_by = request.user
+            existing.unlocked_at = timezone.now()
+            existing.unlock_reason = reason or "Unlocked by authorized user"
+            existing.save(update_fields=['is_active', 'unlocked_by', 'unlocked_at', 'unlock_reason'])
+            AuditService.log_action(
+                school=school, user=request.user, action="MARK_LOCK_SECTION_SUBJECT_UNLOCKED",
+                object_type="Subject", object_id=str(subj_obj.id),
+                after_val={'subject': subj_obj.name, 'section': sec_obj.name, 'reason': existing.unlock_reason},
+                ip_address=AuditService.get_client_ip(request)
+            )
+            messages.success(request, f"Marks UNLOCKED for {subj_obj.name} ({sec_obj.name}).")
+        else:
+            lock_obj, _ = MarkEntryLock.objects.update_or_create(
+                school=school, subject=subj_obj, section=sec_obj, assessment_component__isnull=True,
+                defaults={
+                    'lock_type': 'SECTION',
+                    'academic_year': ay,
+                    'period': sem,
+                    'grade': sec_obj.grade,
+                    'is_active': True,
+                    'reason': reason or f"Class mark-list locked by {request.user.get_full_name() or request.user.username}",
+                    'locked_by': request.user
+                }
+            )
+            AuditService.log_action(
+                school=school, user=request.user, action="MARK_LOCK_SECTION_SUBJECT_LOCKED",
+                object_type="Subject", object_id=str(subj_obj.id),
+                after_val={'subject': subj_obj.name, 'section': sec_obj.name, 'reason': lock_obj.reason},
+                ip_address=AuditService.get_client_ip(request)
+            )
+            messages.success(request, f"Marks LOCKED for {subj_obj.name} ({sec_obj.name}).")
+
+    elif not is_admin:
+        return HttpResponse("Unauthorized: Broad administrative locking requires School Admin role.", status=403)
+
+    elif target_type == 'grade':
         target_obj = get_object_or_404(Grade, id=target_id, school=school)
         existing = MarkEntryLock.objects.filter(school=school, grade=target_obj, subject__isnull=True, teacher__isnull=True, section__isnull=True).first()
         if existing and existing.is_active:
             existing.is_active = False
-            existing.save(update_fields=['is_active'])
+            existing.unlocked_by = request.user
+            existing.unlocked_at = timezone.now()
+            existing.unlock_reason = reason or "Unlocked by Administrator"
+            existing.save(update_fields=['is_active', 'unlocked_by', 'unlocked_at', 'unlock_reason'])
             messages.success(request, f"Grade {target_obj.name} mark entry UNLOCKED.")
         else:
             MarkEntryLock.objects.update_or_create(
                 school=school, grade=target_obj, subject__isnull=True, teacher__isnull=True, section__isnull=True,
-                defaults={'lock_type': 'GRADE', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': f"Grade {target_obj.name} locked via Gradebook", 'locked_by': request.user}
+                defaults={'lock_type': 'GRADE', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': reason or f"Grade {target_obj.name} locked via Gradebook", 'locked_by': request.user}
             )
             messages.success(request, f"Grade {target_obj.name} mark entry LOCKED.")
 
     elif target_type == 'subject':
         target_obj = get_object_or_404(Subject, id=target_id, school=school)
-        existing = MarkEntryLock.objects.filter(school=school, subject=target_obj, grade__isnull=True, teacher__isnull=True, section__isnull=True).first()
+        existing = MarkEntryLock.objects.filter(school=school, subject=target_obj, grade__isnull=True, teacher__isnull=True, section__isnull=True, assessment_component__isnull=True).first()
         if existing and existing.is_active:
             existing.is_active = False
-            existing.save(update_fields=['is_active'])
+            existing.unlocked_by = request.user
+            existing.unlocked_at = timezone.now()
+            existing.unlock_reason = reason or "Unlocked by Administrator"
+            existing.save(update_fields=['is_active', 'unlocked_by', 'unlocked_at', 'unlock_reason'])
             messages.success(request, f"Subject {target_obj.name} mark entry UNLOCKED.")
         else:
             MarkEntryLock.objects.update_or_create(
-                school=school, subject=target_obj, grade__isnull=True, teacher__isnull=True, section__isnull=True,
-                defaults={'lock_type': 'SUBJECT', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': f"Subject {target_obj.name} locked via Gradebook", 'locked_by': request.user}
+                school=school, subject=target_obj, grade__isnull=True, teacher__isnull=True, section__isnull=True, assessment_component__isnull=True,
+                defaults={'lock_type': 'SUBJECT', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': reason or f"Subject {target_obj.name} locked via Gradebook", 'locked_by': request.user}
             )
             messages.success(request, f"Subject {target_obj.name} mark entry LOCKED.")
 
@@ -1506,12 +1679,15 @@ def quick_toggle_grid_lock(request):
         existing = MarkEntryLock.objects.filter(school=school, teacher=target_obj, grade__isnull=True, subject__isnull=True).first()
         if existing and existing.is_active:
             existing.is_active = False
-            existing.save(update_fields=['is_active'])
+            existing.unlocked_by = request.user
+            existing.unlocked_at = timezone.now()
+            existing.unlock_reason = reason or "Unlocked by Administrator"
+            existing.save(update_fields=['is_active', 'unlocked_by', 'unlocked_at', 'unlock_reason'])
             messages.success(request, f"Teacher {target_obj.get_full_name() or target_obj.username} mark entry UNLOCKED.")
         else:
             MarkEntryLock.objects.update_or_create(
                 school=school, teacher=target_obj, grade__isnull=True, subject__isnull=True,
-                defaults={'lock_type': 'TEACHER', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': f"Teacher locked via Gradebook", 'locked_by': request.user}
+                defaults={'lock_type': 'TEACHER', 'academic_year': ay, 'period': sem, 'is_active': True, 'reason': reason or f"Teacher locked via Gradebook", 'locked_by': request.user}
             )
             messages.success(request, f"Teacher {target_obj.get_full_name() or target_obj.username} mark entry LOCKED.")
 

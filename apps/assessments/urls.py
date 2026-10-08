@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, annual_views
+from . import views, annual_views, views_grading, views_interventions
 
 app_name = 'assessments'
 
@@ -17,7 +17,20 @@ urlpatterns = [
     path('locks/<int:lock_id>/delete/', views.delete_mark_lock, name='delete_mark_lock'),
     path('locks/quick-toggle/', views.quick_toggle_grid_lock, name='quick_toggle_grid_lock'),
     path('report-cards/', views.report_cards, name='report_cards'),
-    
+
+    # Flexible Grading Scale & Policy Routes
+    path('grading-scales/', views_grading.grading_scale_list, name='grading_scales'),
+    path('grading-scales/save/', views_grading.save_grading_scale, name='save_grading_scale'),
+    path('grading-scales/rule/save/', views_grading.save_grading_rule, name='save_grading_rule'),
+    path('grading-scales/rule/<int:rule_id>/delete/', views_grading.delete_grading_rule, name='delete_grading_rule'),
+    path('grading-scales/<int:scale_id>/set-default/', views_grading.set_default_grading_scale, name='set_default_grading_scale'),
+
+    # Academic Intervention & Performance Tracking Routes
+    path('interventions/', views_interventions.intervention_dashboard, name='interventions'),
+    path('interventions/create/', views_interventions.create_intervention_view, name='create_intervention'),
+    path('interventions/<int:pk>/update/', views_interventions.update_intervention_view, name='update_intervention'),
+    path('interventions/<int:pk>/sms/', views_interventions.send_parent_sms_view, name='send_parent_sms'),
+
     # Annual Promotion Engine
     path('annual-dashboard/', annual_views.annual_dashboard, name='annual_dashboard'),
     path('annual-calculate-all/', annual_views.calculate_all_annual_results, name='calculate_all_annual_results'),

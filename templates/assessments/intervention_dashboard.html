@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+{% block title %}Academic Intervention Hub — EthioSchool SaaS{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto space-y-6">
+
+  <!-- Header Card -->
+  <div class="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+    <div class="flex items-start sm:items-center gap-4">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-500 via-red-600 to-amber-600 flex items-center justify-center shadow-lg shadow-rose-500/30 flex-shrink-0">
+        <i class="fa-solid fa-user-doctor text-white text-2xl"></i>
+      </div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <h1 class="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight">Academic Intervention & Support Hub</h1>
+          <span class="bg-rose-500/20 text-rose-300 font-mono text-xs font-bold px-3 py-1 rounded-full border border-rose-500/30">
+            Below-Average Detection &lt;{{ threshold }}%
+          </span>
+        </div>
+        <p class="text-slate-400 text-xs sm:text-sm mt-1.5">
+          Automated performance monitoring, remedial tutorial programs, parent conference scheduling & SMS notifications.
+        </p>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="{% url 'assessments:grading_scales' %}" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+        <i class="fa-solid fa-sliders text-indigo-400"></i>
+        <span>Grading Policies</span>
+      </a>
+      <a href="{% url 'assessments:mark_entry' %}" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-2">
+        <i class="fa-solid fa-book-open text-brand-400"></i>
+        <span>Gradebook</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Grid -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl p-5 border border-rose-100 shadow-sm flex items-center gap-4">
+      <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div>
+        <p class="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Below Average</p>
+        <h3 class="text-2xl font-black text-slate-900 font-heading">{{ total_detected }}</h3>
+        <p class="text-[10px] text-rose-600 font-bold mt-0.5">&lt;{{ threshold }}% in current term</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 border border-amber-100 shadow-sm flex items-center gap-4">
+      <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </div>
+      <div>
+        <p class="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Active Interventions</p>
+        <h3 class="text-2xl font-black text-slate-900 font-heading">{{ total_active_int }}</h3>
+        <p class="text-[10px] text-amber-600 font-bold mt-0.5">Tutorials & conferences</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 border border-emerald-100 shadow-sm flex items-center gap-4">
+      <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <p class="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Resolved Cases</p>
+        <h3 class="text-2xl font-black text-slate-900 font-heading">{{ total_resolved }}</h3>
+        <p class="text-[10px] text-emerald-600 font-bold mt-0.5">Performance improved</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm flex items-center gap-4">
+      <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+        <i class="fa-solid fa-star"></i>
+      </div>
+      <div>
+        <p class="text-slate-400 text-[11px] font-bold uppercase tracking-wider">High Performers</p>
+        <h3 class="text-2xl font-black text-slate-900 font-heading">{{ high_perf_count }}</h3>
+        <p class="text-[10px] text-indigo-600 font-bold mt-0.5">&ge;{{ high_threshold }}% marks recorded</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+    <form method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div>
+        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Grade</label>
+        <select name="grade_id" onchange="this.form.submit()" class="input-field text-xs">
+          <option value="">All Grades</option>
+          {% for g in grades %}
+          <option value="{{ g.id }}" {% if selected_grade_id == g.id|stringformat:'s' %}selected{% endif %}>{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Section</label>
+        <select name="section_id" onchange="this.form.submit()" class="input-field text-xs">
+          <option value="">All Sections</option>
+          {% for s in sections %}
+          <option value="{{ s.id }}" {% if selected_section_id == s.id|stringformat:'s' %}selected{% endif %}>{{ s.grade.name }} - {{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject</label>
+        <select name="subject_id" onchange="this.form.submit()" class="input-field text-xs">
+          <option value="">All Subjects</option>
+          {% for sub in subjects %}
+          <option value="{{ sub.id }}" {% if selected_subject_id == sub.id|stringformat:'s' %}selected{% endif %}>{{ sub.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
+        <select name="status" onchange="this.form.submit()" class="input-field text-xs">
+          <option value="">All Statuses</option>
+          {% for val, label in InterventionStatus.choices %}
+          <option value="{{ val }}" {% if selected_status == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <a href="{% url 'assessments:interventions' %}" class="btn-secondary text-xs w-full justify-center">
+          <i class="fa-solid fa-rotate-left"></i> Reset Filter
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Tabbed Content Areas -->
+  <div class="space-y-6">
+
+    <!-- 1. Detected Below-Average Candidates Table -->
+    <div class="bg-white rounded-3xl shadow-sm border border-rose-200/80 overflow-hidden">
+      <div class="p-5 bg-rose-50/50 border-b border-rose-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-sm">
+            <i class="fa-solid fa-flag"></i>
+          </div>
+          <div>
+            <h3 class="font-heading font-extrabold text-slate-900 text-base">Students Requiring Academic Intervention (&lt;{{ threshold }}%)</h3>
+            <p class="text-slate-500 text-xs">Automatic detection across continuous assessments, midterms, and finals</p>
+          </div>
+        </div>
+        <span class="badge badge-red text-xs font-bold">{{ below_avg_list|length }} Candidate(s) Found</span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+              <th class="py-3 px-5">Student</th>
+              <th class="py-3 px-4">Class</th>
+              <th class="py-3 px-4">Subject</th>
+              <th class="py-3 px-4">Assessment Component</th>
+              <th class="py-3 px-4 text-center">Score Result</th>
+              <th class="py-3 px-4">Teacher</th>
+              <th class="py-3 px-4 text-center">Status</th>
+              <th class="py-3 px-5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for row in below_avg_list %}
+            <tr class="hover:bg-rose-50/20 transition">
+              <td class="py-3.5 px-5">
+                <p class="font-bold text-slate-900">{{ row.student_name }}</p>
+                <p class="text-slate-400 font-mono text-[10px]">{{ row.student_code }}</p>
+              </td>
+              <td class="py-3.5 px-4 font-semibold text-slate-700">
+                {{ row.grade_name }} · {{ row.section_name }}
+              </td>
+              <td class="py-3.5 px-4">
+                <span class="font-bold text-slate-800">{{ row.subject_name }}</span>
+                <span class="text-slate-400 text-[10px] block font-mono">{{ row.subject_code }}</span>
+              </td>
+              <td class="py-3.5 px-4 text-slate-600 font-medium">
+                {{ row.component_name }} ({{ row.period_name }})
+              </td>
+              <td class="py-3.5 px-4 text-center font-mono">
+                <span class="inline-flex items-center gap-1 bg-rose-100 text-rose-800 border border-rose-300 font-black text-xs px-2.5 py-1 rounded-full">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse"></span>
+                  {{ row.percentage }}%
+                </span>
+                <span class="text-[10px] text-slate-400 block mt-0.5">({{ row.raw_score }}/{{ row.max_marks }})</span>
+              </td>
+              <td class="py-3.5 px-4 text-slate-600">
+                {{ row.teacher_name }}
+              </td>
+              <td class="py-3.5 px-4 text-center">
+                {% if row.has_active_intervention %}
+                <span class="badge badge-yellow text-[10px]">
+                  <i class="fa-solid fa-clock"></i> {{ row.intervention_status }}
+                </span>
+                {% else %}
+                <span class="badge badge-red text-[10px]">
+                  Action Needed
+                </span>
+                {% endif %}
+              </td>
+              <td class="py-3.5 px-5 text-right">
+                <button onclick="openInterventionModal('{{ row.student_id }}', '{{ row.student_name|escapejs }}', '{{ row.enrollment_id }}', '{{ row.subject_id }}', '{{ row.subject_name|escapejs }}', '{{ row.component_id }}', '{{ row.component_name|escapejs }}', '{{ row.percentage }}', '{{ row.teacher_id|default:'' }}')" class="btn-primary text-xs py-1.5 px-3">
+                  <i class="fa-solid fa-plus"></i> Initiate
+                </button>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="8" class="py-8 text-center text-slate-400 italic">
+                <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-1 block"></i>
+                Great job! No students scored below {{ threshold }}% in the selected criteria.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2. Active & Historical Interventions Log -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="p-5 bg-slate-50 border-b border-slate-200/80 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-sm">
+            <i class="fa-solid fa-clipboard-list"></i>
+          </div>
+          <div>
+            <h3 class="font-heading font-extrabold text-slate-900 text-base">Recorded Academic Interventions</h3>
+            <p class="text-slate-500 text-xs">Track remedial attendance, follow-up retests, and parent notifications</p>
+          </div>
+        </div>
+        <span class="badge badge-purple text-xs font-bold">{{ interventions|length }} Record(s)</span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-100/60 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+              <th class="py-3 px-5">Student</th>
+              <th class="py-3 px-4">Subject</th>
+              <th class="py-3 px-4">Intervention Type</th>
+              <th class="py-3 px-4 text-center">Trigger Score</th>
+              <th class="py-3 px-4">Parent SMS Status</th>
+              <th class="py-3 px-4">Assigned Teacher</th>
+              <th class="py-3 px-4 text-center">Status</th>
+              <th class="py-3 px-4 text-center">Retest Score</th>
+              <th class="py-3 px-5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for item in interventions %}
+            <tr class="hover:bg-slate-50 transition">
+              <td class="py-3.5 px-5">
+                <p class="font-bold text-slate-900">{{ item.student.full_name }}</p>
+                <p class="text-slate-400 font-mono text-[10px]">{{ item.student.student_id }}</p>
+              </td>
+              <td class="py-3.5 px-4 font-semibold text-slate-700">
+                {{ item.subject.name }}
+              </td>
+              <td class="py-3.5 px-4">
+                <span class="font-bold text-indigo-700">{{ item.get_intervention_type_display }}</span>
+                {% if item.scheduled_date %}
+                <span class="text-slate-400 text-[10px] block font-mono">{{ item.scheduled_date|date:"M d, Y" }}</span>
+                {% endif %}
+              </td>
+              <td class="py-3.5 px-4 text-center font-mono font-bold text-rose-600">
+                {{ item.trigger_score }}%
+              </td>
+              <td class="py-3.5 px-4">
+                {% if item.parent_notified %}
+                <span class="inline-flex items-center gap-1 text-emerald-700 font-bold text-[10px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <i class="fa-solid fa-check"></i> SMS Sent
+                </span>
+                {% else %}
+                <form method="POST" action="{% url 'assessments:send_parent_sms' item.id %}" class="inline">
+                  {% csrf_token %}
+                  <button type="submit" class="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200 transition">
+                    <i class="fa-solid fa-paper-plane"></i> Send SMS
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+              <td class="py-3.5 px-4 text-slate-600">
+                {{ item.assigned_teacher.get_full_name|default:item.created_by.get_full_name|default:"Assigned" }}
+              </td>
+              <td class="py-3.5 px-4 text-center">
+                {% if item.status == 'RESOLVED' %}
+                <span class="badge badge-green text-[10px]">Resolved</span>
+                {% elif item.status == 'IN_PROGRESS' %}
+                <span class="badge badge-blue text-[10px]">In Progress</span>
+                {% elif item.status == 'ESCALATED' %}
+                <span class="badge badge-orange text-[10px]">Escalated</span>
+                {% else %}
+                <span class="badge badge-yellow text-[10px]">Identified</span>
+                {% endif %}
+              </td>
+              <td class="py-3.5 px-4 text-center font-mono">
+                {% if item.follow_up_score %}
+                <span class="font-bold {% if item.follow_up_score >= 50 %}text-emerald-700{% else %}text-rose-600{% endif %}">
+                  {{ item.follow_up_score }}%
+                </span>
+                {% else %}
+                <span class="text-slate-400">—</span>
+                {% endif %}
+              </td>
+              <td class="py-3.5 px-5 text-right">
+                <button onclick="openOutcomeModal('{{ item.id }}', '{{ item.student.full_name|escapejs }}', '{{ item.subject.name|escapejs }}', '{{ item.status }}', '{{ item.follow_up_score|default:'' }}', '{{ item.outcome_notes|default:''|escapejs }}')" class="btn-secondary text-xs py-1 px-2.5">
+                  <i class="fa-solid fa-pen-to-square"></i> Retest / Outcome
+                </button>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="9" class="py-6 text-center text-slate-400 italic">
+                No active intervention records found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Modal: Create Academic Intervention -->
+<div id="createIntModal" class="modal-overlay">
+  <div class="modal-content max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-user-doctor"></i>
+        </div>
+        <div>
+          <h3 class="font-heading font-extrabold text-slate-900 text-lg">Initiate Academic Intervention</h3>
+          <p class="text-slate-400 text-xs" id="intModalStudentName"></p>
+        </div>
+      </div>
+      <button onclick="closeModal('createIntModal')" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <form method="POST" action="{% url 'assessments:create_intervention' %}" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="student_id" id="intStudentId" value="">
+      <input type="hidden" name="enrollment_id" id="intEnrollmentId" value="">
+      <input type="hidden" name="subject_id" id="intSubjectId" value="">
+      <input type="hidden" name="component_id" id="intComponentId" value="">
+      <input type="hidden" name="trigger_score" id="intTriggerScore" value="">
+
+      <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs flex justify-between items-center">
+        <div>
+          <span class="text-slate-400 font-bold block">Subject & Assessment</span>
+          <p class="font-bold text-slate-800" id="intSubjectDisplay"></p>
+        </div>
+        <div class="text-right">
+          <span class="text-slate-400 font-bold block">Trigger Score</span>
+          <p class="font-mono font-black text-rose-600 text-sm" id="intScoreDisplay"></p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Intervention Type *</label>
+          <select name="intervention_type" class="input-field text-xs">
+            {% for val, label in InterventionType.choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Scheduled Date</label>
+          <input type="date" name="scheduled_date" class="input-field text-xs">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Assigned Remedial Teacher</label>
+        <select name="assigned_teacher_id" id="intTeacherSelect" class="input-field text-xs">
+          <option value="">Responsible Subject Teacher</option>
+          {% for t in teachers %}
+          <option value="{{ t.id }}">{{ t.get_full_name|default:t.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Action Plan / Remedial Focus</label>
+        <textarea name="action_plan" rows="3" placeholder="Specify remedial focus topics, practice exercises, or conference agenda..." class="input-field text-xs"></textarea>
+      </div>
+
+      <div class="p-3.5 bg-brand-50/60 rounded-2xl border border-brand-200/80 flex items-start gap-3">
+        <input type="checkbox" name="notify_parent" id="notifyParentCheck" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 mt-0.5">
+        <label for="notifyParentCheck" class="text-xs text-slate-700">
+          <strong class="text-slate-900 block font-bold">Dispatch Parent SMS Alert Immediately</strong>
+          Sends notification to registered guardian with student's score and intervention schedule.
+        </label>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeModal('createIntModal')" class="btn-secondary text-xs">Cancel</button>
+        <button type="submit" class="btn-primary text-xs">Save Intervention</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Record Retest Outcome -->
+<div id="outcomeModal" class="modal-overlay">
+  <div class="modal-content max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-100">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+          <i class="fa-solid fa-square-poll-vertical"></i>
+        </div>
+        <div>
+          <h3 class="font-heading font-extrabold text-slate-900 text-lg">Record Retest & Outcome</h3>
+          <p class="text-slate-400 text-xs" id="outcomeModalSubtitle"></p>
+        </div>
+      </div>
+      <button onclick="closeModal('outcomeModal')" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <form method="POST" id="outcomeForm" action="" class="space-y-4">
+      {% csrf_token %}
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Status *</label>
+          <select name="status" id="outcomeStatusSelect" class="input-field text-xs">
+            {% for val, label in InterventionStatus.choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Retest Score (%)</label>
+          <input type="number" step="0.01" name="follow_up_score" id="outcomeScoreInput" placeholder="e.g. 74.5" class="input-field text-xs font-mono">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Retest / Review Date</label>
+        <input type="date" name="follow_up_date" class="input-field text-xs">
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Outcome Notes</label>
+        <textarea name="outcome_notes" id="outcomeNotesText" rows="3" placeholder="Notes on student performance recovery or next recommendations..." class="input-field text-xs"></textarea>
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
+        <button type="button" onclick="closeModal('outcomeModal')" class="btn-secondary text-xs">Cancel</button>
+        <button type="submit" class="btn-primary text-xs">Update Outcome</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openInterventionModal(stuId, stuName, enrollId, subjId, subjName, compId, compName, score, teacherId) {
+    document.getElementById('intStudentId').value = stuId;
+    document.getElementById('intEnrollmentId').value = enrollId;
+    document.getElementById('intSubjectId').value = subjId;
+    document.getElementById('intComponentId').value = compId || '';
+    document.getElementById('intTriggerScore').value = score;
+    document.getElementById('intModalStudentName').innerText = stuName;
+    document.getElementById('intSubjectDisplay').innerText = subjName + ' (' + (compName || 'General') + ')';
+    document.getElementById('intScoreDisplay').innerText = score + '%';
+    if (teacherId) {
+      document.getElementById('intTeacherSelect').value = teacherId;
+    }
+    openModal('createIntModal');
+  }
+
+  function openOutcomeModal(intId, stuName, subjName, status, score, notes) {
+    document.getElementById('outcomeForm').action = '/assessments/interventions/' + intId + '/update/';
+    document.getElementById('outcomeModalSubtitle').innerText = stuName + ' · ' + subjName;
+    document.getElementById('outcomeStatusSelect').value = status;
+    document.getElementById('outcomeScoreInput').value = score || '';
+    document.getElementById('outcomeNotesText').value = notes || '';
+    openModal('outcomeModal');
+  }
+</script>
+{% endblock %}
