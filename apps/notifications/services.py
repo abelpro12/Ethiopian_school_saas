@@ -16,48 +16,90 @@ class SMSProviderBase(abc.ABC):
 class MockSMSProvider(SMSProviderBase):
     def send_sms(self, phone_number: str, message: str) -> bool:
         logger.info(f"[MOCK SMS] Sent to {phone_number}: {message}")
-        print(f"[MOCK SMS to {phone_number}]: {message}")
+        print(f"[SIMULATION SMS to {phone_number}]: {message}")
+        print("  --> To deliver real SMS to physical phones, configure AFROMESSAGE_API_KEY in .env")
         return True
 
 
 class AfroMessageSMSProvider(SMSProviderBase):
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key or getattr(settings, 'AFROMESSAGE_API_KEY', 'test_key')
+    """
+    Production SMS provider for Ethiopia using the AfroMessage API.
+    Supports Ethio Telecom and Safaricom Ethiopia networks.
+    """
+    def __init__(self, api_key: str = None, sender_name: str = None, identifier_id: str = None):
+        import os
+        self.api_key = (
+            api_key
+            or getattr(settings, 'AFROMESSAGE_API_KEY', None)
+            or os.environ.get('AFROMESSAGE_API_KEY')
+            or os.environ.get('SMS_API_KEY')
+        )
+        self.sender_name = sender_name or getattr(settings, 'AFROMESSAGE_SENDER_NAME', None) or os.environ.get('AFROMESSAGE_SENDER_NAME')
+        self.identifier_id = identifier_id or getattr(settings, 'AFROMESSAGE_IDENTIFIER_ID', None) or os.environ.get('AFROMESSAGE_IDENTIFIER_ID')
+
+    def normalize_ethiopian_phone(self, phone: str) -> str:
+        cleaned = "".join(ch for ch in str(phone).strip() if ch.isdigit() or ch == '+')
+        if cleaned.startswith("+251"):
+            return cleaned
+        if cleaned.startswith("251"):
+            return "+" + cleaned
+        if cleaned.startswith("09") or cleaned.startswith("07"):
+            return "+251" + cleaned[1:]
+        if cleaned.startswith("9") or cleaned.startswith("7"):
+            return "+251" + cleaned
+        return cleaned
 
     def send_sms(self, phone_number: str, message: str) -> bool:
-        logger.info(f"[AfroMessage SMS] API call to {phone_number}")
-        # Production HTTP POST implementation to AfroMessage API endpoint
-        return True
+        if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
+            logger.warning("[AfroMessage] No live API key configured. Simulating dispatch.")
+            print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
+            return True
 
+        import requests
+        phone = self.normalize_ethiopian_phone(phone_number)
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            'to': phone,
+            'message': message,
+        }
+        if self.sender_name:
+            payload['sender'] = self.sender_name
+        if self.identifier_id:
+            payload['from'] = self.identifier_id
 
-class TelegramService:
-    @staticmethod
-    def send_telegram_message(user, message: str) -> bool:
         try:
-            link = TelegramAccountLink.objects.get(user=user, is_verified=True)
-            chat_id = link.telegram_chat_id
-            if not chat_id:
+            res = requests.post("https://api.afromessage.com/api/send", json=payload, headers=headers, timeout=10)
+            if res.status_code in (200, 201):
+                logger.info(f"[AfroMessage SMS SUCCESS] To: {phone} | HTTP {res.status_code}")
+                return True
+            else:
+                logger.error(f"[AfroMessage SMS FAILED] HTTP {res.status_code}: {res.text}")
                 return False
-            print(f"[TELEGRAM to chat {chat_id} ({user.username})]: {message}")
-            return True
-        except TelegramAccountLink.DoesNotExist:
-            return False
-
-
-class EmailService:
-    @staticmethod
-    def send_email(recipient_email: str, subject: str, body: str) -> bool:
-        try:
-            print(f"[EMAIL to {recipient_email}]: Subject: {subject} | {body}")
-            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient_email], fail_silently=True)
-            return True
         except Exception as e:
-            logger.error(f"Failed to send email to {recipient_email}: {e}")
+            logger.error(f"[AfroMessage SMS EXCEPTION] {e}")
             return False
 
 
 class NotificationService:
-    _sms_provider: SMSProviderBase = MockSMSProvider()
+    _sms_provider: SMSProviderBase = None
+
+    @classmethod
+    def get_sms_provider(cls) -> SMSProviderBase:
+        if cls._sms_provider is not None:
+            return cls._sms_provider
+
+        import os
+        api_key = (
+            getattr(settings, 'AFROMESSAGE_API_KEY', None)
+            or os.environ.get('AFROMESSAGE_API_KEY')
+            or os.environ.get('SMS_API_KEY')
+        )
+        if api_key and api_key not in ('test_key', 'your_key_here'):
+            return AfroMessageSMSProvider(api_key=api_key)
+        return MockSMSProvider()
 
     @classmethod
     def set_sms_provider(cls, provider: SMSProviderBase):
@@ -88,8 +130,8 @@ class NotificationService:
             phone = phone_number or getattr(recipient_user, 'phone', None)
             if not phone and hasattr(recipient_user, 'parent_profile'):
                 phone = getattr(recipient_user.parent_profile, 'phone', None)
-            phone = phone or '0911000000'
-            success = cls._sms_provider.send_sms(phone, message)
+            provider = cls.get_sms_provider()
+            success = provider.send_sms(phone, message)
             if not success:
                 failure_reason = "SMS Gateway unreachable"
 
