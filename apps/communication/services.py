@@ -949,7 +949,39 @@ class ReportCardSMSService:
 
         avg_f = float(average or 0.0)
         tot_f = float(total_score or 0.0)
-        rank_val = f"{rank}/{total_students}" if (rank and total_students) else (str(rank) if rank else "N/A")
+
+        # Parse section rank integer
+        sec_rank_int = None
+        if isinstance(rank, int):
+            sec_rank_int = rank
+        elif isinstance(rank, str):
+            try:
+                sec_rank_int = int(rank.split('/')[0])
+            except (ValueError, IndexError):
+                pass
+
+        # If total_students is missing or wrongly set to 1 while rank > 1, resolve from section count
+        if (not total_students or total_students <= 1) and sec_rank_int:
+            from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
+            enr = StudentEnrollment.objects.filter(
+                school=school, student=student, status=EnrollmentStatus.ACTIVE
+            ).select_related('section').first()
+            if enr and enr.section:
+                sec_count = StudentEnrollment.objects.filter(
+                    school=school, section=enr.section, status=EnrollmentStatus.ACTIVE
+                ).count()
+                if sec_count > 1:
+                    total_students = sec_count
+
+        if isinstance(rank, str) and '/' in rank:
+            rank_val = rank
+        elif rank and total_students:
+            rank_val = f"{rank}/{total_students}"
+        elif rank:
+            rank_val = str(rank)
+        else:
+            rank_val = "N/A"
+
         conduct_val = conduct or 'A'
         status_val = promotion_status or ("Promoted" if avg_f >= 50.0 else "Retained")
         status_am = "አልፏል" if avg_f >= 50.0 else "አላለፈም"
@@ -967,7 +999,7 @@ class ReportCardSMSService:
                 recipient_phone='',
                 average_score=Decimal(str(avg_f)),
                 total_score=Decimal(str(tot_f)),
-                section_rank=rank if isinstance(rank, int) else None,
+                section_rank=sec_rank_int,
                 total_students=total_students if isinstance(total_students, int) else None,
                 conduct_grade=conduct_val,
                 promotion_status=status_val,
@@ -1023,7 +1055,7 @@ class ReportCardSMSService:
             recipient_phone=phone,
             average_score=Decimal(str(avg_f)),
             total_score=Decimal(str(tot_f)),
-            section_rank=rank if isinstance(rank, int) else None,
+            section_rank=sec_rank_int,
             total_students=total_students if isinstance(total_students, int) else None,
             conduct_grade=conduct_val,
             promotion_status=status_val,
@@ -1036,12 +1068,15 @@ class ReportCardSMSService:
 
     @classmethod
     def bulk_dispatch_report_cards(cls, school, section, period=None, is_annual=False, student_ids=None, custom_message=None, lang_override=None, sender_user=None):
-        recipients = cls.get_section_report_cards_for_dispatch(
+        all_section_recipients = cls.get_section_report_cards_for_dispatch(
             school=school, section=section, period=period, is_annual=is_annual
         )
+        total_section_students = len(all_section_recipients)
+
+        recipients = all_section_recipients
         if student_ids:
             target_ids = {str(sid) for sid in student_ids}
-            recipients = [r for r in recipients if r['student_id'] in target_ids]
+            recipients = [r for r in all_section_recipients if r['student_id'] in target_ids]
 
         summary = {
             'total_students': len(recipients),
@@ -1072,7 +1107,7 @@ class ReportCardSMSService:
                 average=r['average_score'],
                 total_score=r['total_score'],
                 rank=r['rank'],
-                total_students=len(recipients),
+                total_students=total_section_students,
                 conduct=r['conduct'],
                 promotion_status=r['promotion_status'],
                 grade=r.get('grade'),

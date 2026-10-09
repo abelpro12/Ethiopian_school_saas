@@ -561,6 +561,48 @@ class ReportCardSMSTests(TestCase):
         self.assertEqual(data['dispatched'], 1)
         self.assertEqual(data['total_students'], 1)
 
+        # Verify log has total_students=3 and section_rank=1, and message has 1/3 (not 1/1)
+        log = ReportCardSMSLog.objects.filter(student=self.student1).order_by('-id').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.section_rank, 1)
+        self.assertEqual(log.total_students, 3)
+        self.assertIn("1/3", log.message)
+
+    def test_amharic_and_english_rank_consistency(self):
+        """
+        Verify that dispatching in Amharic and English produces the exact same rank
+        (e.g. Rank: 1/3 and ደረጃ: 1/3), never collapsing to 1/1 when filtering students.
+        """
+        # Dispatch Dawit in English
+        res_en = ReportCardSMSService.bulk_dispatch_report_cards(
+            school=self.school,
+            section=self.section10a,
+            period=self.period,
+            student_ids=[str(self.student1.id)],
+            lang_override='en',
+            sender_user=self.admin
+        )
+        self.assertEqual(res_en['dispatched'], 1)
+        log_en = ReportCardSMSLog.objects.filter(student=self.student1).order_by('-id').first()
+        self.assertEqual(log_en.section_rank, 1)
+        self.assertEqual(log_en.total_students, 3)
+        self.assertIn("Rank: 1/3", log_en.message)
+
+        # Dispatch Dawit in Amharic
+        res_am = ReportCardSMSService.bulk_dispatch_report_cards(
+            school=self.school,
+            section=self.section10a,
+            period=self.period,
+            student_ids=[str(self.student1.id)],
+            lang_override='am',
+            sender_user=self.admin
+        )
+        self.assertEqual(res_am['dispatched'], 1)
+        log_am = ReportCardSMSLog.objects.filter(student=self.student1).order_by('-id').first()
+        self.assertEqual(log_am.section_rank, 1)
+        self.assertEqual(log_am.total_students, 3)
+        self.assertIn("ደረጃ: 1/3", log_am.message)
+
     def test_report_cards_sms_history_view(self):
         """
         Test the Report Card SMS Audit History view.
