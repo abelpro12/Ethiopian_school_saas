@@ -26,6 +26,8 @@ class TenantMiddleware:
                 if active_school:
                     request.school = active_school
                     request.active_school = active_school
+                elif hasattr(request.user, 'school') and request.user.school:
+                    request.school = request.user.school
             elif hasattr(request.user, 'school') and request.user.school:
                 request.school = request.user.school
 
