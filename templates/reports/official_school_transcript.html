@@ -584,17 +584,32 @@
                 <span><strong>{{ school.name|default:"School SaaS" }}</strong> — Official Transcript Studio</span>
             </div>
             {% if school_students %}
-            <div style="display:flex; align-items:center; gap:6px;">
-                <label for="transcriptStudentSelect" style="font-size:11px; font-weight:bold; color:#94a3b8; display:flex; align-items:center; gap:4px;">
-                    <i class="fa-solid fa-user-graduate text-sky-400"></i> Student:
-                </label>
-                <select id="transcriptStudentSelect" onchange="if(this.value){ window.location.href='?student_id=' + this.value; }" style="background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;">
-                    {% for st in school_students %}
-                    <option value="{{ st.id }}" {% if student and student.id == st.id %}selected{% endif %}>
-                        {{ st.full_name }} ({{ st.student_id }}){% if st.grade_display %} - {{ st.grade_display }}{% endif %}
-                    </option>
-                    {% endfor %}
-                </select>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <!-- Dedicated Search & Filter Trigger -->
+                <button type="button" onclick="openStudentSearchModal()" class="toolbar-btn" style="background:#0284c7; border:1px solid #38bdf8; padding:6px 12px; border-radius:6px; font-size:11px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 0 10px rgba(56,189,248,0.25);" title="Search by name, ID, grade, or section (Ctrl+K)">
+                    <i class="fa-solid fa-magnifying-glass text-sky-200"></i>
+                    <span>Search Student</span>
+                    <span style="background:#0369a1; color:#e0f2fe; font-size:9.5px; padding:1px 5px; border-radius:4px; font-weight:bold; border:1px solid #38bdf8;">Ctrl+K</span>
+                </button>
+
+                <!-- Grouped Dropdown with instant URL navigation -->
+                <div style="display:flex; align-items:center; gap:5px;">
+                    <label for="transcriptStudentSelect" style="font-size:11px; font-weight:bold; color:#94a3b8;">
+                        <i class="fa-solid fa-user-graduate text-sky-400"></i>
+                    </label>
+                    <select id="transcriptStudentSelect" onchange="if(this.value){ window.location.href='/reports/transcript/' + this.value + '/view/'; }" style="background:#0f172a; color:#f8fafc; border:1px solid #334155; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; max-width:270px;">
+                        {% regroup school_students by grade_name as students_by_grade %}
+                        {% for grade_group in students_by_grade %}
+                        <optgroup label="{{ grade_group.grouper|default:'General Students' }}">
+                            {% for st in grade_group.list %}
+                            <option value="{{ st.id }}" {% if student and student.id|stringformat:'s' == st.id|stringformat:'s' %}selected{% endif %}>
+                                {{ st.full_name }} ({{ st.student_id }}){% if st.section_name %} - {{ st.section_name }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
             {% endif %}
         </div>
@@ -1120,5 +1135,230 @@
     }
     </script>
 
+    <!-- STUDENT SEARCH & FILTER MODAL -->
+    <div id="studentSearchModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:16px; box-sizing:border-box;">
+        <div style="background:#1e293b; color:#ffffff; width:100%; max-width:680px; max-height:90vh; border-radius:12px; border:1px solid #334155; box-shadow:0 20px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; overflow:hidden;">
+            
+            <!-- Modal Header -->
+            <div style="padding:16px 20px; border-bottom:1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h3 style="margin:0; font-size:16px; font-weight:bold; color:#f8fafc; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-graduation-cap text-sky-400"></i> Find Student Transcript
+                    </h3>
+                    <p style="margin:4px 0 0; font-size:11px; color:#94a3b8;">Search by student name (English or አማርኛ), ID, grade, or class section</p>
+                </div>
+                <button type="button" onclick="closeStudentSearchModal()" style="background:#334155; color:#cbd5e1; border:none; width:30px; height:30px; border-radius:6px; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Search & Filter Controls -->
+            <div style="padding:16px 20px; background:#0f172a; border-bottom:1px solid #334155;">
+                <!-- Search Input Bar -->
+                <div style="position:relative; margin-bottom:12px;">
+                    <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:12px; color:#38bdf8; font-size:14px;"></i>
+                    <input type="text" id="studentSearchInput" oninput="filterStudentsList()" placeholder="Type student name (e.g. Dawit / ዳዊት), ID (e.g. STU-...), grade, or section (e.g. 12 NS)..." style="width:100%; box-sizing:border-box; padding:10px 36px 10px 36px; background:#1e293b; border:1.5px solid #38bdf8; border-radius:8px; color:#ffffff; font-size:13px; outline:none; font-family:inherit;">
+                    <button type="button" id="clearSearchInputBtn" onclick="clearStudentSearch()" style="position:absolute; right:10px; top:9px; background:none; border:none; color:#64748b; font-size:14px; cursor:pointer; display:none;" title="Clear search">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Filters -->
+                <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+                    <!-- Grade Pills -->
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                        <span style="font-size:11px; font-weight:bold; color:#94a3b8;">Grade:</span>
+                        <button type="button" class="grade-filter-pill active" onclick="setGradeFilter('ALL', this)" style="padding:3px 10px; border-radius:14px; font-size:11px; font-weight:bold; cursor:pointer; border:1px solid #38bdf8; background:#0284c7; color:#fff;">All</button>
+                        {% for g_lvl in available_grades %}
+                        <button type="button" class="grade-filter-pill" onclick="setGradeFilter('{{ g_lvl }}', this)" style="padding:3px 10px; border-radius:14px; font-size:11px; font-weight:bold; cursor:pointer; border:1px solid #334155; background:#1e293b; color:#94a3b8;">Grade {{ g_lvl }}</button>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Section Dropdown Filter -->
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <span style="font-size:11px; font-weight:bold; color:#94a3b8;">Section:</span>
+                        <select id="sectionFilterSelect" onchange="filterStudentsList()" style="background:#1e293b; color:#f8fafc; border:1px solid #334155; padding:5px 10px; border-radius:6px; font-size:11px; cursor:pointer;">
+                            <option value="ALL">All Sections</option>
+                            {% for sec in available_sections %}
+                            <option value="{{ sec }}">{{ sec }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results List Container -->
+            <div id="studentSearchResultsContainer" style="padding:12px 20px; overflow-y:auto; max-height:420px; display:flex; flex-direction:column; gap:8px;">
+                <!-- Dynamically populated via JS -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="padding:10px 20px; border-top:1px solid #334155; background:#0f172a; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b;">
+                <span id="studentSearchResultsCount">Loading student directory...</span>
+                <span>Press <kbd style="background:#1e293b; padding:2px 6px; border-radius:4px; color:#94a3b8; border:1px solid #334155;">ESC</kbd> to close &bull; Click to load transcript</span>
+            </div>
+        </div>
+    </div>
+
+    {{ school_students|json_script:"school-students-data" }}
+
+    <script>
+    // Student Search Modal Logic
+    let allSchoolStudents = [];
+    try {
+        const dataTag = document.getElementById('school-students-data');
+        if (dataTag) {
+            allSchoolStudents = JSON.parse(dataTag.textContent || '[]');
+        }
+    } catch(e) {
+        console.error('Failed to parse student data', e);
+    }
+
+    let activeGradeFilter = 'ALL';
+
+    function openStudentSearchModal() {
+        const modal = document.getElementById('studentSearchModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            filterStudentsList();
+            setTimeout(() => {
+                const input = document.getElementById('studentSearchInput');
+                if (input) input.focus();
+            }, 50);
+        }
+    }
+
+    function closeStudentSearchModal() {
+        const modal = document.getElementById('studentSearchModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function setGradeFilter(lvl, btn) {
+        activeGradeFilter = String(lvl);
+        document.querySelectorAll('.grade-filter-pill').forEach(p => {
+            p.style.background = '#1e293b';
+            p.style.borderColor = '#334155';
+            p.style.color = '#94a3b8';
+        });
+        if (btn) {
+            btn.style.background = '#0284c7';
+            btn.style.borderColor = '#38bdf8';
+            btn.style.color = '#ffffff';
+        }
+        filterStudentsList();
+    }
+
+    function clearStudentSearch() {
+        const input = document.getElementById('studentSearchInput');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+        filterStudentsList();
+    }
+
+    function filterStudentsList() {
+        const queryInput = document.getElementById('studentSearchInput');
+        const query = (queryInput ? queryInput.value : '').trim().toLowerCase();
+        const sectionSelect = document.getElementById('sectionFilterSelect');
+        const secFilter = sectionSelect ? sectionSelect.value : 'ALL';
+        const clearBtn = document.getElementById('clearSearchInputBtn');
+        if (clearBtn) clearBtn.style.display = query ? 'block' : 'none';
+
+        const container = document.getElementById('studentSearchResultsContainer');
+        const countEl = document.getElementById('studentSearchResultsCount');
+        if (!container) return;
+
+        const currentStudentId = "{{ student.id|default:'' }}";
+
+        const filtered = allSchoolStudents.filter(st => {
+            // Grade filter
+            if (activeGradeFilter !== 'ALL' && String(st.grade_level) !== activeGradeFilter) {
+                return false;
+            }
+            // Section filter
+            if (secFilter !== 'ALL' && String(st.section_name) !== secFilter) {
+                return false;
+            }
+            // Text query
+            if (query) {
+                const qName = (st.full_name || '').toLowerCase().includes(query);
+                const qAmh = (st.amharic_name || '').toLowerCase().includes(query);
+                const qId = (st.student_id || '').toLowerCase().includes(query);
+                const qGrade = (st.grade_name || '').toLowerCase().includes(query) || (st.grade_level && String(st.grade_level).includes(query));
+                const qSec = (st.section_name || '').toLowerCase().includes(query);
+                const qStream = (st.stream_name || '').toLowerCase().includes(query);
+                if (!qName && !qAmh && !qId && !qGrade && !qSec && !qStream) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        if (countEl) {
+            countEl.textContent = `Showing ${filtered.length} of ${allSchoolStudents.length} students`;
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:36px 16px; color:#64748b;">
+                    <i class="fa-solid fa-user-slash" style="font-size:28px; margin-bottom:8px; display:block; color:#475569;"></i>
+                    <p style="font-size:13px; font-weight:600; margin:0 0 4px; color:#94a3b8;">No students match your search</p>
+                    <p style="font-size:11px; margin:0;">Try adjusting your keywords, grade, or section filter.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(st => {
+            const isCurrent = currentStudentId && String(st.id) === String(currentStudentId);
+            const amhTag = st.amharic_name ? `<span style="color:#38bdf8; font-size:11px; margin-left:6px;">(${st.amharic_name})</span>` : '';
+            const currentBadge = isCurrent ? `<span style="background:#065f46; color:#a7f3d0; padding:2px 7px; border-radius:4px; font-size:9.5px; font-weight:bold; display:inline-flex; align-items:center; gap:4px;"><i class="fa-solid fa-check"></i> Active</span>` : '';
+
+            return `
+                <div onclick="window.location.href='${st.url}'" style="display:flex; justify-content:space-between; align-items:center; background:${isCurrent ? '#0f293a' : '#1e293b'}; border:1px solid ${isCurrent ? '#0284c7' : '#334155'}; border-radius:8px; padding:10px 14px; cursor:pointer; transition:all 0.15s; gap:10px;" onmouseover="this.style.background='#0f172a'; this.style.borderColor='#38bdf8';" onmouseout="this.style.background='${isCurrent ? '#0f293a' : '#1e293b'}'; this.style.borderColor='${isCurrent ? '#0284c7' : '#334155'}';">
+                    <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+                        <div style="width:36px; height:36px; border-radius:50%; background:#0f172a; border:1px solid #38bdf8; display:flex; align-items:center; justify-content:center; color:#38bdf8; font-weight:bold; font-size:13px; flex-shrink:0;">
+                            ${st.full_name ? st.full_name.charAt(0).toUpperCase() : 'S'}
+                        </div>
+                        <div style="min-width:0;">
+                            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                <span style="font-weight:bold; font-size:13px; color:#f8fafc;">${st.full_name}</span>
+                                ${amhTag}
+                                ${currentBadge}
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px; margin-top:3px; flex-wrap:wrap; font-size:10.5px;">
+                                <span style="background:#0f172a; color:#94a3b8; padding:1px 6px; border-radius:4px; font-family:monospace; border:1px solid #334155;">${st.student_id}</span>
+                                <span style="background:#1e3a8a; color:#bfdbfe; padding:1px 6px; border-radius:4px; font-weight:bold;">${st.grade_name || 'No Grade'}</span>
+                                ${st.section_name ? `<span style="background:#134e4a; color:#99f6e4; padding:1px 6px; border-radius:4px; font-weight:bold;">Section: ${st.section_name}</span>` : ''}
+                                ${st.stream_name ? `<span style="color:#94a3b8;">${st.stream_name}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+                        <a href="${st.pdf_url}" onclick="event.stopPropagation()" target="_blank" title="Download Official 4-Year Transcript PDF" style="background:#14532d; color:#86efac; border:1px solid #16a34a; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:bold; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                            <i class="fa-solid fa-file-pdf"></i> PDF
+                        </a>
+                        <button type="button" style="background:#0284c7; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:bold; cursor:pointer;">
+                            Open <i class="fa-solid fa-arrow-right" style="font-size:10px; margin-left:2px;"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Keyboard Hotkey Listener (Ctrl+K to search, ESC to close)
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+            e.preventDefault();
+            openStudentSearchModal();
+        } else if (e.key === 'Escape') {
+            closeStudentSearchModal();
+            const offModal = document.getElementById('officialsModal');
+            if (offModal) offModal.style.display = 'none';
+        }
+    });
+    </script>
 </body>
 </html>

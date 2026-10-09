@@ -987,18 +987,51 @@ def build_transcript_context(school, student, request=None):
             pass
 
     school_students = []
+    available_grades_set = set()
+    available_sections_set = set()
     if school:
-        for st in StudentProfile.objects.filter(school=school).select_related('user').order_by('-enrollments__grade__level', 'first_name').distinct()[:50]:
-            first_enr = st.enrollments.select_related('grade', 'section').first()
-            g_disp = f"Grade {first_enr.grade.level}" if (first_enr and first_enr.grade) else ""
-            if first_enr and first_enr.section:
-                g_disp += f" ({first_enr.section.name})"
+        all_students_qs = (
+            StudentProfile.objects.filter(school=school)
+            .select_related('user')
+            .prefetch_related('enrollments__grade', 'enrollments__section', 'enrollments__stream')
+            .order_by('-enrollments__grade__level', 'first_name')
+            .distinct()
+        )
+        for st in all_students_qs:
+            first_enr = st.enrollments.order_by('-grade__level', '-enrollment_date').first()
+            g_lvl = first_enr.grade.level if (first_enr and first_enr.grade) else None
+            g_name = f"Grade {g_lvl}" if g_lvl else ""
+            sec_name = first_enr.section.name if (first_enr and first_enr.section) else ""
+            st_name = first_enr.stream.name if (first_enr and first_enr.stream) else ""
+
+            if g_lvl:
+                available_grades_set.add(g_lvl)
+            if sec_name:
+                available_sections_set.add(sec_name)
+
+            g_disp = g_name
+            if sec_name:
+                g_disp = f"{g_name} ({sec_name})" if g_disp else sec_name
+
+            amh = getattr(st, 'amharic_name', '') or f"{getattr(st, 'amharic_first_name', '') or ''} {getattr(st, 'amharic_last_name', '') or ''}".strip()
+
             school_students.append({
-                'id': st.id,
+                'id': str(st.id),
                 'student_id': st.student_id,
                 'full_name': st.full_name or st.student_id,
+                'amharic_name': amh,
+                'grade_level': g_lvl,
+                'grade_name': g_name,
+                'section_name': sec_name,
+                'stream_name': st_name,
                 'grade_display': g_disp,
+                'photo_url': st.photo.url if (getattr(st, 'photo', None) and st.photo) else '',
+                'url': f"/reports/transcript/{st.id}/view/",
+                'pdf_url': f"/reports/transcript/{st.id}/",
             })
+
+    available_grades = sorted(list(available_grades_set), reverse=True)
+    available_sections = sorted(list(available_sections_set))
 
     return {
         'school': school_data,
@@ -1016,6 +1049,8 @@ def build_transcript_context(school, student, request=None):
         'principal_name': principal_name,
         'doc_ref': f"TR-{school.code if school else 'SCH'}-{student.student_id}-2026",
         'school_students': school_students,
+        'available_grades': available_grades,
+        'available_sections': available_sections,
     }
 
 
@@ -1201,6 +1236,11 @@ def official_transcript_html_view(request, student_id):
     else:
         student = get_object_or_404(StudentProfile, id=student_id)
         school = student.school
+
+    # Support smooth query parameter switching if ?student_id= is passed
+    req_student_id = request.GET.get('student_id')
+    if req_student_id and str(req_student_id) != str(student_id):
+        return redirect('official_transcript_html_view', student_id=req_student_id)
 
     if request.method == 'POST' and school:
         reg = request.POST.get('registrar_name', '').strip()
