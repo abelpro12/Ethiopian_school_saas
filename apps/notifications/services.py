@@ -83,6 +83,65 @@ class AfroMessageSMSProvider(SMSProviderBase):
             return False
 
 
+class SMSEthiopiaProvider(SMSProviderBase):
+    """
+    Live SMS Provider for Ethiopia using smsethiopia.com API.
+    Endpoint: https://smsethiopia.com/api/sms/send
+    Header: KEY: <API_KEY>
+    Body: {"msisdn": "2519...", "text": "..."}
+    """
+    def __init__(self, api_key: str = None):
+        import os
+        self.api_key = (
+            api_key
+            or getattr(settings, 'SMSETHIOPIA_API_KEY', None)
+            or os.environ.get('SMSETHIOPIA_API_KEY')
+            or os.environ.get('SMS_API_KEY')
+        )
+
+    def normalize_msisdn(self, phone: str) -> str:
+        cleaned = "".join(ch for ch in str(phone).strip() if ch.isdigit())
+        if cleaned.startswith("251"):
+            return cleaned
+        if cleaned.startswith("09") or cleaned.startswith("07"):
+            return "251" + cleaned[1:]
+        if cleaned.startswith("9") or cleaned.startswith("7"):
+            return "251" + cleaned
+        return cleaned
+
+    def send_sms(self, phone_number: str, message: str) -> bool:
+        if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
+            logger.warning("[SMSEthiopia] No live API key configured. Simulating dispatch.")
+            print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
+            return True
+
+        import requests
+        msisdn = self.normalize_msisdn(phone_number)
+        headers = {
+            'KEY': self.api_key,
+            'Content-Type': 'application/json'
+        }
+        payload = {
+            'msisdn': msisdn,
+            'text': message
+        }
+
+        try:
+            res = requests.post("https://smsethiopia.com/api/sms/send", json=payload, headers=headers, timeout=12)
+            if res.status_code in (200, 201):
+                logger.info(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn} | HTTP {res.status_code}")
+                print(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn}: {res.text}")
+                return True
+            else:
+                logger.error(f"[SMSEthiopia SMS FAILED] To: {msisdn} | HTTP {res.status_code}: {res.text}")
+                print(f"[SMSEthiopia SMS FAILED] To {msisdn} HTTP {res.status_code}: {res.text}")
+                return False
+        except Exception as e:
+            logger.error(f"[SMSEthiopia SMS EXCEPTION] {e}")
+            print(f"[SMSEthiopia SMS EXCEPTION] {e}")
+            return False
+
+
 class NotificationService:
     _sms_provider: SMSProviderBase = None
 
@@ -91,14 +150,29 @@ class NotificationService:
         if cls._sms_provider is not None:
             return cls._sms_provider
 
-        import os
-        api_key = (
+        if getattr(settings, 'TESTING', False):
+            return MockSMSProvider()
+        # 1. Check SMSEthiopia API key
+        smsethiopia_key = (
+            getattr(settings, 'SMSETHIOPIA_API_KEY', None)
+            or os.environ.get('SMSETHIOPIA_API_KEY')
+        )
+        if smsethiopia_key and smsethiopia_key not in ('test_key', 'your_key_here'):
+            return SMSEthiopiaProvider(api_key=smsethiopia_key)
+
+        # 2. Check AfroMessage API key
+        afromessage_key = (
             getattr(settings, 'AFROMESSAGE_API_KEY', None)
             or os.environ.get('AFROMESSAGE_API_KEY')
-            or os.environ.get('SMS_API_KEY')
         )
-        if api_key and api_key not in ('test_key', 'your_key_here'):
-            return AfroMessageSMSProvider(api_key=api_key)
+        if afromessage_key and afromessage_key not in ('test_key', 'your_key_here'):
+            return AfroMessageSMSProvider(api_key=afromessage_key)
+
+        # 3. Check generic SMS_API_KEY
+        generic_key = os.environ.get('SMS_API_KEY')
+        if generic_key and generic_key not in ('test_key', 'your_key_here'):
+            return SMSEthiopiaProvider(api_key=generic_key)
+
         return MockSMSProvider()
 
     @classmethod

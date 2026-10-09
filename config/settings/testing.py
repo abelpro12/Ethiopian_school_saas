@@ -51,3 +51,10 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # The secure webhook verify_webhook_signature now raises ImproperlyConfigured
 # if CHAPA_WEBHOOK_SECRET is missing. Provide a dummy value for test isolation.
 CHAPA_WEBHOOK_SECRET = 'test-webhook-secret-do-not-use-in-production'
+
+# ─── Mock SMS in tests to prevent live gateway HTTP calls ────────────────────
+TESTING = True
+SMSETHIOPIA_API_KEY = None
+AFROMESSAGE_API_KEY = None
+SMS_API_KEY = None
+

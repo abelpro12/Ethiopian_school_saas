@@ -3,7 +3,17 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+try:
+    import dotenv
+    dotenv.load_dotenv(BASE_DIR / '.env')
+except Exception:
+    pass
+
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ethiopian-school-saas-dev-key')
+
+# SMS Gateways (SMSEthiopia / AfroMessage)
+SMSETHIOPIA_API_KEY = os.environ.get('SMSETHIOPIA_API_KEY', None)
+AFROMESSAGE_API_KEY = os.environ.get('AFROMESSAGE_API_KEY', None)
 
 DEBUG = True
 
