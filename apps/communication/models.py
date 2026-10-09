@@ -80,6 +80,7 @@ class SMSTemplateType(models.TextChoices):
     PAYMENT_REMINDER = 'PAYMENT_REMINDER', 'Payment Due Warning'
     PAYMENT_OVERDUE = 'PAYMENT_OVERDUE', 'Payment Overdue Notice'
     BELOW_AVERAGE_ALERT = 'BELOW_AVERAGE_ALERT', 'Below Average Performance Alert'
+    EXAM_RESULT = 'EXAM_RESULT', 'Exam / Test Result Alert'
     GENERAL_ANNOUNCEMENT = 'GENERAL_ANNOUNCEMENT', 'General Announcement'
     CUSTOM = 'CUSTOM', 'Custom Message'
 
@@ -178,4 +179,31 @@ class PaymentReminderLog(TenantAwareModel):
 
     def __str__(self):
         return f"Reminder {self.reminder_stage} for Invoice {self.invoice.invoice_number} ({self.recipient_phone})"
+
+
+class ExamResultSMSLog(TenantAwareModel):
+    """
+    Audit log of dispatched exam/test results to parents.
+    Tracks which assessment component or exam, student, parent, score, and delivery status.
+    """
+    assessment_component = models.ForeignKey('assessments.AssessmentComponent', on_delete=models.CASCADE, related_name='sms_logs', null=True, blank=True)
+    online_exam = models.ForeignKey('examinations.OnlineExam', on_delete=models.CASCADE, related_name='sms_logs', null=True, blank=True)
+    student = models.ForeignKey('students.StudentProfile', on_delete=models.CASCADE, related_name='exam_sms_logs')
+    parent = models.ForeignKey('parents.ParentProfile', on_delete=models.SET_NULL, null=True, blank=True)
+    recipient_phone = models.CharField(max_length=50)
+    score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    max_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    letter_grade = models.CharField(max_length=10, blank=True, null=True)
+    message = models.TextField()
+    status = models.CharField(max_length=20, default='SENT')  # SENT, FAILED, NO_PHONE
+    sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        comp_name = self.assessment_component.name if self.assessment_component else (self.online_exam.title if self.online_exam else 'Exam')
+        return f"SMS {comp_name} for {self.student.full_name} ({self.recipient_phone}) - {self.status}"
 

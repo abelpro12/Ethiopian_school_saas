@@ -1,0 +1,688 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Exam Results SMS Dispatcher | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <!-- Top Breadcrumbs & Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1.5 flex-wrap">
+                <a href="{% url 'assessments:mark_entry' %}" class="hover:text-indigo-600 transition flex items-center gap-1 font-medium">
+                    <i class="fa-solid fa-book-open text-indigo-500"></i> Gradebook
+                </a>
+                <span class="text-slate-300">/</span>
+                <span class="text-slate-700 font-semibold">Exam Results SMS Center</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                <span class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-200 text-lg">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </span>
+                Exam & Test Results SMS Dispatcher
+            </h1>
+            <p class="text-sm text-slate-500 mt-1">
+                Notify parents immediately via SMS when tests and exams are marked (e.g. Test 1, Midterm Exam, Quizzes).
+                Supports bilingual Ethiopian message templates (Amharic & English).
+            </p>
+        </div>
+
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <a href="{% url 'assessments:exam_results_sms_history' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-2xs">
+                <i class="fa-solid fa-clock-rotate-left text-slate-400"></i> Dispatch History
+            </a>
+            <a href="{% url 'communication:sms_templates' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition shadow-2xs">
+                <i class="fa-solid fa-sliders text-indigo-500"></i> Edit SMS Templates
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter & Selector Card -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 transition-all">
+        <form method="GET" action="{% url 'assessments:exam_results_sms' %}" id="selectorForm" class="space-y-4">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div class="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <i class="fa-solid fa-filter text-emerald-600"></i> Select Exam / Test to Dispatch
+                </div>
+                <span class="text-xs text-slate-400">Active Term: <strong class="text-slate-700">{{ sem.name|default:"Current Term" }} ({{ ay.name }})</strong></span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Grade Select -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Grade Level</label>
+                    <select name="grade_id" id="gradeSelect" onchange="this.form.submit()" class="w-full text-sm rounded-xl border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 bg-slate-50/60 font-medium">
+                        <option value="">-- All Grades --</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}" {% if selected_grade_id == g.id|stringformat:'s' %}selected{% endif %}>{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Section Select -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Section / Class</label>
+                    <select name="section_id" id="sectionSelect" onchange="this.form.submit()" class="w-full text-sm rounded-xl border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 bg-slate-50/60 font-medium">
+                        <option value="">-- All Sections --</option>
+                        {% for s in sections %}
+                        <option value="{{ s.id }}" {% if selected_section_id == s.id|stringformat:'s' %}selected{% endif %}>{{ s.grade.name }} - Section {{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Subject Select -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Subject</label>
+                    <select name="subject_id" id="subjectSelect" onchange="this.form.submit()" class="w-full text-sm rounded-xl border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 bg-slate-50/60 font-medium">
+                        <option value="">-- All Subjects --</option>
+                        {% for subj in subjects %}
+                        <option value="{{ subj.id }}" {% if selected_subject_id == subj.id|stringformat:'s' %}selected{% endif %}>{{ subj.name }} ({{ subj.code }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Assessment Component / Test Select -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span>Test / Assessment</span>
+                        <span class="text-[10px] text-emerald-600 font-bold">REQUIRED</span>
+                    </label>
+                    <select name="component_id" id="componentSelect" onchange="this.form.submit()" class="w-full text-sm rounded-xl border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 bg-emerald-50/50 font-bold text-slate-900 border-emerald-300">
+                        <option value="">-- Choose Test (e.g. Test 1) --</option>
+                        {% for comp in components %}
+                        <option value="{{ comp.id }}" {% if selected_component_id == comp.id|stringformat:'s' %}selected{% endif %}>
+                            {{ comp.name }} ({{ comp.subject.name }} - Max {{ comp.max_marks|floatformat:0 }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if selected_component %}
+    <!-- METRICS CARDS -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-users"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-black text-slate-900">{{ stats.total_students }}</div>
+                <div class="text-xs font-semibold text-slate-500">Enrolled Students</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-marker"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-black text-emerald-600">{{ stats.with_marks }}</div>
+                <div class="text-xs font-semibold text-slate-500">With Recorded Marks</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-phone"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-black text-amber-600">{{ stats.with_phone }}</div>
+                <div class="text-xs font-semibold text-slate-500">Parents with Phone</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-check-double"></i>
+            </div>
+            <div>
+                <div class="text-2xl font-black text-purple-600">{{ stats.already_sent }}</div>
+                <div class="text-xs font-semibold text-slate-500">Already Sent</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MESSAGE PREVIEW & CUSTOMIZATION BOX -->
+    <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-2xl text-white p-5 shadow-lg border border-slate-700">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-700/80">
+            <div class="flex items-center gap-2.5">
+                <span class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/30">
+                    <i class="fa-solid fa-comment-sms"></i>
+                </span>
+                <div>
+                    <h3 class="font-bold text-sm text-slate-100">SMS Notification Template</h3>
+                    <p class="text-xs text-slate-400">Preview what parents will receive on their mobile phones</p>
+                </div>
+            </div>
+
+            <!-- Language Switcher & Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <div class="bg-slate-800 border border-slate-700 rounded-lg p-0.5 flex text-xs font-bold">
+                    <button type="button" onclick="switchLanguagePreview('am')" id="btnLangAm" class="px-3 py-1 rounded-md bg-emerald-600 text-white transition">አማርኛ (Amharic)</button>
+                    <button type="button" onclick="switchLanguagePreview('en')" id="btnLangEn" class="px-3 py-1 rounded-md text-slate-300 hover:text-white transition">English</button>
+                    <button type="button" onclick="switchLanguagePreview('pref')" id="btnLangPref" class="px-3 py-1 rounded-md text-slate-300 hover:text-white transition">Parent's Choice</button>
+                </div>
+                <button type="button" onclick="toggleCustomMessageEditor()" class="px-3 py-1 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/20 text-white transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-pen-to-square"></i> <span id="customMsgToggleText">Customize Text</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Live Preview Content -->
+        <div class="mt-4">
+            <div id="previewCard" class="bg-slate-950/70 border border-slate-700/80 rounded-xl p-4 font-mono text-xs text-emerald-300 leading-relaxed relative">
+                <div class="text-[10px] text-slate-400 uppercase tracking-widest font-sans font-bold mb-1 flex items-center justify-between">
+                    <span>Message Preview:</span>
+                    <span id="charCountBadge" class="text-slate-400 font-mono">~120 chars</span>
+                </div>
+                <div id="messagePreviewText">
+                    {{ template_body_am }}
+                </div>
+            </div>
+
+            <!-- Custom Message Editor (hidden by default) -->
+            <div id="customEditorContainer" style="display: none;" class="mt-3 space-y-2">
+                <label class="block text-xs font-semibold text-slate-300">Custom SMS Content (Overrides default template for this dispatch):</label>
+                <textarea id="customMessageInput" rows="3" class="w-full text-xs rounded-xl bg-slate-950 border-slate-700 text-white font-mono focus:border-emerald-500 focus:ring-emerald-500" placeholder="Write custom SMS with placeholders like {student_name}, {score}, {max_score}, {percentage}%, {grade_letter}, {subject_name}, {school_name}"></textarea>
+                
+                <div class="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-400">
+                    <span class="font-bold text-slate-300">Available Placeholders:</span>
+                    <span onclick="insertPlaceholder('{student_name}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{student_name}</span>
+                    <span onclick="insertPlaceholder('{score}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{score}</span>
+                    <span onclick="insertPlaceholder('{max_score}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{max_score}</span>
+                    <span onclick="insertPlaceholder('{percentage}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{percentage}%</span>
+                    <span onclick="insertPlaceholder('{grade_letter}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{grade_letter}</span>
+                    <span onclick="insertPlaceholder('{subject_name}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{subject_name}</span>
+                    <span onclick="insertPlaceholder('{test_name}')" class="px-2 py-0.5 rounded bg-slate-800 text-emerald-400 border border-slate-700 cursor-pointer hover:bg-slate-700">{test_name}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STUDENT RESULTS & RECIPIENTS TABLE -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <!-- Table Toolbar -->
+        <div class="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- Search input -->
+                <div class="relative w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="studentTableSearch" oninput="filterRecipientsTable()" placeholder="Filter student or phone..." class="w-full text-xs pl-8 pr-3 py-1.5 rounded-xl border-slate-200 bg-white focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+
+                <!-- Quick Filters -->
+                <div class="flex items-center gap-1.5 text-xs">
+                    <button type="button" onclick="setFilterCategory('all')" id="filterBtnAll" class="px-2.5 py-1 rounded-lg font-bold bg-slate-900 text-white shadow-2xs">All ({{ stats.total_students }})</button>
+                    <button type="button" onclick="setFilterCategory('has_mark')" id="filterBtnMark" class="px-2.5 py-1 rounded-lg font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">Has Mark ({{ stats.with_marks }})</button>
+                    <button type="button" onclick="setFilterCategory('ready')" id="filterBtnReady" class="px-2.5 py-1 rounded-lg font-bold bg-white text-emerald-700 border border-slate-200 hover:bg-emerald-50">Ready to Send</button>
+                    <button type="button" onclick="setFilterCategory('no_phone')" id="filterBtnNoPhone" class="px-2.5 py-1 rounded-lg font-bold bg-white text-rose-700 border border-slate-200 hover:bg-rose-50">No Phone</button>
+                </div>
+            </div>
+
+            <!-- Primary Dispatch Actions -->
+            <div class="flex items-center gap-2.5 flex-wrap">
+                <button type="button" onclick="dispatchSelectedSMS()" id="btnSendSelected" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm shadow-emerald-200">
+                    <i class="fa-solid fa-paper-plane"></i> Send to Selected (<span id="selectedCountDisplay">0</span>)
+                </button>
+                <button type="button" onclick="dispatchAllEligibleSMS()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm shadow-indigo-200">
+                    <i class="fa-solid fa-bolt"></i> Send to All With Marks
+                </button>
+            </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+                <thead class="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                    <tr>
+                        <th class="px-4 py-3 w-10 text-center">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        </th>
+                        <th class="px-4 py-3">Student</th>
+                        <th class="px-4 py-3 text-center">Section</th>
+                        <th class="px-4 py-3 text-center">{{ selected_component.name }} Score</th>
+                        <th class="px-4 py-3 text-center">Letter / Grade</th>
+                        <th class="px-4 py-3">Parent / Guardian</th>
+                        <th class="px-4 py-3">Phone Number</th>
+                        <th class="px-4 py-3 text-center">Status</th>
+                        <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white" id="recipientsTableBody">
+                    {% for r in recipients %}
+                    <tr class="recipient-row hover:bg-slate-50/80 transition-colors"
+                        data-student-id="{{ r.student_id }}"
+                        data-has-mark="{{ r.has_mark|yesno:'true,false' }}"
+                        data-has-phone="{{ r.has_phone|yesno:'true,false' }}"
+                        data-already-sent="{{ r.already_sent|yesno:'true,false' }}"
+                        data-student-name="{{ r.student_name|lower }}"
+                        data-phone="{{ r.parent_phone }}">
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" class="student-checkbox rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                   value="{{ r.student_id }}"
+                                   {% if r.has_mark and r.has_phone %}checked{% endif %}
+                                   onchange="updateSelectedCount()">
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                                {{ r.student_name }}
+                                {% if r.amharic_name %}
+                                <span class="text-sky-600 font-normal">({{ r.amharic_name }})</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-mono">{{ r.student_code }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-0.5 rounded font-bold bg-slate-100 text-slate-700 text-[10.5px]">
+                                {{ r.section_name|default:"-" }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if r.has_mark %}
+                            <div class="font-black text-slate-900 text-xs">
+                                {{ r.score|floatformat:1 }} <span class="text-slate-400 font-normal">/ {{ r.max_score|floatformat:0 }}</span>
+                            </div>
+                            <div class="text-[10px] font-bold {% if r.percentage >= 80 %}text-emerald-600{% elif r.percentage < 50 %}text-rose-600{% else %}text-slate-500{% endif %}">
+                                {{ r.percentage }}%
+                            </div>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                                <i class="fa-solid fa-clock"></i> Not Entered
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            {% if r.has_mark %}
+                            <span class="px-2 py-0.5 rounded-full font-extrabold text-[11px] {% if r.percentage >= 80 %}bg-emerald-100 text-emerald-800 border border-emerald-200{% elif r.percentage < 50 %}bg-rose-100 text-rose-800 border border-rose-200{% else %}bg-indigo-50 text-indigo-700 border border-indigo-200{% endif %}">
+                                {{ r.letter_grade|default:"-" }}
+                            </span>
+                            {% else %}
+                            <span class="text-slate-300">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="font-semibold text-slate-800 text-xs">{{ r.parent_name }}</div>
+                            <div class="text-[10px] text-slate-400">{{ r.parent_relationship }}</div>
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if r.has_phone %}
+                            <span class="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                {{ r.parent_phone }}
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
+                                <i class="fa-solid fa-triangle-exclamation"></i> No Phone
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-center" id="status-cell-{{ r.student_id }}">
+                            {% if r.already_sent %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200" title="Sent at {{ r.last_sent_at }}">
+                                <i class="fa-solid fa-check-double text-purple-600"></i> Sent
+                            </span>
+                            {% elif not r.has_mark %}
+                            <span class="text-[10px] text-slate-400 font-medium">Pending Mark</span>
+                            {% elif not r.has_phone %}
+                            <span class="text-[10px] text-rose-500 font-medium">Missing Phone</span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Ready
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="inline-flex items-center gap-1.5">
+                                <button type="button" onclick="previewSingleStudentSMS('{{ r.student_name|escapejs }}', '{{ r.score }}', '{{ r.max_score }}', '{{ r.percentage }}', '{{ r.letter_grade }}', '{{ r.parent_phone|escapejs }}')" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition" title="Preview Message">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                </button>
+                                <button type="button" onclick="dispatchSingleStudentSMS('{{ r.student_id }}')" {% if not r.has_mark or not r.has_phone %}disabled{% endif %} class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 {% if r.has_mark and r.has_phone %}bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200{% else %}bg-slate-100 text-slate-400 cursor-not-allowed{% endif %}">
+                                    <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="px-4 py-8 text-center text-slate-400">
+                            <i class="fa-solid fa-users-slash text-2xl mb-2 text-slate-300"></i>
+                            <p class="text-xs font-bold text-slate-600">No students enrolled in this section.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- EMPTY STATE WHEN NO COMPONENT IS SELECTED -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
+        <div class="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-3xl mx-auto mb-4 border border-emerald-100 shadow-sm">
+            <i class="fa-solid fa-paper-plane"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-1">Choose a Test or Exam to Send</h3>
+        <p class="text-xs text-slate-500 max-w-md mx-auto mb-6">
+            Select a Grade, Section, Subject, and Test (for example: <strong class="text-slate-800">Test 1</strong>, <strong class="text-slate-800">Midterm Exam</strong>) using the selector above to preview marks and dispatch SMS to parents.
+        </p>
+        <div class="flex items-center justify-center gap-3">
+            <a href="{% url 'assessments:mark_entry' %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm shadow-indigo-200">
+                <i class="fa-solid fa-book-open"></i> Go to Gradebook
+            </a>
+            <a href="{% url 'assessments:components' %}" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition shadow-2xs">
+                <i class="fa-solid fa-list-check text-slate-400"></i> View Assessment Scheme
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- RECENT DISPATCHES LOG TABLE -->
+    {% if recent_logs %}
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <i class="fa-solid fa-clock-rotate-left text-slate-500"></i> Recent Dispatches
+            </div>
+            <a href="{% url 'assessments:exam_results_sms_history' %}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                View All History &rarr;
+            </a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-bold text-[10.5px]">
+                    <tr>
+                        <th class="px-3 py-2">Date & Time</th>
+                        <th class="px-3 py-2">Test / Exam</th>
+                        <th class="px-3 py-2">Student</th>
+                        <th class="px-3 py-2">Score</th>
+                        <th class="px-3 py-2">Recipient Phone</th>
+                        <th class="px-3 py-2 text-center">Status</th>
+                        <th class="px-3 py-2">Dispatched By</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                    {% for log in recent_logs %}
+                    <tr class="hover:bg-slate-50/60 transition">
+                        <td class="px-3 py-2 text-slate-500 font-mono text-[11px]">{{ log.sent_at|date:"M d, Y H:i" }}</td>
+                        <td class="px-3 py-2 font-bold text-slate-900">{{ log.assessment_component.name|default:"Exam" }}</td>
+                        <td class="px-3 py-2 font-medium text-slate-800">{{ log.student.full_name }}</td>
+                        <td class="px-3 py-2">
+                            <span class="font-bold text-slate-900">{{ log.score|default:"-" }}/{{ log.max_score|default:"-" }}</span>
+                            {% if log.percentage %}<span class="text-[10px] text-slate-500">({{ log.percentage }}%)</span>{% endif %}
+                        </td>
+                        <td class="px-3 py-2 font-mono text-slate-600">{{ log.recipient_phone|default:"-" }}</td>
+                        <td class="px-3 py-2 text-center">
+                            {% if log.status == 'SENT' %}
+                            <span class="px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 text-[10px] border border-emerald-200">Sent</span>
+                            {% elif log.status == 'NO_PHONE' %}
+                            <span class="px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 text-[10px] border border-amber-200">No Phone</span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 text-[10px] border border-rose-200">Failed</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-3 py-2 text-slate-500">{{ log.sent_by.get_full_name|default:log.sent_by.username|default:"System" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- PREVIEW MODAL -->
+<div id="singlePreviewModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-envelope-open-text text-emerald-600"></i> SMS Preview
+            </h3>
+            <button type="button" onclick="closeSinglePreviewModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <div class="space-y-3">
+            <div>
+                <span class="text-xs text-slate-400 font-bold uppercase">To Phone:</span>
+                <div id="modalPreviewPhone" class="font-mono text-xs font-bold text-slate-800 mt-0.5"></div>
+            </div>
+            <div>
+                <span class="text-xs text-slate-400 font-bold uppercase">Rendered Message:</span>
+                <div id="modalPreviewBody" class="mt-1 p-3.5 rounded-xl bg-slate-900 font-mono text-xs text-emerald-300 leading-relaxed border border-slate-800"></div>
+            </div>
+        </div>
+
+        <div class="flex justify-end pt-2">
+            <button type="button" onclick="closeSinglePreviewModal()" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentLanguage = 'am';
+let customMessageEnabled = false;
+
+const defaultTemplateAm = `{{ template_body_am|escapejs }}`;
+const defaultTemplateEn = `{{ template_body_en|escapejs }}`;
+
+function switchLanguagePreview(lang) {
+    currentLanguage = lang;
+    ['btnLangAm', 'btnLangEn', 'btnLangPref'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.className = "px-3 py-1 rounded-md text-slate-300 hover:text-white transition";
+        }
+    });
+
+    if (lang === 'am') {
+        document.getElementById('btnLangAm').className = "px-3 py-1 rounded-md bg-emerald-600 text-white transition";
+        document.getElementById('messagePreviewText').innerText = defaultTemplateAm;
+    } else if (lang === 'en') {
+        document.getElementById('btnLangEn').className = "px-3 py-1 rounded-md bg-emerald-600 text-white transition";
+        document.getElementById('messagePreviewText').innerText = defaultTemplateEn;
+    } else {
+        document.getElementById('btnLangPref').className = "px-3 py-1 rounded-md bg-emerald-600 text-white transition";
+        document.getElementById('messagePreviewText').innerText = defaultTemplateAm + " / " + defaultTemplateEn;
+    }
+}
+
+function toggleCustomMessageEditor() {
+    customMessageEnabled = !customMessageEnabled;
+    const container = document.getElementById('customEditorContainer');
+    const toggleText = document.getElementById('customMsgToggleText');
+    if (customMessageEnabled) {
+        container.style.display = 'block';
+        toggleText.innerText = 'Use Default Template';
+    } else {
+        container.style.display = 'none';
+        toggleText.innerText = 'Customize Text';
+        document.getElementById('customMessageInput').value = '';
+    }
+}
+
+function insertPlaceholder(tag) {
+    const textarea = document.getElementById('customMessageInput');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const val = textarea.value;
+    textarea.value = val.substring(0, start) + tag + val.substring(end);
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+}
+
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.student-checkbox:checked');
+    const display = document.getElementById('selectedCountDisplay');
+    if (display) display.innerText = checkboxes.length;
+}
+
+function toggleSelectAll(masterCheckbox) {
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    checkboxes.forEach(cb => {
+        // Only check visible rows
+        const row = cb.closest('tr');
+        if (row && row.style.display !== 'none') {
+            cb.checked = masterCheckbox.checked;
+        }
+    });
+    updateSelectedCount();
+}
+
+function filterRecipientsTable() {
+    const query = (document.getElementById('studentTableSearch')?.value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.recipient-row');
+    rows.forEach(r => {
+        const name = r.getAttribute('data-student-name') || '';
+        const phone = r.getAttribute('data-phone') || '';
+        const matches = name.includes(query) || phone.includes(query);
+        r.style.display = matches ? '' : 'none';
+    });
+    updateSelectedCount();
+}
+
+function setFilterCategory(cat) {
+    ['filterBtnAll', 'filterBtnMark', 'filterBtnReady', 'filterBtnNoPhone'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.className = "px-2.5 py-1 rounded-lg font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-100";
+    });
+
+    const activeBtn = {
+        'all': 'filterBtnAll',
+        'has_mark': 'filterBtnMark',
+        'ready': 'filterBtnReady',
+        'no_phone': 'filterBtnNoPhone'
+    }[cat];
+    if (activeBtn && document.getElementById(activeBtn)) {
+        document.getElementById(activeBtn).className = "px-2.5 py-1 rounded-lg font-bold bg-slate-900 text-white shadow-2xs";
+    }
+
+    const rows = document.querySelectorAll('.recipient-row');
+    rows.forEach(r => {
+        const hasMark = r.getAttribute('data-has-mark') === 'true';
+        const hasPhone = r.getAttribute('data-has-phone') === 'true';
+
+        let show = true;
+        if (cat === 'has_mark') show = hasMark;
+        else if (cat === 'ready') show = hasMark && hasPhone;
+        else if (cat === 'no_phone') show = !hasPhone;
+
+        r.style.display = show ? '' : 'none';
+    });
+    updateSelectedCount();
+}
+
+async function dispatchSelectedSMS() {
+    const checked = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
+    if (checked.length === 0) {
+        alert("Please select at least one student to send SMS results.");
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to send test results to ${checked.length} parents via SMS?`)) {
+        return;
+    }
+
+    await executeDispatch(checked);
+}
+
+async function dispatchAllEligibleSMS() {
+    if (!confirm("Are you sure you want to send test results to all parents with recorded marks?")) {
+        return;
+    }
+    await executeDispatch(null);
+}
+
+async function dispatchSingleStudentSMS(studentId) {
+    if (!confirm("Send SMS result to this student's parent now?")) {
+        return;
+    }
+    await executeDispatch([studentId]);
+}
+
+async function executeDispatch(studentIds) {
+    const componentId = "{{ selected_component.id|default:'' }}";
+    const sectionId = "{{ selected_section.id|default:'' }}";
+    const customMessage = customMessageEnabled ? (document.getElementById('customMessageInput')?.value || '') : '';
+
+    const btn = document.getElementById('btnSendSelected');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending SMS...`;
+    }
+
+    try {
+        const response = await fetch("{% url 'assessments:exam_results_sms_send' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                component_id: componentId,
+                section_id: sectionId,
+                student_ids: studentIds,
+                custom_message: customMessage,
+                lang: currentLanguage
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            window.location.reload();
+        } else {
+            alert("Error: " + (data.error || "Failed to dispatch SMS."));
+        }
+    } catch (e) {
+        alert("Network error: " + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Send to Selected (<span id="selectedCountDisplay">0</span>)`;
+            updateSelectedCount();
+        }
+    }
+}
+
+function previewSingleStudentSMS(name, score, maxScore, pct, grade, phone) {
+    const modal = document.getElementById('singlePreviewModal');
+    const phoneEl = document.getElementById('modalPreviewPhone');
+    const bodyEl = document.getElementById('modalPreviewBody');
+
+    const schoolName = "{{ school.name|escapejs }}";
+    const subjName = "{{ selected_component.subject.name|default:'Subject'|escapejs }}";
+    const testName = "{{ selected_component.name|default:'Test'|escapejs }}";
+
+    let text = defaultTemplateAm;
+    if (currentLanguage === 'en') text = defaultTemplateEn;
+    text = text.replace(/{student_name}/g, name)
+               .replace(/{subject_name}/g, subjName)
+               .replace(/{test_name}/g, testName)
+               .replace(/{score}/g, score)
+               .replace(/{max_score}/g, maxScore)
+               .replace(/{percentage}/g, pct)
+               .replace(/{grade_letter}/g, grade)
+               .replace(/{school_name}/g, schoolName);
+
+    phoneEl.innerText = phone || "No registered phone number";
+    bodyEl.innerText = text;
+    modal.style.display = 'flex';
+}
+
+function closeSinglePreviewModal() {
+    document.getElementById('singlePreviewModal').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    updateSelectedCount();
+});
+</script>
+{% endblock %}

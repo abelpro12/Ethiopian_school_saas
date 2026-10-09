@@ -11,6 +11,7 @@ from apps.communication.models import (
     ParentMeetingStatus,
     PaymentReminderLog,
     PaymentReminderStage,
+    ExamResultSMSLog,
 )
 from apps.notifications.services import NotificationService
 from apps.parents.models import GuardianRelationship, ParentProfile
@@ -43,6 +44,11 @@ DEFAULT_SMS_TEMPLATES = {
         'name': 'Academic Support Alert',
         'body_en': "Notice: {student_name} has achieved {score}% in {subject_name} at {school_name}. An academic support intervention has been initiated.",
         'body_am': "ማስታወቂያ: {student_name} በ {subject_name} ትምህርት {score}% አስመዝግቧል:: የትምህርት ማሻሻያ ድጋፍ ተዘጋጅቷል:: {school_name}::",
+    },
+    SMSTemplateType.EXAM_RESULT: {
+        'name': 'Exam / Test Result Alert',
+        'body_en': "Dear Parent, {student_name} scored {score}/{max_score} ({percentage}%) in {subject_name} ({test_name}) at {school_name}. Grade: {grade_letter}. Thank you.",
+        'body_am': "ክቡር ወላጅ፣ {student_name} በ {subject_name} ({test_name}) ፈተና {score}/{max_score} ({percentage}%) በ {school_name} አስመዝግቧል/ለች:: ደረጃ: {grade_letter}:: እናመሰግናለን::",
     },
 }
 
@@ -350,3 +356,309 @@ class PaymentReminderService:
                 results['by_stage'][stage] += 1
 
         return results
+
+
+class ExamResultSMSService:
+    """
+    Engine to preview, format, and dispatch exam/test results to parents via SMS.
+    Supports individual or bulk dispatch for any AssessmentComponent (e.g., Test 1, Midterm Exam).
+    """
+
+    @classmethod
+    def get_component_results_for_dispatch(cls, school, component, section=None, student_ids=None):
+        """
+        Prepares recipient list, marks, parent contacts, delivery status, and rendered messages.
+        """
+        from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
+        from apps.assessments.models import StudentMark
+
+        ensure_default_sms_templates(school)
+        school_name = getattr(school, 'name', 'School')
+        max_m = float(component.max_marks or 100.0) if component else 100.0
+        subject_name = component.subject.name if (component and component.subject) else "Subject"
+        test_name = component.name if component else "Test"
+
+        # 1. Determine target enrollments
+        enrollments_qs = StudentEnrollment.objects.filter(school=school)
+        if section:
+            enrollments_qs = enrollments_qs.filter(section=section)
+        elif component and component.subject and component.subject.grade:
+            enrollments_qs = enrollments_qs.filter(grade=component.subject.grade)
+
+        if student_ids:
+            enrollments_qs = enrollments_qs.filter(student_id__in=student_ids)
+
+        enrollments = enrollments_qs.exclude(
+            status__in=[EnrollmentStatus.WITHDRAWN, EnrollmentStatus.TRANSFERRED]
+        ).select_related('student__user', 'section__grade').order_by(
+            'student__user__first_name', 'student__user__last_name'
+        )
+
+        # 2. Pre-fetch marks for this component
+        marks = StudentMark.objects.filter(
+            school=school,
+            assessment_component=component,
+            enrollment__in=enrollments
+        ).select_related('enrollment')
+        mark_by_enrollment = {m.enrollment_id: m for m in marks}
+
+        # 3. Pre-fetch logs to indicate already-sent status
+        sent_logs = ExamResultSMSLog.objects.filter(
+            school=school,
+            assessment_component=component,
+            status='SENT'
+        ).values('student_id', 'sent_at')
+        sent_dict = {str(item['student_id']): item['sent_at'] for item in sent_logs}
+
+        recipients = []
+        for enr in enrollments:
+            student = enr.student
+            mark = mark_by_enrollment.get(enr.id)
+            has_mark = mark is not None and mark.mark_value is not None
+
+            score_val = float(mark.mark_value) if has_mark else 0.0
+            pct = round((score_val / max_m * 100.0), 1) if max_m > 0 else 0.0
+            letter = mark.letter_grade if (mark and mark.letter_grade) else (
+                'A+' if pct >= 90 else ('A' if pct >= 83 else ('B' if pct >= 75 else ('C' if pct >= 65 else ('D' if pct >= 50 else 'F'))))
+            )
+
+            # Resolve Parent / Guardian
+            guardian_rel = GuardianRelationship.objects.filter(
+                school=school, student=student, is_primary=True
+            ).select_related('parent__user').first()
+            if not guardian_rel:
+                guardian_rel = GuardianRelationship.objects.filter(
+                    school=school, student=student
+                ).select_related('parent__user').first()
+
+            parent = guardian_rel.parent if guardian_rel else None
+            parent_user = parent.user if parent else None
+
+            phone = (parent.phone if parent else '') or (getattr(parent_user, 'phone', '') if parent_user else '') or (student.phone or '') or (student.emergency_contact or '')
+            phone = str(phone).strip()
+
+            lang = getattr(parent, 'preferred_language', 'am') if parent else 'am'
+
+            context = {
+                'student_name': student.full_name,
+                'subject_name': subject_name,
+                'test_name': test_name,
+                'score': f"{score_val:g}",
+                'max_score': f"{max_m:g}",
+                'percentage': f"{pct:.1f}",
+                'grade_letter': letter,
+                'school_name': school_name,
+            }
+
+            rendered_en = render_sms_template(school, SMSTemplateType.EXAM_RESULT, context, lang='en')
+            rendered_am = render_sms_template(school, SMSTemplateType.EXAM_RESULT, context, lang='am')
+
+            student_id_str = str(student.id)
+            already_sent = student_id_str in sent_dict
+            last_sent_at = sent_dict[student_id_str].strftime('%b %d, %Y %H:%M') if already_sent else None
+
+            recipients.append({
+                'enrollment_id': enr.id,
+                'student_id': student_id_str,
+                'student_code': student.student_id,
+                'student_name': student.full_name,
+                'amharic_name': student.amharic_name or '',
+                'section_name': enr.section.name if enr.section else '',
+                'has_mark': has_mark,
+                'score': score_val,
+                'max_score': max_m,
+                'percentage': pct,
+                'letter_grade': letter,
+                'parent_name': parent.user.get_full_name() or parent.user.username if (parent and parent.user) else 'No Guardian Linked',
+                'parent_relationship': parent.relationship if parent else 'Guardian',
+                'parent_phone': phone,
+                'has_phone': bool(phone),
+                'preferred_lang': lang,
+                'rendered_sms_en': rendered_en,
+                'rendered_sms_am': rendered_am,
+                'already_sent': already_sent,
+                'last_sent_at': last_sent_at,
+                'mark_id': mark.id if mark else None,
+            })
+
+        return recipients
+
+    @classmethod
+    def dispatch_single_result_sms(cls, school, component, student, score_val, max_score, percentage, letter_grade, parent=None, parent_phone=None, custom_message=None, lang_override=None, sender_user=None):
+        """
+        Dispatches a single exam result SMS to a parent and creates ExamResultSMSLog.
+        """
+        school_name = getattr(school, 'name', 'School')
+        phone = parent_phone or (parent.phone if parent else '') or (getattr(parent.user, 'phone', '') if parent and parent.user else '') or student.phone or student.emergency_contact or ''
+        phone = str(phone).strip()
+
+        if not phone:
+            ExamResultSMSLog.objects.create(
+                school=school,
+                assessment_component=component,
+                student=student,
+                parent=parent,
+                recipient_phone='',
+                score=Decimal(str(score_val)),
+                max_score=Decimal(str(max_score)),
+                percentage=Decimal(str(percentage)),
+                letter_grade=letter_grade,
+                message="[SKIPPED: No registered parent phone number]",
+                status='NO_PHONE',
+                sent_by=sender_user
+            )
+            return {'success': False, 'status': 'NO_PHONE', 'error': 'No registered phone number for parent'}
+
+        # Determine language & message
+        lang = lang_override or getattr(parent, 'preferred_language', 'am') or 'am'
+        subject_name = component.subject.name if (component and component.subject) else "Subject"
+        test_name = component.name if component else "Test"
+
+        if custom_message and str(custom_message).strip():
+            context = {
+                'student_name': student.full_name,
+                'subject_name': subject_name,
+                'test_name': test_name,
+                'score': f"{score_val:g}",
+                'max_score': f"{max_score:g}",
+                'percentage': f"{percentage:.1f}",
+                'grade_letter': letter_grade,
+                'school_name': school_name,
+            }
+            body = str(custom_message)
+            for k, v in context.items():
+                body = body.replace(f"{{{k}}}", str(v))
+        else:
+            context = {
+                'student_name': student.full_name,
+                'subject_name': subject_name,
+                'test_name': test_name,
+                'score': f"{score_val:g}",
+                'max_score': f"{max_score:g}",
+                'percentage': f"{percentage:.1f}",
+                'grade_letter': letter_grade,
+                'school_name': school_name,
+            }
+            body = render_sms_template(school, SMSTemplateType.EXAM_RESULT, context, lang=lang)
+
+        recipient_user = parent.user if parent else getattr(student, 'user', None)
+
+        sent = NotificationService.send_notification(
+            school=school,
+            recipient_user=recipient_user,
+            channel=NotificationChannel.SMS,
+            message=body,
+            subject=f"EXAM_RESULT:{component.id}:{student.id}",
+            category='announcement',
+            phone_number=phone
+        )
+
+        status_str = 'SENT' if sent else 'FAILED'
+        log = ExamResultSMSLog.objects.create(
+            school=school,
+            assessment_component=component,
+            student=student,
+            parent=parent,
+            recipient_phone=phone,
+            score=Decimal(str(score_val)),
+            max_score=Decimal(str(max_score)),
+            percentage=Decimal(str(percentage)),
+            letter_grade=letter_grade,
+            message=body,
+            status=status_str,
+            sent_by=sender_user
+        )
+
+        return {'success': sent, 'status': status_str, 'phone': phone, 'message': body, 'log_id': log.id}
+
+    @classmethod
+    def bulk_dispatch_results(cls, school, component, section=None, student_ids=None, custom_message=None, lang_override=None, sender_user=None):
+        """
+        Bulk dispatches exam results to parents of students in a class/section.
+        """
+        recipients = cls.get_component_results_for_dispatch(
+            school=school,
+            component=component,
+            section=section,
+            student_ids=student_ids
+        )
+
+        from apps.students.models import StudentProfile
+        from apps.parents.models import ParentProfile
+
+        summary = {
+            'total_students': len(recipients),
+            'dispatched': 0,
+            'skipped_no_mark': 0,
+            'skipped_no_phone': 0,
+            'failed': 0,
+            'details': []
+        }
+
+        for r in recipients:
+            if not r['has_mark']:
+                summary['skipped_no_mark'] += 1
+                continue
+
+            student = StudentProfile.objects.filter(id=r['student_id'], school=school).first()
+            if not student:
+                continue
+
+            guardian_rel = GuardianRelationship.objects.filter(
+                school=school, student=student, is_primary=True
+            ).select_related('parent').first()
+            if not guardian_rel:
+                guardian_rel = GuardianRelationship.objects.filter(
+                    school=school, student=student
+                ).select_related('parent').first()
+            parent = guardian_rel.parent if guardian_rel else None
+
+            res = cls.dispatch_single_result_sms(
+                school=school,
+                component=component,
+                student=student,
+                score_val=r['score'],
+                max_score=r['max_score'],
+                percentage=r['percentage'],
+                letter_grade=r['letter_grade'],
+                parent=parent,
+                parent_phone=r['parent_phone'],
+                custom_message=custom_message,
+                lang_override=lang_override if lang_override != 'pref' else r['preferred_lang'],
+                sender_user=sender_user
+            )
+
+            if res['status'] == 'SENT':
+                summary['dispatched'] += 1
+            elif res['status'] == 'NO_PHONE':
+                summary['skipped_no_phone'] += 1
+            else:
+                summary['failed'] += 1
+
+            summary['details'].append({
+                'student_name': student.full_name,
+                'status': res['status'],
+                'phone': res.get('phone', ''),
+                'score': r['score']
+            })
+
+        # Audit log
+        from apps.audit.services import AuditService
+        AuditService.log_action(
+            school=school,
+            user=sender_user,
+            action='EXAM_RESULT_SMS_DISPATCH',
+            object_type='AssessmentComponent',
+            object_id=str(component.id),
+            details={
+                'component_name': component.name,
+                'subject_name': component.subject.name if component.subject else '',
+                'section_id': section.id if section else None,
+                'total_students': summary['total_students'],
+                'dispatched': summary['dispatched'],
+                'skipped_no_phone': summary['skipped_no_phone'],
+                'failed': summary['failed']
+            }
+        )
+
+        return summary

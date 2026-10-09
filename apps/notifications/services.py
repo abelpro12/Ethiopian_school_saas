@@ -64,7 +64,7 @@ class NotificationService:
         cls._sms_provider = provider
 
     @classmethod
-    def send_notification(cls, school, recipient_user, channel: str, message: str, subject: str = None, category: str = 'announcement'):
+    def send_notification(cls, school, recipient_user, channel: str, message: str, subject: str = None, category: str = 'announcement', phone_number: str = None):
         """
         Unified method to send notifications respecting user preferences.
         categories: 'attendance', 'payment', 'announcement', 'marketing'
@@ -85,7 +85,10 @@ class NotificationService:
         failure_reason = None
 
         if channel == NotificationChannel.SMS:
-            phone = getattr(recipient_user, 'phone', None) or '0911000000'
+            phone = phone_number or getattr(recipient_user, 'phone', None)
+            if not phone and hasattr(recipient_user, 'parent_profile'):
+                phone = getattr(recipient_user.parent_profile, 'phone', None)
+            phone = phone or '0911000000'
             success = cls._sms_provider.send_sms(phone, message)
             if not success:
                 failure_reason = "SMS Gateway unreachable"

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, annual_views, views_grading, views_interventions
+from . import views, annual_views, views_grading, views_interventions, views_sms
 
 app_name = 'assessments'
 
@@ -17,6 +17,12 @@ urlpatterns = [
     path('locks/<int:lock_id>/delete/', views.delete_mark_lock, name='delete_mark_lock'),
     path('locks/quick-toggle/', views.quick_toggle_grid_lock, name='quick_toggle_grid_lock'),
     path('report-cards/', views.report_cards, name='report_cards'),
+
+    # Exam & Test Results SMS Dispatcher Routes
+    path('sms-results/', views_sms.exam_results_sms_dashboard, name='exam_results_sms'),
+    path('sms-results/send/', views_sms.exam_results_sms_send_api, name='exam_results_sms_send'),
+    path('sms-results/preview-api/<int:component_id>/<int:section_id>/', views_sms.exam_results_sms_preview_modal_api, name='exam_results_sms_preview_modal'),
+    path('sms-results/history/', views_sms.exam_results_sms_history, name='exam_results_sms_history'),
 
     # Flexible Grading Scale & Policy Routes
     path('grading-scales/', views_grading.grading_scale_list, name='grading_scales'),

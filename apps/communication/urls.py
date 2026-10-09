@@ -1,5 +1,6 @@
 from django.urls import path
 from apps.communication import views
+from apps.assessments import views_sms
 
 app_name = 'communication'
 
@@ -16,4 +17,8 @@ urlpatterns = [
     # Payment Due-Date Reminders Engine
     path('payment-reminders/', views.payment_reminders_dashboard, name='payment_reminders'),
     path('payment-reminders/trigger/', views.trigger_payment_reminders, name='trigger_payment_reminders'),
+
+    # Exam / Test Results SMS Dispatcher
+    path('exam-results-sms/', views_sms.exam_results_sms_dashboard, name='exam_results_sms'),
+    path('exam-results-sms/send/', views_sms.exam_results_sms_send_api, name='exam_results_sms_send'),
 ]

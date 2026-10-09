@@ -313,6 +313,9 @@
         <a href="{% url 'assessments:review' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-check-double text-emerald-400"></i><span>Review Marks</span>
         </a>
+        <a href="{% url 'assessments:exam_results_sms' %}" class="nav-link {% if 'sms-results' in request.path %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-paper-plane text-emerald-400"></i><span>Exam Results SMS</span>
+        </a>
         <a href="{% url 'assessments:manage_locks' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_locks' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-lock text-rose-400"></i><span>Mark Entry Locks</span>
         </a>
@@ -388,6 +391,9 @@
         </a>
         <a href="{% url 'communication:payment_reminders' %}" class="nav-link {% if request.resolver_match.url_name == 'payment_reminders' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-bell text-amber-400"></i><span>Payment Due Warnings</span>
+        </a>
+        <a href="{% url 'communication:exam_results_sms' %}" class="nav-link {% if 'sms-results' in request.path or 'exam-results-sms' in request.path %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-paper-plane text-emerald-400"></i><span>Send Exam Results SMS</span>
         </a>
         <a href="{% url 'library:dashboard' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-book-open-reader text-sky-400"></i><span>Library Dashboard</span>
@@ -471,6 +477,9 @@
         </a>
         <a href="{% url 'assessments:mark_entry' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-clipboard-check text-indigo-400"></i><span>Gradebook</span>
+        </a>
+        <a href="{% url 'assessments:exam_results_sms' %}" class="nav-link {% if 'sms-results' in request.path %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-paper-plane text-emerald-400"></i><span>Send Exam Results SMS</span>
         </a>
         <a href="{% url 'assessments:interventions' %}" class="nav-link {% if request.resolver_match.url_name == 'interventions' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-hand-holding-heart text-rose-400"></i><span>Academic Interventions</span>

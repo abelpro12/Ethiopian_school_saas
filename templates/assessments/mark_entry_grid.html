@@ -54,6 +54,29 @@
             </form>
             {% endif %}
 
+            <!-- Quick Send Results SMS Dropdown -->
+            <div class="relative inline-block text-left" x-data="{ open: false }">
+                <button type="button" @click="open = !open" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-xs" title="Send test/exam results to parents via SMS">
+                    <i class="fa-solid fa-paper-plane text-emerald-200"></i> Send Results SMS <i class="fa-solid fa-chevron-down text-[10px] ml-0.5"></i>
+                </button>
+                <div x-show="open" @click.away="open = false" class="origin-top-right absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-30 py-1" style="display: none;">
+                    <div class="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                        Choose Test to Send:
+                    </div>
+                    {% for c in components %}
+                    <button type="button" @click="open = false; openExamResultsSMSModal('{{ c.id }}')" class="w-full text-left px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center justify-between">
+                        <span>{{ c.name }}</span>
+                        <span class="text-[10px] text-slate-400">Max {{ c.max_marks|floatformat:0 }}</span>
+                    </button>
+                    {% endfor %}
+                    <div class="border-t border-slate-100 mt-1 pt-1">
+                        <a href="{% url 'assessments:exam_results_sms' %}?grade_id={{ section.grade.id }}&section_id={{ section.id }}&subject_id={{ subject.id }}" class="block px-3 py-1.5 text-[11px] font-bold text-indigo-600 hover:bg-indigo-50">
+                            <i class="fa-solid fa-arrow-up-right-from-square mr-1"></i> Open SMS Center
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <!-- Interventions Hub Quick Link -->
             <a href="{% url 'assessments:interventions' %}?section={{ section.id }}&subject={{ subject.id }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition shadow-xs">
                 <i class="fa-solid fa-hand-holding-heart text-rose-500"></i> Interventions Hub
@@ -232,8 +255,8 @@
                                 <div class="text-[10px] text-gray-400 font-normal mt-0.5">
                                     Max: {{ comp.max_marks }} | Wt: {{ comp.weight }}%
                                 </div>
-                                <!-- Individual Component Lock Toggle Button -->
-                                <div class="mt-1.5">
+                                <!-- Individual Component Actions -->
+                                <div class="mt-1.5 flex items-center justify-center gap-1 flex-wrap">
                                     <form method="POST" action="{% url 'assessments:quick_toggle_grid_lock' %}" class="inline-block">
                                         {% csrf_token %}
                                         <input type="hidden" name="target_type" value="component">
@@ -249,6 +272,11 @@
                                             </button>
                                         {% endif %}
                                     </form>
+
+                                    <!-- Quick Send SMS Button for this component -->
+                                    <button type="button" onclick="openExamResultsSMSModal('{{ comp.id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300 transition shadow-2xs" title="Send {{ comp.name }} Results to Parents via SMS">
+                                        <i class="fa-solid fa-paper-plane text-[9px]"></i> SMS
+                                    </button>
                                 </div>
                             </th>
                             {% endfor %}
@@ -536,6 +564,293 @@
             document.getElementById('markForm').dispatchEvent(new Event('submit', { cancelable: true }));
         }
     }
+
+    // ==========================================
+    // EXAM RESULTS SMS DISPATCH MODAL CONTROLLER
+    // ==========================================
+    let activeSMSComponentId = null;
+    let activeSMSSectionId = "{{ section.id }}";
+    let modalSMSData = null;
+    let modalLanguage = 'am';
+
+    async function openExamResultsSMSModal(componentId) {
+        activeSMSComponentId = componentId;
+        const modal = document.getElementById('gradebookSMSModal');
+        const contentContainer = document.getElementById('gradebookSMSModalContent');
+        const loader = document.getElementById('gradebookSMSModalLoader');
+
+        if (!modal) return;
+        modal.style.display = 'flex';
+        contentContainer.style.display = 'none';
+        loader.style.display = 'flex';
+
+        try {
+            const url = `{% url 'assessments:exam_results_sms_preview_modal' 0 0 %}`
+                .replace('/0/0/', `/${componentId}/${activeSMSSectionId}/`);
+            
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (!data.success) {
+                alert("Error: " + (data.error || "Failed to load test data."));
+                closeExamResultsSMSModal();
+                return;
+            }
+
+            modalSMSData = data;
+            renderGradebookSMSModal(data);
+            loader.style.display = 'none';
+            contentContainer.style.display = 'block';
+        } catch (e) {
+            alert("Network error: " + e.message);
+            closeExamResultsSMSModal();
+        }
+    }
+
+    function closeExamResultsSMSModal() {
+        const modal = document.getElementById('gradebookSMSModal');
+        if (modal) modal.style.display = 'none';
+        activeSMSComponentId = null;
+        modalSMSData = null;
+    }
+
+    function switchModalSMSLanguage(lang) {
+        modalLanguage = lang;
+        ['btnModalLangAm', 'btnModalLangEn', 'btnModalLangPref'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.className = "px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition";
+        });
+
+        if (lang === 'am') {
+            document.getElementById('btnModalLangAm').className = "px-2.5 py-1 rounded-md bg-emerald-600 text-white transition";
+            document.getElementById('modalPreviewText').innerText = modalSMSData ? modalSMSData.template_body_am : '';
+        } else if (lang === 'en') {
+            document.getElementById('btnModalLangEn').className = "px-2.5 py-1 rounded-md bg-emerald-600 text-white transition";
+            document.getElementById('modalPreviewText').innerText = modalSMSData ? modalSMSData.template_body_en : '';
+        } else {
+            document.getElementById('btnModalLangPref').className = "px-2.5 py-1 rounded-md bg-emerald-600 text-white transition";
+            document.getElementById('modalPreviewText').innerText = "Bilingual (Based on Parent Preference)";
+        }
+    }
+
+    function renderGradebookSMSModal(data) {
+        const titleEl = document.getElementById('modalCompName');
+        const subTitleEl = document.getElementById('modalSubTitle');
+        const previewEl = document.getElementById('modalPreviewText');
+        const countTotal = document.getElementById('modalStatTotal');
+        const countMarks = document.getElementById('modalStatMarks');
+        const countPhones = document.getElementById('modalStatPhones');
+        const countSent = document.getElementById('modalStatSent');
+        const listContainer = document.getElementById('modalRecipientsList');
+
+        if (titleEl) titleEl.innerText = `${data.component.name} Results`;
+        if (subTitleEl) subTitleEl.innerText = `${data.component.subject_name} | ${data.component.grade_name} - Section ${data.component.section_name} (Max: ${data.component.max_marks})`;
+        if (previewEl) previewEl.innerText = data.template_body_am;
+
+        if (countTotal) countTotal.innerText = data.stats.total;
+        if (countMarks) countMarks.innerText = data.stats.with_marks;
+        if (countPhones) countPhones.innerText = data.stats.with_phone;
+        if (countSent) countSent.innerText = data.stats.already_sent;
+
+        if (listContainer) {
+            listContainer.innerHTML = data.recipients.map(r => {
+                const canSend = r.has_mark && r.has_phone;
+                const statusBadge = r.already_sent 
+                    ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">Sent (${r.last_sent_at || ''})</span>`
+                    : (canSend 
+                        ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">Ready</span>`
+                        : (!r.has_mark ? `<span class="text-[10px] text-slate-400 font-semibold">No Mark</span>` : `<span class="text-[10px] text-rose-500 font-semibold">No Phone</span>`));
+
+                const scoreDisplay = r.has_mark 
+                    ? `<span class="font-black text-slate-900">${r.score}</span> / <span class="text-slate-400">${r.max_score}</span> <span class="text-[10.5px] font-bold text-emerald-600">(${r.percentage}%)</span>` 
+                    : `<span class="text-slate-400 italic">Pending</span>`;
+
+                return `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition gap-3 text-xs">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <input type="checkbox" class="modal-student-checkbox rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" value="${r.student_id}" ${canSend ? 'checked' : ''} onchange="updateModalSelectedCount()">
+                            <div class="min-w-0">
+                                <div class="font-bold text-slate-900 truncate">
+                                    ${r.student_name} ${r.amharic_name ? `<span class="text-sky-600 font-normal">(${r.amharic_name})</span>` : ''}
+                                </div>
+                                <div class="text-[10.5px] text-slate-400 font-mono">ID: ${r.student_code}</div>
+                            </div>
+                        </div>
+
+                        <div class="text-center shrink-0">
+                            ${scoreDisplay}
+                        </div>
+
+                        <div class="text-right shrink-0">
+                            <div class="font-mono text-[11px] font-semibold text-slate-700">${r.parent_phone || '<span class="text-rose-400">No Phone</span>'}</div>
+                            <div class="mt-0.5">${statusBadge}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        updateModalSelectedCount();
+    }
+
+    function updateModalSelectedCount() {
+        const checked = document.querySelectorAll('.modal-student-checkbox:checked').length;
+        const countBadge = document.getElementById('modalSelectedCount');
+        if (countBadge) countBadge.innerText = checked;
+    }
+
+    function toggleModalSelectAll(masterCb) {
+        document.querySelectorAll('.modal-student-checkbox').forEach(cb => {
+            cb.checked = masterCb.checked;
+        });
+        updateModalSelectedCount();
+    }
+
+    async function executeGradebookSMSDispatch(studentIds = null) {
+        if (!activeSMSComponentId) return;
+
+        let idsToSend = studentIds;
+        if (!idsToSend) {
+            idsToSend = Array.from(document.querySelectorAll('.modal-student-checkbox:checked')).map(cb => cb.value);
+            if (idsToSend.length === 0) {
+                alert("Please select at least one student to send results.");
+                return;
+            }
+        }
+
+        if (!confirm(`Confirm sending SMS results to ${idsToSend.length} parents?`)) {
+            return;
+        }
+
+        const btn = document.getElementById('modalDispatchBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Sending...`;
+        }
+
+        try {
+            const response = await fetch("{% url 'assessments:exam_results_sms_send' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    component_id: activeSMSComponentId,
+                    section_id: activeSMSSectionId,
+                    student_ids: idsToSend,
+                    lang: modalLanguage
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                alert(data.message);
+                closeExamResultsSMSModal();
+            } else {
+                alert("Error: " + (data.error || "Failed to dispatch SMS."));
+            }
+        } catch (e) {
+            alert("Network error: " + e.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-paper-plane mr-1"></i> Send SMS (<span id="modalSelectedCount">0</span>)`;
+                updateModalSelectedCount();
+            }
+        }
+    }
 </script>
+
+<!-- GRADEBOOK QUICK SMS MODAL DIALOG -->
+<div id="gradebookSMSModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+            <div class="flex items-center gap-2.5">
+                <span class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </span>
+                <div>
+                    <h3 id="modalCompName" class="font-extrabold text-base text-slate-900 leading-tight">Send Results via SMS</h3>
+                    <p id="modalSubTitle" class="text-xs text-slate-500 font-medium"></p>
+                </div>
+            </div>
+            <button type="button" onclick="closeExamResultsSMSModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <!-- Loader -->
+        <div id="gradebookSMSModalLoader" class="py-16 flex flex-col items-center justify-center text-slate-500 gap-3">
+            <i class="fa-solid fa-circle-notch fa-spin text-3xl text-emerald-600"></i>
+            <span class="text-xs font-semibold">Loading student marks and parent contacts...</span>
+        </div>
+
+        <!-- Modal Body Content -->
+        <div id="gradebookSMSModalContent" style="display: none;" class="space-y-4 overflow-y-auto pr-1">
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                <div class="bg-slate-50 rounded-xl p-2 border border-slate-200">
+                    <div id="modalStatTotal" class="font-bold text-slate-900 text-sm">0</div>
+                    <div class="text-[10px] text-slate-500">Enrolled</div>
+                </div>
+                <div class="bg-emerald-50 rounded-xl p-2 border border-emerald-200">
+                    <div id="modalStatMarks" class="font-bold text-emerald-700 text-sm">0</div>
+                    <div class="text-[10px] text-emerald-600">With Marks</div>
+                </div>
+                <div class="bg-amber-50 rounded-xl p-2 border border-amber-200">
+                    <div id="modalStatPhones" class="font-bold text-amber-700 text-sm">0</div>
+                    <div class="text-[10px] text-amber-600">With Phone</div>
+                </div>
+                <div class="bg-purple-50 rounded-xl p-2 border border-purple-200">
+                    <div id="modalStatSent" class="font-bold text-purple-700 text-sm">0</div>
+                    <div class="text-[10px] text-purple-600">Sent</div>
+                </div>
+            </div>
+
+            <!-- Message Preview Box -->
+            <div class="bg-slate-900 rounded-xl p-3 text-white text-xs border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">SMS Message Preview:</span>
+                    <div class="bg-slate-800 rounded-lg p-0.5 flex text-[10px] font-bold">
+                        <button type="button" onclick="switchModalSMSLanguage('am')" id="btnModalLangAm" class="px-2.5 py-1 rounded-md bg-emerald-600 text-white transition">አማርኛ</button>
+                        <button type="button" onclick="switchModalSMSLanguage('en')" id="btnModalLangEn" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition">English</button>
+                        <button type="button" onclick="switchModalSMSLanguage('pref')" id="btnModalLangPref" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition">Auto</button>
+                    </div>
+                </div>
+                <div id="modalPreviewText" class="font-mono text-emerald-300 text-[11px] leading-relaxed"></div>
+            </div>
+
+            <!-- Select All & Student List -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs px-1">
+                    <label class="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked onchange="toggleModalSelectAll(this)" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                        <span>Select All Eligible Students</span>
+                    </label>
+                    <span class="text-[11px] text-slate-500">Showing all class members</span>
+                </div>
+                <div id="modalRecipientsList" class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0">
+            <button type="button" onclick="closeExamResultsSMSModal()" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+                Cancel
+            </button>
+            <div class="flex items-center gap-2">
+                <a href="{% url 'assessments:exam_results_sms' %}" target="_blank" class="px-3 py-2 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition border border-indigo-200">
+                    <i class="fa-solid fa-sliders mr-1"></i> Full Center
+                </a>
+                <button type="button" onclick="executeGradebookSMSDispatch()" id="modalDispatchBtn" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm shadow-emerald-200">
+                    <i class="fa-solid fa-paper-plane mr-1"></i> Send SMS (<span id="modalSelectedCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
