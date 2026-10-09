@@ -314,6 +314,32 @@ class Subject(TenantAwareModel):
             ('SPORTS_FIELD', 'Sports Field / Gymnasium')
         ]
     )
+    # Professional Scope & Academic Load (Requirement 5)
+    credit_hours = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        default=3.0,
+        help_text="Academic credit units"
+    )
+    contact_hours = models.PositiveIntegerField(
+        default=4,
+        help_text="Total weekly contact hours"
+    )
+    theory_hours = models.PositiveIntegerField(
+        default=3,
+        help_text="Weekly lecture / theory periods"
+    )
+    practical_hours = models.PositiveIntegerField(
+        default=1,
+        help_text="Weekly laboratory / practical periods"
+    )
+    prerequisites = models.ManyToManyField(
+        'self',
+        symmetrical=False,
+        blank=True,
+        related_name='dependent_subjects',
+        help_text="Prerequisite subjects required before taking this course"
+    )
 
     class Meta:
         unique_together = ('school', 'code', 'grade', 'stream')

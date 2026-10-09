@@ -6,7 +6,12 @@ from django.utils import timezone
 from django.db.models import Q, Count
 from django.http import JsonResponse
 
-from apps.teachers.models import TeacherProfile, StaffProfile, StaffDocument, StaffDocumentType
+from apps.teachers.models import (
+    TeacherProfile, StaffProfile, StaffDocument, StaffDocumentType,
+    TeacherVacancy, TeacherApplication, VacancyStatus, CandidateApplicationStatus,
+    Department, EmploymentStatus
+)
+from apps.academics.models import Subject
 from apps.accounts.models import UserRole
 from apps.audit.services import AuditService
 from apps.platform_management.decorators import school_context_required
@@ -245,3 +250,232 @@ def verify_staff_document_view(request, document_id):
     )
 
     return redirect('teachers:onboarding_dashboard')
+
+
+# --- Teacher Recruitment & Vacancy Subsystem Views (Requirement 9) ---
+
+@login_required
+@school_context_required
+def vacancies_list_view(request):
+    """
+    Teacher Vacancies & Recruitment Hub.
+    Allows administrators to create teacher vacancies, define required subject,
+    qualifications, experience, and manage the candidate pipeline.
+    """
+    school = get_school_context(request)
+    if request.user.role not in [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.HR_MANAGER]:
+        messages.error(request, "Permission denied.")
+        return redirect('teachers:management')
+
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        dept_id = request.POST.get('department_id')
+        subj_id = request.POST.get('subject_id')
+        qual = request.POST.get('required_qualification', '').strip()
+        exp = int(request.POST.get('min_years_experience', 2) or 2)
+        emp_type = request.POST.get('employment_type', EmploymentStatus.FULL_TIME)
+        open_pos = int(request.POST.get('open_positions', 1) or 1)
+        deadline_str = request.POST.get('application_deadline')
+        desc = request.POST.get('description', '').strip()
+        reqs = request.POST.get('requirements', '').strip()
+
+        dept = Department.objects.filter(school=school, id=dept_id).first() if dept_id else None
+        subj = Subject.objects.filter(school=school, id=subj_id).first() if subj_id else None
+        deadline = datetime.date.today() + datetime.timedelta(days=30)
+        if deadline_str:
+            try:
+                deadline = datetime.date.fromisoformat(deadline_str)
+            except ValueError:
+                pass
+
+        if not title or not qual:
+            messages.error(request, "Vacancy title and required qualification are mandatory.")
+        else:
+            vac = TeacherVacancy.objects.create(
+                school=school,
+                title=title,
+                department=dept,
+                subject=subj,
+                required_qualification=qual,
+                min_years_experience=exp,
+                employment_type=emp_type,
+                open_positions=open_pos,
+                application_deadline=deadline,
+                description=desc,
+                requirements=reqs,
+                created_by=request.user,
+                status=VacancyStatus.OPEN
+            )
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action='CREATE_TEACHER_VACANCY',
+                object_type='TeacherVacancy',
+                object_id=str(vac.id),
+                details={'title': title, 'qualification': qual}
+            )
+            messages.success(request, f"Teacher vacancy '{title}' published successfully.")
+        return redirect('teachers:vacancies_list')
+
+    vacancies = TeacherVacancy.objects.filter(school=school).select_related('department', 'subject').prefetch_related('applications')
+    departments = Department.objects.filter(school=school).order_by('name')
+    subjects = Subject.objects.filter(school=school).order_by('name')
+
+    context = {
+        'vacancies': vacancies,
+        'departments': departments,
+        'subjects': subjects,
+        'employment_types': EmploymentStatus.choices,
+        'today': datetime.date.today().isoformat(),
+        'default_deadline': (datetime.date.today() + datetime.timedelta(days=30)).isoformat(),
+    }
+    return render(request, 'teachers/vacancies_list.html', context)
+
+
+@login_required
+@school_context_required
+def vacancy_detail_and_applications_view(request, vacancy_id):
+    """
+    Displays details for a specific vacancy and its candidate applications.
+    Allows submitting a new candidate application or recording test/interview results.
+    """
+    school = get_school_context(request)
+    vacancy = get_object_or_404(TeacherVacancy, id=vacancy_id, school=school)
+
+    if request.method == 'POST':
+        # Add new candidate application
+        f_name = request.POST.get('first_name', '').strip()
+        l_name = request.POST.get('last_name', '').strip()
+        email = request.POST.get('email', '').strip()
+        phone = request.POST.get('phone', '').strip()
+        highest_qual = request.POST.get('highest_qualification', '').strip()
+        spec = request.POST.get('specialization', '').strip()
+        exp_years = int(request.POST.get('years_of_experience', 0) or 0)
+        cv_file = request.FILES.get('cv_resume')
+        cover = request.POST.get('cover_letter', '').strip()
+
+        if not f_name or not l_name or not email or not phone:
+            messages.error(request, "Candidate name, email, and phone number are required.")
+        else:
+            app = TeacherApplication.objects.create(
+                school=school,
+                vacancy=vacancy,
+                first_name=f_name,
+                last_name=l_name,
+                email=email,
+                phone=phone,
+                highest_qualification=highest_qual,
+                specialization=spec,
+                years_of_experience=exp_years,
+                cv_resume=cv_file,
+                cover_letter=cover,
+                status=CandidateApplicationStatus.SUBMITTED
+            )
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action='REGISTER_TEACHER_CANDIDATE',
+                object_type='TeacherApplication',
+                object_id=str(app.id),
+                details={'candidate': app.full_name, 'vacancy': vacancy.title}
+            )
+            messages.success(request, f"Candidate {app.full_name} registered successfully for '{vacancy.title}'.")
+        return redirect('teachers:vacancy_detail', vacancy_id=vacancy.id)
+
+    applications = vacancy.applications.all().order_by('-created_at')
+
+    context = {
+        'vacancy': vacancy,
+        'applications': applications,
+        'statuses': CandidateApplicationStatus.choices,
+        'today': datetime.date.today().isoformat(),
+    }
+    return render(request, 'teachers/vacancy_detail.html', context)
+
+
+@login_required
+@school_context_required
+def update_application_status_view(request, application_id):
+    """
+    Updates a candidate application's recruitment status, test score, interview score,
+    and interviewer notes.
+    """
+    if request.method != 'POST':
+        return redirect('teachers:vacancies_list')
+
+    school = get_school_context(request)
+    app = get_object_or_404(TeacherApplication, id=application_id, school=school)
+
+    new_status = request.POST.get('status', app.status)
+    test_d = request.POST.get('test_date')
+    test_sc = request.POST.get('test_score')
+    interview_d = request.POST.get('interview_date')
+    interview_sc = request.POST.get('interview_score')
+    notes = request.POST.get('interviewer_notes', app.interviewer_notes or '').strip()
+
+    if new_status in CandidateApplicationStatus.values:
+        app.status = new_status
+    if test_d:
+        try:
+            app.test_date = datetime.date.fromisoformat(test_d)
+        except ValueError:
+            pass
+    if test_sc:
+        try:
+            app.test_score = float(test_sc)
+        except ValueError:
+            pass
+    if interview_d:
+        try:
+            app.interview_date = datetime.date.fromisoformat(interview_d)
+        except ValueError:
+            pass
+    if interview_sc:
+        try:
+            app.interview_score = float(interview_sc)
+        except ValueError:
+            pass
+    app.interviewer_notes = notes
+    app.save()
+
+    AuditService.log_action(
+        school=school,
+        user=request.user,
+        action='UPDATE_CANDIDATE_STATUS',
+        object_type='TeacherApplication',
+        object_id=str(app.id),
+        details={'candidate': app.full_name, 'new_status': app.status}
+    )
+    messages.success(request, f"Candidate record for {app.full_name} updated ({app.get_status_display()}).")
+    return redirect('teachers:vacancy_detail', vacancy_id=app.vacancy.id)
+
+
+@login_required
+@school_context_required
+def convert_candidate_view(request, application_id):
+    """
+    1-click Conversion: Converts an accepted candidate into an active Teacher user and profile.
+    Automatically assigns next Employee ID, provisions system login, and links uploaded CV (Requirement 9).
+    """
+    if request.method != 'POST':
+        return redirect('teachers:vacancies_list')
+
+    school = get_school_context(request)
+    if request.user.role not in [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.HR_MANAGER]:
+        messages.error(request, "Permission denied.")
+        return redirect('teachers:vacancies_list')
+
+    app = get_object_or_404(TeacherApplication, id=application_id, school=school)
+
+    try:
+        profile = app.convert_to_teacher()
+        messages.success(
+            request,
+            f"Successfully appointed and converted {app.full_name} into active Teacher! "
+            f"Generated Employee ID: {profile.employee_id}, Username: {profile.user.username}."
+        )
+    except Exception as e:
+        messages.error(request, f"Error converting candidate to teacher: {e}")
+
+    return redirect('teachers:vacancy_detail', vacancy_id=app.vacancy.id)
+

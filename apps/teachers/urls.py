@@ -20,4 +20,8 @@ urlpatterns = [
     path('onboarding/<int:teacher_id>/stage/', views_onboarding.update_onboarding_stage_view, name='update_stage'),
     path('documents/upload/', views_onboarding.upload_staff_document_view, name='upload_document'),
     path('documents/<int:document_id>/verify/', views_onboarding.verify_staff_document_view, name='verify_document'),
+    path('recruitment/vacancies/', views_onboarding.vacancies_list_view, name='vacancies_list'),
+    path('recruitment/vacancies/<int:vacancy_id>/', views_onboarding.vacancy_detail_and_applications_view, name='vacancy_detail'),
+    path('recruitment/applications/<int:application_id>/status/', views_onboarding.update_application_status_view, name='update_application_status'),
+    path('recruitment/applications/<int:application_id>/convert/', views_onboarding.convert_candidate_view, name='convert_candidate'),
 ]

@@ -70,10 +70,11 @@ class ClearanceService:
 
     @classmethod
     @transaction.atomic
-    def initiate_clearance(cls, school, student, withdrawal_reason, reason_details=None,
-                           destination_school=None, effective_date=None, user=None):
+    def initiate_clearance(cls, school, student, withdrawal_reason=WithdrawalReason.TRANSFER, reason_details=None,
+                           destination_school=None, effective_date=None, user=None, withdrawal_type=None):
         """
         Initiates a new multi-department student clearance and withdrawal request.
+        Supports both configurable WithdrawalType instances and legacy WithdrawalReason choices.
         """
         if not effective_date:
             effective_date = timezone.now().date()
@@ -119,6 +120,7 @@ class ClearanceService:
             enrollment=active_enrollment,
             academic_year=academic_year,
             clearance_number=clearance_number,
+            withdrawal_type=withdrawal_type,
             withdrawal_reason=withdrawal_reason,
             reason_details=reason_details or '',
             destination_school=destination_school or '',

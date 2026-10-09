@@ -156,6 +156,66 @@ class WithdrawalReason(models.TextChoices):
     OTHER = 'OTHER', 'Other'
 
 
+class WithdrawalType(TenantAwareModel):
+    """
+    Admin-configurable withdrawal types (Requirement 3).
+    Allows school administrators / Miss Helen to customize withdrawal categories,
+    required clearance departments, required documentation, and approval flows.
+    """
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=50, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    required_clearance_steps = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of required clearance modules e.g. ['library', 'finance', 'academic', 'property']"
+    )
+    required_documents = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Required documents e.g. ['Parent ID Copy', 'Transfer Request Letter', 'Payment Receipt']"
+    )
+    requires_principal_approval = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('school', 'name')
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} ({self.school.name})"
+
+    @classmethod
+    def get_or_create_defaults(cls, school):
+        default_items = [
+            ("Transfer to Another School", "TRANSFER", ["library", "finance", "academic", "property"], ["Transfer Request Letter", "Parent ID"]),
+            ("Family Relocation / Moving", "RELOCATION", ["library", "finance", "academic", "property"], ["Proof of Relocation"]),
+            ("Graduation / Completed Studies", "GRADUATION", ["library", "finance", "academic", "property"], ["Clearance Slip"]),
+            ("Financial Reasons", "FINANCIAL", ["library", "finance", "academic", "property"], ["Fee Settlement Slip"]),
+            ("Health / Medical Reasons", "MEDICAL", ["library", "finance", "academic", "property"], ["Medical Certificate"]),
+            ("Personal / Family Reasons", "PERSONAL", ["library", "finance", "academic", "property"], ["Parent Letter"]),
+            ("Disciplinary Expulsion", "DISCIPLINARY", ["library", "finance", "academic", "property"], ["Disciplinary Committee Report"]),
+            ("Other", "OTHER", ["library", "finance", "academic", "property"], []),
+        ]
+        created = []
+        for name, code, steps, docs in default_items:
+            obj, _ = cls.objects.get_or_create(
+                school=school,
+                name=name,
+                defaults={
+                    'code': code,
+                    'required_clearance_steps': steps,
+                    'required_documents': docs,
+                    'requires_principal_approval': True,
+                    'is_active': True,
+                }
+            )
+            created.append(obj)
+        return created
+
+
 class ClearanceStatus(models.TextChoices):
     INITIATED = 'INITIATED', 'Initiated (Pending Clearances)'
     UNDER_REVIEW = 'UNDER_REVIEW', 'Under Department Review'
@@ -170,6 +230,14 @@ class StudentClearance(TenantAwareModel):
     academic_year = models.ForeignKey('academics.AcademicYear', on_delete=models.CASCADE, related_name='clearances')
 
     clearance_number = models.CharField(max_length=50)
+    withdrawal_type = models.ForeignKey(
+        WithdrawalType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='clearances',
+        help_text="Configurable withdrawal type"
+    )
     withdrawal_reason = models.CharField(max_length=30, choices=WithdrawalReason.choices, default=WithdrawalReason.TRANSFER)
     reason_details = models.TextField(blank=True, null=True)
     destination_school = models.CharField(max_length=200, blank=True, null=True, help_text="Destination school transferred to")
@@ -240,6 +308,12 @@ class StudentClearance(TenantAwareModel):
     @property
     def cleared_departments_count(self):
         return sum([self.library_cleared, self.finance_cleared, self.academic_cleared, self.property_cleared])
+
+    @property
+    def withdrawal_type_display(self):
+        if self.withdrawal_type:
+            return self.withdrawal_type.name
+        return self.get_withdrawal_reason_display()
 
     def __str__(self):
         return f"{self.clearance_number} - {self.student.full_name} ({self.get_status_display()})"

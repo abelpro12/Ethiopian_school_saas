@@ -7,12 +7,15 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.schools.models import School
 from apps.accounts.models import User, UserRole
-from apps.academics.models import AcademicYear, Grade, Stream, Section
-from apps.students.models import StudentProfile, StudentClearance, ClearanceStatus, WithdrawalReason
+from apps.academics.models import AcademicYear, Grade, Stream, Section, Subject
+from apps.students.models import StudentProfile, StudentClearance, ClearanceStatus, WithdrawalReason, WithdrawalType
 from apps.enrollment.models import StudentEnrollment
 from apps.finance.models import FeeCategory, StudentInvoice, InvoiceStatus
 from apps.library.models import Book, BookCopy, BookStatus, BorrowRecord
-from apps.teachers.models import TeacherProfile, StaffProfile, StaffPosition, StaffDocument, StaffDocumentType
+from apps.teachers.models import (
+    TeacherProfile, StaffProfile, StaffPosition, StaffDocument, StaffDocumentType,
+    TeacherVacancy, TeacherApplication, VacancyStatus, CandidateApplicationStatus, Department
+)
 from apps.attendance.models import StaffAttendanceRecord, StaffAttendanceStatus
 from apps.students.clearance_service import ClearanceService
 
@@ -577,3 +580,212 @@ class StudentClearanceAndStaffOnboardingTests(TestCase):
         self.assertEqual(resp_cert.status_code, 200)
         self.assertIn(b"Official Student Clearance", resp_cert.content)
         self.assertIn(b"Chala Tola Bekele", resp_cert.content)
+
+    # ========================================================
+    # 5. Configurable Withdrawal Types (Requirement 3)
+    # ========================================================
+
+    def test_configurable_withdrawal_types(self):
+        """Verifies admin-configurable withdrawal types (Requirement 3)."""
+        self.client.force_login(self.admin)
+
+        # 1. Seed default types
+        defaults = WithdrawalType.get_or_create_defaults(self.school)
+        self.assertGreater(len(defaults), 4)
+
+        # 2. Create custom withdrawal type
+        custom_type = WithdrawalType.objects.create(
+            school=self.school,
+            name="Interstate Relocation & Military Service",
+            code="MIL_RELOC",
+            description="Parent military reassignment",
+            required_clearance_steps=["library", "finance", "academic", "property"],
+            required_documents=["Military Orders", "Parent ID Copy"],
+            requires_principal_approval=True
+        )
+
+        # 3. Initiate clearance with configurable type
+        clearance = ClearanceService.initiate_clearance(
+            school=self.school,
+            student=self.student,
+            withdrawal_type=custom_type,
+            reason_details="Transferred due to military reassignment.",
+            user=self.admin
+        )
+        self.assertEqual(clearance.withdrawal_type, custom_type)
+        self.assertEqual(clearance.withdrawal_type_display, "Interstate Relocation & Military Service")
+
+        # 4. HTTP Management View
+        resp = self.client.get(reverse('students:withdrawal_types_list'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"Interstate Relocation", resp.content)
+
+        # 5. POST to create new type via form
+        post_resp = self.client.post(reverse('students:withdrawal_types_list'), {
+            'name': 'Overseas Emigration',
+            'code': 'EMIGRATE',
+            'description': 'Family moving abroad permanently',
+            'required_clearance_steps': 'library, finance, academic, property',
+            'required_documents': 'Passport Copy, Embassy Visa'
+        })
+        self.assertEqual(post_resp.status_code, 302)
+        created_emigrate = WithdrawalType.objects.filter(school=self.school, code='EMIGRATE').first()
+        self.assertIsNotNone(created_emigrate)
+        self.assertIn('Passport Copy', created_emigrate.required_documents)
+
+    # ========================================================
+    # 6. Subject Academic Load & Prerequisites (Requirement 5)
+    # ========================================================
+
+    def test_subject_academic_hours_and_prerequisites(self):
+        """Verifies Subject stores credit hours, contact hours, theory, practical, and prerequisites."""
+        math_basic = Subject.objects.create(
+            school=self.school,
+            grade=self.grade,
+            stream=self.stream,
+            code="MATH-10",
+            name="Mathematics 10",
+            credit_hours=Decimal('4.0'),
+            contact_hours=5,
+            theory_hours=4,
+            practical_hours=1
+        )
+
+        physics_advanced = Subject.objects.create(
+            school=self.school,
+            grade=self.grade,
+            stream=self.stream,
+            code="PHYS-10",
+            name="Physics 10",
+            credit_hours=Decimal('3.5'),
+            contact_hours=4,
+            theory_hours=3,
+            practical_hours=1
+        )
+        physics_advanced.prerequisites.add(math_basic)
+
+        self.assertEqual(physics_advanced.credit_hours, Decimal('3.5'))
+        self.assertEqual(physics_advanced.contact_hours, 4)
+        self.assertEqual(physics_advanced.theory_hours, 3)
+        self.assertEqual(physics_advanced.practical_hours, 1)
+        self.assertEqual(physics_advanced.prerequisites.count(), 1)
+        self.assertIn(math_basic, physics_advanced.prerequisites.all())
+
+    # ========================================================
+    # 7. Non-Teaching Staff Attendance Statuses (Requirement 4)
+    # ========================================================
+
+    def test_staff_attendance_extended_statuses(self):
+        """Verifies Staff Attendance supports Early Departure, Half Day, and Other."""
+        d1 = datetime.date(2025, 10, 1)
+        d2 = datetime.date(2025, 10, 2)
+        d3 = datetime.date(2025, 10, 3)
+
+        rec1 = StaffAttendanceRecord.objects.create(
+            school=self.school,
+            staff_user=self.accountant,
+            date=d1,
+            status=StaffAttendanceStatus.EARLY_DEPARTURE,
+            remarks="Left at 2:00 PM for bank reconciliation."
+        )
+        rec2 = StaffAttendanceRecord.objects.create(
+            school=self.school,
+            staff_user=self.accountant,
+            date=d2,
+            status=StaffAttendanceStatus.HALF_DAY,
+            remarks="Half-day morning session."
+        )
+        rec3 = StaffAttendanceRecord.objects.create(
+            school=self.school,
+            staff_user=self.librarian,
+            date=d3,
+            status=StaffAttendanceStatus.OTHER,
+            remarks="Attending MOE regional training workshop."
+        )
+
+        self.assertEqual(rec1.status, StaffAttendanceStatus.EARLY_DEPARTURE)
+        self.assertEqual(rec2.status, StaffAttendanceStatus.HALF_DAY)
+        self.assertEqual(rec3.status, StaffAttendanceStatus.OTHER)
+
+    # ========================================================
+    # 8. Teacher Vacancies & Candidate Conversion (Requirement 9)
+    # ========================================================
+
+    def test_teacher_vacancy_and_candidate_conversion(self):
+        """Verifies teacher vacancies, candidate scoring, and 1-click conversion into active teacher profile."""
+        self.client.force_login(self.admin)
+
+        dept = Department.objects.create(school=self.school, name="Science Department", code="SCI")
+        subj = Subject.objects.create(school=self.school, grade=self.grade, stream=self.stream, code="CHEM-10", name="Chemistry")
+
+        # 1. Create Vacancy
+        vacancy = TeacherVacancy.objects.create(
+            school=self.school,
+            title="Chemistry Teacher (Grade 10)",
+            department=dept,
+            subject=subj,
+            required_qualification="B.Sc in Chemistry / B.Ed",
+            min_years_experience=3,
+            open_positions=1,
+            application_deadline=datetime.date(2026, 1, 15),
+            description="Teach grade 10 chemistry courses and laboratory experiments.",
+            created_by=self.admin
+        )
+        self.assertEqual(vacancy.applications_count, 0)
+
+        # 2. Register Candidate Application
+        app = TeacherApplication.objects.create(
+            school=self.school,
+            vacancy=vacancy,
+            first_name="Hana",
+            last_name="Girma",
+            email="hana.girma@example.com",
+            phone="+251911998877",
+            highest_qualification="M.Sc in Applied Chemistry",
+            years_of_experience=4,
+            status=CandidateApplicationStatus.SUBMITTED
+        )
+        self.assertEqual(vacancy.applications_count, 1)
+
+        # 3. Update evaluation / test & interview scores
+        update_url = reverse('teachers:update_application_status', kwargs={'application_id': app.id})
+        resp_eval = self.client.post(update_url, {
+            'status': CandidateApplicationStatus.OFFERED,
+            'test_date': '2025-11-10',
+            'test_score': '92.5',
+            'interview_date': '2025-11-12',
+            'interview_score': '95.0',
+            'interviewer_notes': 'Demonstrated outstanding pedagogical clarity.'
+        })
+        self.assertEqual(resp_eval.status_code, 302)
+
+        app.refresh_from_db()
+        self.assertEqual(app.status, CandidateApplicationStatus.OFFERED)
+        self.assertEqual(float(app.test_score), 92.5)
+        self.assertEqual(float(app.interview_score), 95.0)
+
+        # 4. 1-Click Conversion: Appoint and convert to active Teacher
+        convert_url = reverse('teachers:convert_candidate', kwargs={'application_id': app.id})
+        resp_conv = self.client.post(convert_url)
+        self.assertEqual(resp_conv.status_code, 302)
+
+        app.refresh_from_db()
+        self.assertEqual(app.status, CandidateApplicationStatus.ACCEPTED)
+        self.assertIsNotNone(app.converted_teacher)
+
+        teacher_profile = app.converted_teacher
+        self.assertEqual(teacher_profile.user.first_name, "Hana")
+        self.assertEqual(teacher_profile.user.last_name, "Girma")
+        self.assertEqual(teacher_profile.user.role, UserRole.TEACHER)
+        self.assertEqual(teacher_profile.onboarding_status, "ACTIVE")
+        self.assertTrue(teacher_profile.employee_id.startswith("SEA-TCH-"))
+
+        # 5. Verify HTTP Views
+        resp_vac_list = self.client.get(reverse('teachers:vacancies_list'))
+        self.assertEqual(resp_vac_list.status_code, 200)
+        self.assertIn(b"Chemistry Teacher", resp_vac_list.content)
+
+        resp_vac_detail = self.client.get(reverse('teachers:vacancy_detail', kwargs={'vacancy_id': vacancy.id}))
+        self.assertEqual(resp_vac_detail.status_code, 200)
+        self.assertIn(b"Hana Girma", resp_vac_detail.content)
+

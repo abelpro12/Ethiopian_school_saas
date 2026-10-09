@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurable Withdrawal Types | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mb-12">
+    <!-- Header -->
+    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <a href="{% url 'students:clearance_dashboard' %}" class="text-xs font-semibold text-slate-500 hover:text-slate-800 transition inline-flex items-center gap-1.5 mb-2">
+                <i class="fa-solid fa-arrow-left"></i> Back to Clearance Hub
+            </a>
+            <h1 class="font-heading text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-brand-600"></i> Configurable Withdrawal Categories
+            </h1>
+            <p class="text-sm text-slate-500">
+                Define and customize student withdrawal reasons, required departmental clearance steps, and required documentation.
+            </p>
+        </div>
+        <div>
+            <button onclick="document.getElementById('createTypeModal').classList.remove('hidden')" class="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition shadow-sm inline-flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i>
+                <span>Add Withdrawal Type</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert / Context notice -->
+    <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-4 mb-6 text-xs text-indigo-900 flex items-start gap-3">
+        <i class="fa-solid fa-circle-info text-indigo-600 text-base mt-0.5"></i>
+        <div>
+            <span class="font-bold">Flexible Administrative Policy:</span>
+            Withdrawal categories configured here dynamically populate the clearance initiation workflow. You can customize the required sign-off steps (Library, Finance, Academic, Property Store) and documentation requirements to match your school's official departure bylaws.
+        </div>
+    </div>
+
+    <!-- Types Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider">Active Withdrawal Policies ({{ withdrawal_types.count }})</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-50/80 border-b border-slate-200/80 text-slate-500 uppercase tracking-wider font-semibold">
+                        <th class="p-3.5">Category Name</th>
+                        <th class="p-3.5">Code</th>
+                        <th class="p-3.5">Required Clearance Steps</th>
+                        <th class="p-3.5">Required Documents</th>
+                        <th class="p-3.5">Approval Flow</th>
+                        <th class="p-3.5 text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for wt in withdrawal_types %}
+                    <tr class="hover:bg-slate-50/60 transition">
+                        <td class="p-3.5 font-bold text-slate-900">
+                            {{ wt.name }}
+                            {% if wt.description %}
+                            <p class="text-[11px] font-normal text-slate-500 mt-0.5">{{ wt.description }}</p>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 font-mono text-slate-600 font-semibold">
+                            <span class="px-2 py-0.5 bg-slate-100 rounded text-[11px]">{{ wt.code|default:"--" }}</span>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="flex flex-wrap gap-1">
+                                {% for step in wt.required_clearance_steps %}
+                                <span class="px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-200/60 rounded-full font-medium text-[10px] capitalize">
+                                    {{ step }}
+                                </span>
+                                {% empty %}
+                                <span class="text-slate-400">All standard</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="p-3.5">
+                            <div class="flex flex-wrap gap-1">
+                                {% for doc in wt.required_documents %}
+                                <span class="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/60 rounded-full font-medium text-[10px]">
+                                    <i class="fa-solid fa-file-lines text-[9px]"></i> {{ doc }}
+                                </span>
+                                {% empty %}
+                                <span class="text-slate-400 text-[11px]">None mandatory</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="p-3.5">
+                            {% if wt.requires_principal_approval %}
+                            <span class="inline-flex items-center gap-1 text-emerald-700 font-medium">
+                                <i class="fa-solid fa-stamp text-xs"></i> Principal Sign-off
+                            </span>
+                            {% else %}
+                            <span class="text-slate-500">Auto clearance</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3.5 text-right">
+                            {% if wt.is_active %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                                Inactive
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-slate-400">
+                            No custom withdrawal categories found. Click "Add Withdrawal Type" to configure one.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Create Withdrawal Type -->
+<div id="createTypeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-plus text-brand-600"></i> New Withdrawal Category
+            </h3>
+            <button onclick="document.getElementById('createTypeModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+        </div>
+
+        <form method="post" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Category Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="name" required placeholder="e.g. Relocation / Interstate Move" class="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white text-xs focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Category Code</label>
+                <input type="text" name="code" placeholder="e.g. RELOC" class="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white text-xs uppercase focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Description</label>
+                <textarea name="description" rows="2" placeholder="Brief rationale and school departure policy details..." class="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white text-xs focus:outline-none focus:border-brand-500"></textarea>
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Required Clearance Steps (Comma separated)</label>
+                <input type="text" name="required_clearance_steps" value="library, finance, academic, property" placeholder="library, finance, academic, property" class="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white text-xs focus:outline-none focus:border-brand-500">
+                <p class="text-[10px] text-slate-400 mt-1">Departments that must sign off before final approval.</p>
+            </div>
+
+            <div>
+                <label class="block font-bold uppercase tracking-wider text-slate-700 mb-1">Required Documents (Comma separated)</label>
+                <input type="text" name="required_documents" placeholder="e.g. Parent ID Copy, Transfer Application Letter" class="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white text-xs focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button type="button" onclick="document.getElementById('createTypeModal').classList.add('hidden')" class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-sm">
+                    Save Category
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -15,6 +15,7 @@ urlpatterns = [
     path('lifecycle/', views.lifecycle_dashboard, name='lifecycle'),
     path('at-risk/', views.at_risk_students, name='at_risk'),
     path('clearance/', views_clearance.clearance_dashboard_view, name='clearance_dashboard'),
+    path('clearance/types/', views_clearance.withdrawal_types_list_view, name='withdrawal_types_list'),
     path('clearance/initiate/', views_clearance.clearance_initiate_view, name='clearance_initiate'),
     path('clearance/<int:clearance_id>/', views_clearance.clearance_detail_view, name='clearance_detail'),
     path('clearance/<int:clearance_id>/sign/', views_clearance.clearance_sign_department_view, name='clearance_sign'),

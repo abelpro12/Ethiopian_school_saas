@@ -108,8 +108,11 @@ class StaffAttendanceStatus(models.TextChoices):
     PRESENT = 'PRESENT', 'Present'
     ABSENT = 'ABSENT', 'Absent'
     LATE = 'LATE', 'Late'
+    EARLY_DEPARTURE = 'EARLY_DEPARTURE', 'Early Departure'
+    EXCUSED = 'EXCUSED', 'Excused Absence'
     LEAVE = 'LEAVE', 'On Leave'
-    EXCUSED = 'EXCUSED', 'Excused'
+    HALF_DAY = 'HALF_DAY', 'Half Day'
+    OTHER = 'OTHER', 'Other'
 
 
 class StaffAttendanceRecord(TenantAwareModel):

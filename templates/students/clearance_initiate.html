@@ -79,10 +79,19 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">Withdrawal Reason <span class="text-rose-500">*</span></label>
-                    <select name="withdrawal_reason" required class="w-full text-sm rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">
-                        {% for code, label in withdrawal_reasons %}
-                            <option value="{{ code }}" {% if code == 'TRANSFER' %}selected{% endif %}>{{ label }}</option>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Withdrawal Category <span class="text-rose-500">*</span></label>
+                        <a href="{% url 'students:withdrawal_types_list' %}" class="text-[11px] font-semibold text-brand-600 hover:text-brand-800 transition">
+                            <i class="fa-solid fa-gear"></i> Manage Types
+                        </a>
+                    </div>
+                    <select name="withdrawal_type_id" required class="w-full text-sm rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:border-brand-500 transition">
+                        {% for wt in withdrawal_types %}
+                            <option value="{{ wt.id }}">{{ wt.name }}</option>
+                        {% empty %}
+                            {% for code, label in withdrawal_reasons %}
+                                <option value="" data-reason="{{ code }}">{{ label }}</option>
+                            {% endfor %}
                         {% endfor %}
                     </select>
                 </div>

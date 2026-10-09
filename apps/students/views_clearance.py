@@ -6,7 +6,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q, Count
 from django.http import HttpResponse
 
-from apps.students.models import StudentClearance, StudentProfile, ClearanceStatus, WithdrawalReason
+from apps.students.models import StudentClearance, StudentProfile, ClearanceStatus, WithdrawalReason, WithdrawalType
+from apps.accounts.models import UserRole
 from apps.enrollment.models import StudentEnrollment
 from apps.students.clearance_service import ClearanceService
 from apps.platform_management.decorators import school_context_required
@@ -76,6 +77,7 @@ def clearance_initiate_view(request):
 
     if request.method == 'POST':
         student_id = request.POST.get('student_id')
+        withdrawal_type_id = request.POST.get('withdrawal_type_id')
         withdrawal_reason = request.POST.get('withdrawal_reason', WithdrawalReason.TRANSFER)
         reason_details = request.POST.get('reason_details', '')
         destination_school = request.POST.get('destination_school', '')
@@ -89,6 +91,10 @@ def clearance_initiate_view(request):
             except ValueError:
                 pass
 
+        withdrawal_type = None
+        if withdrawal_type_id:
+            withdrawal_type = WithdrawalType.objects.filter(school=school, id=withdrawal_type_id).first()
+
         try:
             clearance = ClearanceService.initiate_clearance(
                 school=school,
@@ -97,7 +103,8 @@ def clearance_initiate_view(request):
                 reason_details=reason_details,
                 destination_school=destination_school,
                 effective_date=effective_date,
-                user=request.user
+                user=request.user,
+                withdrawal_type=withdrawal_type
             )
             messages.success(request, f"Clearance workflow initiated successfully for {student.full_name} ({clearance.clearance_number}).")
             return redirect('students:clearance_detail', clearance_id=clearance.id)
@@ -108,11 +115,16 @@ def clearance_initiate_view(request):
 
     # Active students available for clearance
     students = StudentProfile.objects.filter(school=school, status='ACTIVE').order_by('first_name', 'last_name')[:300]
+    withdrawal_types = WithdrawalType.objects.filter(school=school, is_active=True).order_by('name')
+    if not withdrawal_types.exists():
+        WithdrawalType.get_or_create_defaults(school)
+        withdrawal_types = WithdrawalType.objects.filter(school=school, is_active=True).order_by('name')
 
     context = {
         'students': students,
         'preselected_student': preselected_student,
         'operational_summary': operational_summary,
+        'withdrawal_types': withdrawal_types,
         'withdrawal_reasons': WithdrawalReason.choices,
         'today': datetime.date.today().isoformat(),
     }
@@ -247,3 +259,61 @@ def clearance_certificate_view(request, clearance_id):
         'printed_at': datetime.datetime.now(),
     }
     return render(request, 'students/clearance_certificate.html', context)
+
+
+@login_required
+@school_context_required
+def withdrawal_types_list_view(request):
+    """
+    Admin management view for customizable withdrawal categories (Requirement 3).
+    Allows Miss Helen / School Admins to configure withdrawal types, required documents,
+    and required clearance steps.
+    """
+    school = get_school_context(request)
+    if request.user.role not in [UserRole.SUPER_ADMIN, UserRole.SCHOOL_ADMIN, UserRole.PRINCIPAL, UserRole.REGISTRAR]:
+        messages.error(request, "Permission denied.")
+        return redirect('students:clearance_dashboard')
+
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        code = request.POST.get('code', '').strip().upper()
+        description = request.POST.get('description', '').strip()
+        steps_raw = request.POST.get('required_clearance_steps', 'library,finance,academic,property')
+        docs_raw = request.POST.get('required_documents', '')
+        req_steps = [s.strip() for s in steps_raw.split(',') if s.strip()]
+        req_docs = [d.strip() for d in docs_raw.split(',') if d.strip()]
+
+        if not name:
+            messages.error(request, "Withdrawal type name is required.")
+        else:
+            wtype, created = WithdrawalType.objects.get_or_create(
+                school=school,
+                name=name,
+                defaults={
+                    'code': code or name[:10].upper(),
+                    'description': description,
+                    'required_clearance_steps': req_steps,
+                    'required_documents': req_docs,
+                    'is_active': True,
+                }
+            )
+            if not created:
+                wtype.code = code or wtype.code
+                wtype.description = description
+                wtype.required_clearance_steps = req_steps
+                wtype.required_documents = req_docs
+                wtype.is_active = True
+                wtype.save()
+            messages.success(request, f"Withdrawal category '{name}' saved successfully.")
+        return redirect('students:withdrawal_types_list')
+
+    types = WithdrawalType.objects.filter(school=school).order_by('name')
+    if not types.exists():
+        WithdrawalType.get_or_create_defaults(school)
+        types = WithdrawalType.objects.filter(school=school).order_by('name')
+
+    context = {
+        'withdrawal_types': types,
+    }
+    return render(request, 'students/withdrawal_types_list.html', context)
+
