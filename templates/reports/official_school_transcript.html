@@ -603,9 +603,12 @@
                 <i class="fa-solid fa-camera"></i> Edit Officials &amp; Photo
             </button>
             <button class="toolbar-btn" onclick="window.print()">
-                <i class="fa-solid fa-print"></i> Print Transcript / Save as PDF
+                <i class="fa-solid fa-print"></i> Print Transcript
             </button>
             {% if student.id %}
+            <a href="{% url 'download_transcript_pdf' student.id %}" class="toolbar-btn" style="background:#16a34a;">
+                <i class="fa-solid fa-file-pdf"></i> Download Official PDF
+            </a>
             <a href="{% url 'students:admin_profile' student.id %}" class="toolbar-btn secondary">
                 <i class="fa-solid fa-arrow-left"></i> Student Profile
             </a>

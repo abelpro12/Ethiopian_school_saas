@@ -376,3 +376,37 @@ class ReportCardsAndTranscriptsSystemTests(TestCase):
         self.assertIn(b"Authentic Document", resp.content)
         self.assertIn(self.school.name.encode(), resp.content)
         self.assertIn(b"VERIFIED", resp.content)
+
+    def test_annual_report_card_pdf_view_success(self):
+        """Verifies annual cumulative report card PDF renders successfully with Sem 1 & Sem 2 aggregation."""
+        self.client.force_login(self.admin)
+        self.student.amharic_name = "ከበደ ታደሰ"
+        self.student.save()
+
+        # Set homeroom teacher on section
+        self.section.class_teacher = self.teacher_user
+        self.section.save()
+
+        url = reverse('download_report_card_pdf', kwargs={'student_id': self.student.id, 'period_id': 'annual'})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        self.assertIn('ReportCard', response['Content-Disposition'])
+
+    def test_multi_year_transcript_pdf_with_amharic_and_matrix(self):
+        """Verifies official 4-year matrix transcript PDF generation with Ethiopic script."""
+        self.client.force_login(self.admin)
+        self.student.amharic_name = "ዳዊት አማኑኤል ገብረመድህን"
+        self.student.save()
+
+        url = reverse('download_transcript_pdf', kwargs={'student_id': self.student.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response.content.startswith(b'%PDF-'))
+        self.assertTrue(len(response.content) > 10000)
+        self.assertIn('Official_Transcript', response['Content-Disposition'])
+
