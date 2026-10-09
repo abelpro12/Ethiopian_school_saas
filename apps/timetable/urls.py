@@ -12,4 +12,5 @@ urlpatterns = [
     path('api/toggle-lock/', views.toggle_slot_lock_api, name='toggle_slot_lock'),
     path('auto-generate/', views.auto_generate_timetable_view, name='auto_generate'),
     path('export/', views.export_timetable_view, name='export'),
+    path('api/seed-sample/', views.seed_seattle_timetable_api, name='seed_sample'),
 ]

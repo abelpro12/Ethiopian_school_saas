@@ -411,3 +411,50 @@ class WorkloadAndTimetableGeneratorTests(TestCase):
         self.assertEqual(resp_csv.status_code, 200)
         self.assertEqual(resp_csv['Content-Type'], 'text/csv')
         self.assertIn("Mathematics", resp_csv.content.decode())
+
+    def test_master_weekly_timetable_view_and_export(self):
+        """Test master school-wide weekly timetable matrix matching Seattle Academy format."""
+        self.client.force_login(self.admin)
+
+        TimetableSlot.objects.create(
+            school=self.school,
+            academic_year=self.ay,
+            section=self.section,
+            subject=self.sub_math,
+            teacher=self.teacher1,
+            day_of_week=DayOfWeek.MONDAY.value,
+            period_slot=self.p1,
+            room="Rm-101"
+        )
+
+        # 1. Master Matrix View in Manage Hub
+        url_master = reverse('timetable:manage') + "?view_mode=master"
+        resp_master = self.client.get(url_master)
+        self.assertEqual(resp_master.status_code, 200)
+        self.assertContains(resp_master, "WEEKLY TIME TABLE")
+        self.assertContains(resp_master, "Monday")
+        self.assertContains(resp_master, "Period")
+        self.assertIn('master_day_blocks', resp_master.context)
+        self.assertIn('grade_groups', resp_master.context)
+
+        # 2. Master Poster Print / PDF View
+        url_master_print = reverse('timetable:export') + "?view_mode=master&format=print"
+        resp_master_print = self.client.get(url_master_print)
+        self.assertEqual(resp_master_print.status_code, 200)
+        self.assertContains(resp_master_print, "master-banner")
+        self.assertContains(resp_master_print, "WEEKLY TIME TABLE")
+        self.assertContains(resp_master_print, "master-table")
+
+        # 3. Master CSV Export
+        url_master_csv = reverse('timetable:export') + "?view_mode=master&format=csv"
+        resp_master_csv = self.client.get(url_master_csv)
+        self.assertEqual(resp_master_csv.status_code, 200)
+        self.assertEqual(resp_master_csv['Content-Type'], 'text/csv')
+        self.assertIn("Period", resp_master_csv.content.decode())
+
+        # 4. Seed Seattle Sample API
+        url_seed = reverse('timetable:seed_sample')
+        resp_seed = self.client.post(url_seed)
+        self.assertEqual(resp_seed.status_code, 200)
+        self.assertTrue(resp_seed.json()['success'])
+

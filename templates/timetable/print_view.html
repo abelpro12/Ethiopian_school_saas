@@ -2,142 +2,192 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Timetable Schedule | {{ school.name }}</title>
+  <title>{{ school.name }} Weekly Time Table</title>
   <style>
     @page {
       size: A4 landscape;
-      margin: 12mm;
+      margin: 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      color: #1e293b;
+      color: #000000;
       background: #ffffff;
       margin: 0;
-      padding: 20px;
+      padding: 12px;
     }
-    .header {
+    .no-print-bar {
+      margin-bottom: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #334155;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
-    }
-    .school-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #0f172a;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .sub-title {
-      font-size: 13px;
-      color: #475569;
-      font-weight: 600;
-      margin-top: 3px;
-    }
-    .meta-box {
-      text-align: right;
-      font-size: 12px;
-      color: #64748b;
-    }
-    .meta-box strong {
-      color: #0f172a;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-    th, td {
-      border: 1px solid #cbd5e1;
-      padding: 8px;
-      text-align: center;
-      vertical-align: top;
-    }
-    th {
-      background-color: #f1f5f9;
-      color: #334155;
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    th.time-col {
-      width: 14%;
-      text-align: left;
-    }
-    .slot-card {
-      background-color: #f8fafc;
-      border-left: 3px solid #3b82f6;
-      border-radius: 4px;
-      padding: 6px;
-      text-align: left;
-      min-height: 48px;
-    }
-    .slot-card.core {
-      border-left-color: #f59e0b;
-      background-color: #fffbeb;
-    }
-    .subject-name {
-      font-size: 12px;
-      font-weight: 800;
-      color: #0f172a;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .teacher-name {
-      font-size: 10px;
-      color: #475569;
-      margin-top: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .room-name {
-      font-size: 9px;
-      color: #64748b;
-      font-family: monospace;
-      margin-top: 2px;
-    }
-    .empty-slot {
-      color: #cbd5e1;
-      font-size: 12px;
-      line-height: 48px;
-    }
-    .footer {
-      margin-top: 24px;
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: #94a3b8;
-      border-top: 1px solid #e2e8f0;
-      padding-top: 8px;
-    }
-    .no-print-bar {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 10px;
+      background: #f8fafc;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
     }
     .btn {
-      padding: 8px 16px;
+      padding: 6px 14px;
       background: #0f172a;
       color: white;
       border: none;
       border-radius: 6px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
     }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #334155;
+    }
+
+    /* MASTER POSTER LAYOUT (Matching official Seattle Academy Weekly Time Table) */
+    .banner-container {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .master-banner {
+      display: inline-block;
+      background-color: #2dd4bf !important;
+      color: #000000 !important;
+      font-size: 15px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 5px 24px;
+      border-radius: 6px;
+      border: 1.5px solid #0d9488;
+    }
+
+    table.master-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 2px solid #000000;
+      table-layout: fixed;
+    }
+    table.master-table th, 
+    table.master-table td {
+      border: 1px solid #000000;
+      padding: 3px 2px;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .day-col {
+      background-color: #f1f5f9 !important;
+      font-weight: 900;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      width: 28px;
+      writing-mode: vertical-lr;
+      transform: rotate(180deg);
+      border-right: 2px solid #000000 !important;
+    }
+    .period-hdr {
+      background-color: #fce7f3 !important;
+      font-weight: 900;
+      font-size: 10px;
+      width: 44px;
+    }
+    .period-cell {
+      background-color: #f8fafc !important;
+      font-weight: 900;
+      font-size: 11px;
+      width: 44px;
+    }
+
+    .cell-libry {
+      background-color: #fef08a !important;
+      font-weight: 900 !important;
+      color: #000000 !important;
+      border: 1px solid #ca8a04;
+    }
+    .cell-highlight {
+      background-color: #d946ef !important;
+      color: #ffffff !important;
+      font-weight: 900 !important;
+    }
+    .subj-code {
+      font-weight: 800;
+      font-size: 10px;
+      color: #000000;
+    }
+
+    /* SINGLE VIEW STYLING */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #334155;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+    .school-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      text-transform: uppercase;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: #475569;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .single-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .single-table th, .single-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px;
+      text-align: center;
+      vertical-align: top;
+    }
+    .single-table th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .slot-card {
+      background-color: #f8fafc;
+      border-left: 3px solid #3b82f6;
+      border-radius: 4px;
+      padding: 5px;
+      text-align: left;
+    }
+    .slot-card.core {
+      border-left-color: #f59e0b;
+      background-color: #fffbeb;
+    }
+
+    .footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #64748b;
+    }
+
     @media print {
       .no-print-bar {
         display: none !important;
       }
       body {
         padding: 0;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+      }
+      table.master-table {
+        page-break-inside: avoid;
       }
     }
   </style>
@@ -145,74 +195,145 @@
 <body>
 
   <div class="no-print-bar">
-    <button onclick="window.print()" class="btn">🖨️ Print / Save as PDF</button>
-    <button onclick="window.close()" class="btn" style="background: #e2e8f0; color: #334155;">Close Window</button>
+    <div style="font-size: 12px; font-weight: 700; color: #334155;">
+      {{ school.name }} — {% if view_mode == 'master' %}School-Wide Weekly Master Timetable Poster{% else %}Class Schedule{% endif %}
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button onclick="window.print()" class="btn">🖨️ Print / Save as PDF</button>
+      <button onclick="window.close()" class="btn btn-secondary">Close Window</button>
+    </div>
   </div>
 
-  <div class="header">
-    <div>
-      <div class="school-title">{{ school.name }}</div>
-      <div class="sub-title">
-        {% if selected_section %}
-          Official Weekly Class Timetable: <strong>{{ selected_section.grade.name }} - {{ selected_section.name }}</strong> ({{ selected_section.stream.name }})
-        {% elif selected_teacher %}
-          Official Faculty Weekly Schedule: <strong>{{ selected_teacher.user.get_full_name|default:selected_teacher.user.username }}</strong> ({{ selected_teacher.employee_id }})
-        {% else %}
-          School Master Timetable
-        {% endif %}
+  {% if view_mode == 'master' %}
+    <!-- ========================================== -->
+    <!-- MASTER WEEKLY POSTER (Seattle Academy Official Format) -->
+    <!-- ========================================== -->
+    <div class="banner-container">
+      <div class="master-banner">
+        {{ school.name|default:"SEATTLE ACADEMY" }} WEEKLY TIME TABLE, {{ ay_display|default:"2026/27 (2019 E.C)" }}
       </div>
     </div>
-    <div class="meta-box">
-      <div>Academic Year: <strong>{{ current_ay.name|default:"Active Term" }}</strong></div>
-      <div>Homeroom: <strong>{{ selected_section.class_teacher.get_full_name|default:"N/A" }}</strong></div>
-      <div>System Verified: <strong>Conflict-Free</strong></div>
-    </div>
-  </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th class="time-col">Period / Time</th>
-        {% for day in days %}
-        <th>{{ day.label }}</th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in grid_rows %}
-      <tr>
-        <td style="text-align: left;">
-          <div style="font-weight: 800; font-size: 11px; color: #0f172a;">{{ row.period.name }}</div>
-          <div style="font-size: 10px; color: #64748b; font-family: monospace;">{{ row.period.start_time|time:"H:i" }} – {{ row.period.end_time|time:"H:i" }}</div>
-        </td>
-        {% for cell in row.cells %}
-        <td>
-          {% if cell.slot %}
-          <div class="slot-card {% if cell.slot.subject.is_core %}core{% endif %}">
-            <div class="subject-name">{{ cell.slot.subject.name }}</div>
-            {% if selected_section %}
-            <div class="teacher-name">{{ cell.slot.teacher.user.get_full_name|default:cell.slot.teacher.user.username }}</div>
-            {% elif selected_teacher %}
-            <div class="teacher-name">{{ cell.slot.section.grade.name }} - {{ cell.slot.section.name }}</div>
+    <table class="master-table">
+      {% for block in master_day_blocks %}
+      <tbody>
+        <!-- Sub-Header Row with Section Columns -->
+        <tr>
+          <!-- Vertically Spanning Day Header -->
+          <td rowspan="8" class="day-col">
+            {{ block.day_label }}
+          </td>
+          <!-- Period Header -->
+          <th class="period-hdr">Period</th>
+          <!-- Class Section Headers with Grade Colors -->
+          {% for sec in filtered_sections %}
+          <th style="background-color: {{ sec.palette.header_bg }} !important; color: {{ sec.palette.header_text }}; font-weight: 900; font-size: 10px;">
+            {{ sec.short_code }}
+          </th>
+          {% endfor %}
+        </tr>
+
+        <!-- 7 Period Rows -->
+        {% for prow in block.period_rows %}
+        <tr>
+          <!-- Period Number -->
+          <td class="period-cell">
+            {{ prow.period_num }}
+          </td>
+
+          <!-- Subject Cells -->
+          {% for cell in prow.cells %}
+          <td style="background-color: {{ cell.cell_bg }} !important;">
+            {% if cell.is_library %}
+              <div class="cell-libry">{{ cell.code }}</div>
+            {% elif cell.is_highlighted %}
+              <div class="cell-highlight">{{ cell.code }}</div>
+            {% elif cell.code %}
+              <div class="subj-code">{{ cell.code }}</div>
+            {% else %}
+              <span style="color: #94a3b8;">—</span>
             {% endif %}
-            {% if cell.slot.room %}
-            <div class="room-name">Room: {{ cell.slot.room }}</div>
-            {% endif %}
-          </div>
-          {% else %}
-          <div class="empty-slot">—</div>
-          {% endif %}
-        </td>
+          </td>
+          {% endfor %}
+        </tr>
         {% endfor %}
-      </tr>
+      </tbody>
       {% endfor %}
-    </tbody>
-  </table>
+    </table>
 
-  <div class="footer">
-    <div>Generated by EthioSchool SaaS Enterprise Platform</div>
-    <div>Date Printed: {% now "F j, Y, g:i a" %}</div>
-  </div>
+    <div class="footer">
+      <div>Official Seattle Academy Academic Schedule • Standard 7-Period Ethiopian Secondary Curriculum</div>
+      <div>Verified Conflict-Free • Printed: {% now "F j, Y" %}</div>
+    </div>
+
+  {% else %}
+    <!-- ========================================== -->
+    <!-- INDIVIDUAL SECTION / FACULTY SCHEDULE -->
+    <!-- ========================================== -->
+    <div class="header">
+      <div>
+        <div class="school-title">{{ school.name }}</div>
+        <div class="sub-title">
+          {% if selected_section %}
+            Official Weekly Class Timetable: <strong>{{ selected_section.grade.name }} - {{ selected_section.name }}</strong> ({{ selected_section.stream.name }})
+          {% elif selected_teacher %}
+            Official Faculty Weekly Schedule: <strong>{{ selected_teacher.user.get_full_name|default:selected_teacher.user.username }}</strong> ({{ selected_teacher.employee_id }})
+          {% else %}
+            School Master Timetable
+          {% endif %}
+        </div>
+      </div>
+      <div style="text-align: right; font-size: 11px; color: #64748b;">
+        <div>Academic Year: <strong>{{ current_ay.name|default:"Active Term" }}</strong></div>
+        <div>System Verified: <strong>Conflict-Free</strong></div>
+      </div>
+    </div>
+
+    <table class="single-table">
+      <thead>
+        <tr>
+          <th style="width: 14%; text-align: left;">Period / Time</th>
+          {% for day in days %}
+          <th>{{ day.label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in grid_rows %}
+        <tr>
+          <td style="text-align: left;">
+            <div style="font-weight: 800; font-size: 11px; color: #0f172a;">{{ row.period.name }}</div>
+            <div style="font-size: 10px; color: #64748b; font-family: monospace;">{{ row.period.start_time|time:"H:i" }} – {{ row.period.end_time|time:"H:i" }}</div>
+          </td>
+          {% for cell in row.cells %}
+          <td>
+            {% if cell.slot %}
+            <div class="slot-card {% if cell.slot.subject.is_core %}core{% endif %}">
+              <div style="font-size: 12px; font-weight: 800; color: #0f172a;">{{ cell.slot.subject.name }} ({{ cell.slot.subject.code }})</div>
+              {% if selected_section %}
+              <div style="font-size: 10px; color: #475569; margin-top: 2px;">{{ cell.slot.teacher.user.get_full_name|default:cell.slot.teacher.user.username }}</div>
+              {% elif selected_teacher %}
+              <div style="font-size: 10px; color: #475569; margin-top: 2px;">{{ cell.slot.section.grade.name }} - {{ cell.slot.section.name }}</div>
+              {% endif %}
+              {% if cell.slot.room %}
+              <div style="font-size: 9px; color: #64748b; font-family: monospace; margin-top: 2px;">Room: {{ cell.slot.room }}</div>
+              {% endif %}
+            </div>
+            {% else %}
+            <div style="color: #cbd5e1; font-size: 12px; line-height: 40px;">—</div>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div>Generated by EthioSchool SaaS Enterprise Platform</div>
+      <div>Date Printed: {% now "F j, Y, g:i a" %}</div>
+    </div>
+  {% endif %}
 
 </body>
 </html>

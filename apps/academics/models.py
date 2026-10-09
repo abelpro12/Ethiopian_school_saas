@@ -402,7 +402,10 @@ class TimetableSlot(TenantAwareModel):
                 teacher=self.teacher,
                 day_of_week=self.day_of_week,
                 period_slot=self.period_slot
-            ).exclude(pk=self.pk).exists()
+            )
+            if self.academic_year_id:
+                teacher_conflict = teacher_conflict.filter(academic_year_id=self.academic_year_id)
+            teacher_conflict = teacher_conflict.exclude(pk=self.pk).exists()
             
             if teacher_conflict:
                 raise ValidationError(f"Teacher {self.teacher} is already scheduled during {self.day_of_week} - {self.period_slot.name}.")
@@ -414,7 +417,10 @@ class TimetableSlot(TenantAwareModel):
                 room=self.room,
                 day_of_week=self.day_of_week,
                 period_slot=self.period_slot
-            ).exclude(pk=self.pk).exists()
+            )
+            if self.academic_year_id:
+                room_conflict = room_conflict.filter(academic_year_id=self.academic_year_id)
+            room_conflict = room_conflict.exclude(pk=self.pk).exists()
             
             if room_conflict:
                 raise ValidationError(f"Room {self.room} is already booked during {self.day_of_week} - {self.period_slot.name}.")
