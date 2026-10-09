@@ -178,6 +178,23 @@ def verify_deposit_slip(request, auth_id):
                 }
             )
 
+            from apps.audit.services import AuditService
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action='DEPOSIT_SLIP_APPROVE',
+                object_type='ManualPaymentAuthorization',
+                object_id=str(auth_record.id),
+                details={
+                    'bank_reference': auth_record.bank_reference,
+                    'bank_name': auth_record.bank_name,
+                    'amount_paid': str(payment.amount_paid),
+                    'invoice_number': invoice.invoice_number,
+                    'receipt_number': receipt_no,
+                },
+                ip_address=AuditService.get_client_ip(request)
+            )
+
             messages.success(
                 request,
                 f"Deposit slip {auth_record.bank_reference} APPROVED. "
@@ -196,6 +213,21 @@ def verify_deposit_slip(request, auth_id):
             payment.status = PaymentStatus.FAILED
             payment.notes = f"Rejected: {reason}"
             payment.save()
+
+            from apps.audit.services import AuditService
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action='DEPOSIT_SLIP_REJECT',
+                object_type='ManualPaymentAuthorization',
+                object_id=str(auth_record.id),
+                details={
+                    'bank_reference': auth_record.bank_reference,
+                    'rejection_reason': reason,
+                    'payment_id': str(payment.id),
+                },
+                ip_address=AuditService.get_client_ip(request)
+            )
 
             messages.warning(
                 request,

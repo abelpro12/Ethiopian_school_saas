@@ -153,6 +153,23 @@ def create_parent_meeting(request):
         if send_sms:
             sms_dispatched = dispatch_parent_meeting_sms(meeting)
 
+        from apps.audit.services import AuditService
+        AuditService.log_action(
+            school=school,
+            user=request.user,
+            action='PARENT_MEETING_SCHEDULE',
+            object_type='ParentMeetingRequest',
+            object_id=str(meeting.id),
+            details={
+                'student_name': student.full_name,
+                'category': category,
+                'meeting_date': str(meeting_date),
+                'meeting_time': str(meeting_time),
+                'sms_sent': sms_dispatched
+            },
+            ip_address=AuditService.get_client_ip(request)
+        )
+
         if sms_dispatched:
             messages.success(request, f"Meeting scheduled for {student.full_name} and SMS invitation dispatched to parent!")
         else:
@@ -178,6 +195,7 @@ def update_parent_meeting_status(request, meeting_id):
         new_time = request.POST.get('meeting_time')
 
         if new_status in dict(ParentMeetingStatus.choices):
+            old_status = meeting.status
             meeting.status = new_status
             if outcome_notes:
                 meeting.outcome_notes = outcome_notes
@@ -188,6 +206,18 @@ def update_parent_meeting_status(request, meeting_id):
                 if request.POST.get('resend_sms') == 'on':
                     dispatch_parent_meeting_sms(meeting)
             meeting.save()
+
+            from apps.audit.services import AuditService
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action='PARENT_MEETING_STATUS_UPDATE',
+                object_type='ParentMeetingRequest',
+                object_id=str(meeting.id),
+                before_val={'status': old_status},
+                after_val={'status': new_status, 'outcome_notes': outcome_notes},
+                ip_address=AuditService.get_client_ip(request)
+            )
             messages.success(request, f"Meeting status updated to {meeting.get_status_display()}.")
 
     return redirect('communication:parent_meetings')
@@ -234,6 +264,17 @@ def sms_templates_view(request):
         template.body_am = request.POST.get('body_am', '').strip()
         template.is_active = request.POST.get('is_active') == 'on'
         template.save()
+
+        from apps.audit.services import AuditService
+        AuditService.log_action(
+            school=school,
+            user=request.user,
+            action='SMS_TEMPLATE_UPDATE',
+            object_type='SMSTemplate',
+            object_id=str(template.id),
+            details={'template_type': template.template_type, 'name': template.name, 'is_active': template.is_active},
+            ip_address=AuditService.get_client_ip(request)
+        )
 
         messages.success(request, f"SMS template '{template.name}' updated successfully.")
         return redirect('communication:sms_templates')
@@ -299,6 +340,21 @@ def trigger_payment_reminders(request):
 
     results = PaymentReminderService.run_due_date_reminders(school)
     sent_count = results['reminders_dispatched']
+
+    from apps.audit.services import AuditService
+    AuditService.log_action(
+        school=school,
+        user=request.user,
+        action='PAYMENT_REMINDERS_RUN',
+        object_type='School',
+        object_id=str(school.id),
+        details={
+            'total_evaluated': results['total_invoices_evaluated'],
+            'reminders_dispatched': sent_count,
+            'by_stage': results['by_stage'],
+        },
+        ip_address=AuditService.get_client_ip(request)
+    )
 
     if sent_count > 0:
         stage_summary = ", ".join([f"{k}: {v}" for k, v in results['by_stage'].items() if v > 0])

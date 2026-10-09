@@ -65,6 +65,16 @@ def discounts_dashboard(request):
                     auto_apply=auto_apply,
                     description=description
                 )
+                from apps.audit.services import AuditService
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='DISCOUNT_POLICY_CREATE',
+                    object_type='DiscountPolicy',
+                    object_id=name,
+                    details={'name': name, 'category': category, 'type': disc_type, 'value': str(val)},
+                    ip_address=AuditService.get_client_ip(request)
+                )
                 messages.success(request, f"Discount policy '{name}' created successfully.")
             except Exception as e:
                 messages.error(request, f"Error creating discount policy: {str(e)}")
@@ -76,6 +86,16 @@ def discounts_dashboard(request):
             policy.is_active = not policy.is_active
             policy.save()
             status_str = "activated" if policy.is_active else "deactivated"
+            from apps.audit.services import AuditService
+            AuditService.log_action(
+                school=school,
+                user=request.user,
+                action='DISCOUNT_POLICY_TOGGLE',
+                object_type='DiscountPolicy',
+                object_id=str(policy.id),
+                details={'name': policy.name, 'is_active': policy.is_active},
+                ip_address=AuditService.get_client_ip(request)
+            )
             messages.success(request, f"Policy '{policy.name}' {status_str}.")
             return redirect('finance:discounts_dashboard')
 
@@ -107,6 +127,22 @@ def discounts_dashboard(request):
                 if inv:
                     DiscountService.apply_discount_to_invoice(inv, policy=policy, user=request.user)
 
+                from apps.audit.services import AuditService
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='STUDENT_DISCOUNT_ASSIGN',
+                    object_type='StudentDiscount',
+                    object_id=str(sd.id),
+                    details={
+                        'student_name': student.full_name,
+                        'student_id': student.student_id,
+                        'policy_name': policy.name,
+                        'academic_year': ay.name,
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+
                 messages.success(request, f"Assigned {policy.name} to {student.full_name}.")
             except Exception as e:
                 messages.error(request, f"Error assigning discount: {str(e)}")
@@ -115,6 +151,21 @@ def discounts_dashboard(request):
         elif action == 'batch_recalculate':
             if current_ay:
                 result = DiscountService.batch_apply_discounts(school=school, academic_year=current_ay)
+                from apps.audit.services import AuditService
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='DISCOUNT_BATCH_RECALCULATE',
+                    object_type='AcademicYear',
+                    object_id=str(current_ay.id),
+                    details={
+                        'academic_year': current_ay.name,
+                        'processed_count': result['processed_count'],
+                        'discounted_count': result['discounted_count'],
+                        'total_discount_awarded': str(result['total_discount_awarded']),
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
                 messages.success(
                     request,
                     f"Recalculated discounts for {result['processed_count']} invoices. "
