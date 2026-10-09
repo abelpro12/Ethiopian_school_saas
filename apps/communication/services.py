@@ -53,8 +53,8 @@ DEFAULT_SMS_TEMPLATES = {
     },
     SMSTemplateType.REPORT_CARD: {
         'name': 'Report Card Summary Alert',
-        'body_en': "Dear Parent, {student_name}'s {period_name} Report Card is ready! Average: {average}%, Total: {total_score}, Section Rank: {rank}, Conduct: {conduct}, Status: {status}. {school_name}.",
-        'body_am': "ክቡር ወላጅ፣ የተማሪ {student_name} የ{period_name} ሪፖርት ካርድ ተዘጋጅቷል:: አማካይ: {average}%፣ ድምር: {total_score}፣ ደረጃ: {rank}፣ ጠባይ: {conduct}፣ ውጤት: {status}:: {school_name}::",
+        'body_en': "Dear Parent, {student_name}'s {period_name} Report Card at {school_name}:\nSubjects: {subjects_summary}\nTotal: {total_score} | Average: {average}% | Rank: {rank} | Grade: {grade} | Conduct: {conduct} | Status: {status}. Thank you.",
+        'body_am': "ክቡር ወላጅ፣ የተማሪ {student_name} የ{period_name} የውጤት ካርድ በ{school_name}፡\nውጤቶች: {subjects_summary}\nድምር: {total_score} | አማካይ: {average}% | ደረጃ: {rank} | ውጤት: {grade} | ምግባር: {conduct} | ሁኔታ: {status}:: እናመሰግናለን::",
     },
 }
 
@@ -64,7 +64,7 @@ def ensure_default_sms_templates(school):
     Ensures the school tenant has default SMS templates initialized for all core types.
     """
     for template_type, config in DEFAULT_SMS_TEMPLATES.items():
-        SMSTemplate.objects.get_or_create(
+        tpl, created = SMSTemplate.objects.get_or_create(
             school=school,
             template_type=template_type,
             defaults={
@@ -74,6 +74,12 @@ def ensure_default_sms_templates(school):
                 'is_active': True,
             }
         )
+        if not created and template_type == SMSTemplateType.REPORT_CARD:
+            # Upgrade existing templates to include subjects_summary and grade
+            if '{subjects_summary}' not in (tpl.body_en or '') or '{grade}' not in (tpl.body_en or ''):
+                tpl.body_en = config['body_en']
+                tpl.body_am = config['body_am']
+                tpl.save(update_fields=['body_en', 'body_am'])
 
 
 def render_sms_template(school, template_type, context, lang='am'):
@@ -698,6 +704,12 @@ class ReportCardSMSService:
             status=EnrollmentStatus.ACTIVE
         ).select_related('student', 'student__user', 'grade', 'section').order_by('student__first_name', 'student__last_name')
 
+        # Academic year resolution
+        ay = getattr(section, 'academic_year', None) or getattr(school, 'active_academic_year', None)
+        if not ay:
+            from apps.academics.models import AcademicYear
+            ay = AcademicYear.objects.filter(school=school, is_active=True).first() or AcademicYear.objects.filter(school=school).first()
+
         # Get existing ReportCardSMSLog to identify already sent
         query_logs = ReportCardSMSLog.objects.filter(
             school=school,
@@ -706,8 +718,8 @@ class ReportCardSMSService:
         )
         if not is_annual and period:
             query_logs = query_logs.filter(period=period)
-        elif is_annual and section.grade and section.academic_year:
-            query_logs = query_logs.filter(academic_year=section.academic_year)
+        elif is_annual and ay:
+            query_logs = query_logs.filter(academic_year=ay)
 
         sent_dict = {str(l.student_id): l.sent_at for l in query_logs}
 
@@ -722,11 +734,17 @@ class ReportCardSMSService:
             for pr in p_res:
                 period_results_map[pr.enrollment_id] = pr
 
+        from apps.assessments.grading_service import GradingService
+        from apps.assessments.models import StudentMark
+
         # Build list of raw results first so we can rank if not pre-ranked
         temp_list = []
         for enr in enrollments:
             student = enr.student
             pr = period_results_map.get(enr.id)
+
+            subj_list = []
+            scores = []
 
             if pr:
                 avg_score = float(pr.average_score or 0)
@@ -734,27 +752,66 @@ class ReportCardSMSService:
                 rank = pr.section_rank
                 conduct = pr.conduct_grade or 'A'
                 is_published = pr.is_published
+
+                # Extract formatted subject results from precomputed period result
+                for item in (pr.formatted_results or []):
+                    s_name = item.get('name', 'Subject')
+                    s_disp = str(s_name).title() if str(s_name).isupper() else str(s_name)
+                    s_mark = item.get('raw_score', item.get('normalized', 0))
+                    try:
+                        s_mark_f = float(s_mark)
+                        s_str = f"{s_mark_f:g}"
+                        scores.append(s_mark_f)
+                    except (ValueError, TypeError):
+                        s_str = str(s_mark)
+                    subj_list.append(f"{s_disp}: {s_str}")
             else:
-                # Calculate from marks
+                # Calculate from extract_marks_for_enrollment
                 enr_marks = extract_marks_for_enrollment(school, enr)
-                scores = []
-                for s_data in enr_marks.values():
+                for s_name, s_data in enr_marks.items():
+                    s_disp = str(s_name).title() if str(s_name).isupper() else str(s_name)
                     if is_annual:
                         v = s_data.get('avg')
                     else:
-                        v = s_data.get('sem1') if (period and '1' in period.name) else s_data.get('sem2')
+                        v = s_data.get('sem1') if (period and '1' in str(period.name)) else s_data.get('sem2')
                         if v is None:
                             v = s_data.get('avg')
                     if v is not None and v != '-':
                         try:
-                            scores.append(float(v))
+                            vf = float(v)
+                            scores.append(vf)
+                            subj_list.append(f"{s_disp}: {vf:g}")
                         except (ValueError, TypeError):
                             pass
+
+                # If still empty, check StudentMark directly
+                if not subj_list:
+                    marks_qs = StudentMark.objects.filter(
+                        school=school, enrollment=enr
+                    ).exclude(status='REVOKED').select_related('assessment_component__subject')
+                    if not is_annual and period:
+                        marks_qs = marks_qs.filter(assessment_component__period=period)
+                    by_subj = {}
+                    for m in marks_qs:
+                        if m.assessment_component and m.assessment_component.subject:
+                            sn = m.assessment_component.subject.name
+                            by_subj.setdefault(sn, 0.0)
+                            by_subj[sn] += float(m.mark_value or 0.0)
+                    for sn, score_val in by_subj.items():
+                        s_disp = str(sn).title() if str(sn).isupper() else str(sn)
+                        scores.append(score_val)
+                        subj_list.append(f"{s_disp}: {score_val:g}")
+
                 tot_score = sum(scores)
                 avg_score = round(tot_score / len(scores), 2) if scores else 0.0
                 rank = None
                 conduct = 'A'
                 is_published = bool(scores)
+
+            subjects_summary = ", ".join(subj_list) if subj_list else "All subjects completed"
+
+            grade_eval = GradingService.evaluate_mark(school, avg_score, max_marks=100.0, grade=enr.grade)
+            overall_grade = grade_eval.get('letter', 'A' if avg_score >= 80 else ('B' if avg_score >= 70 else ('C' if avg_score >= 60 else ('D' if avg_score >= 50 else 'F'))))
 
             temp_list.append({
                 'enrollment': enr,
@@ -764,7 +821,10 @@ class ReportCardSMSService:
                 'rank': rank,
                 'conduct': conduct,
                 'is_published': is_published,
-                'has_marks': bool(avg_score > 0 or tot_score > 0),
+                'has_marks': bool(avg_score > 0 or tot_score > 0 or subj_list),
+                'subjects_summary': subjects_summary,
+                'subj_list': subj_list,
+                'grade': overall_grade,
             })
 
         # Rank students if rank was not precomputed
@@ -806,13 +866,18 @@ class ReportCardSMSService:
             conduct_val = item['conduct'] or 'A'
             status_val = "Promoted" if avg_val >= 50.0 else "Retained"
             status_am = "አልፏል" if avg_val >= 50.0 else "አላለፈም"
+            overall_grade = item['grade']
+            subjects_summary = item['subjects_summary']
 
             context_en = {
                 'student_name': student.full_name,
                 'period_name': period_name,
-                'average': f"{avg_val:.1f}",
+                'subjects_summary': subjects_summary,
                 'total_score': f"{tot_val:.1f}",
+                'average': f"{avg_val:.1f}",
                 'rank': rank_val,
+                'grade': overall_grade,
+                'grade_letter': overall_grade,
                 'conduct': conduct_val,
                 'status': status_val,
                 'school_name': school_name,
@@ -820,9 +885,12 @@ class ReportCardSMSService:
             context_am = {
                 'student_name': student.amharic_name or student.full_name,
                 'period_name': period_name,
-                'average': f"{avg_val:.1f}",
+                'subjects_summary': subjects_summary,
                 'total_score': f"{tot_val:.1f}",
+                'average': f"{avg_val:.1f}",
                 'rank': rank_val,
+                'grade': overall_grade,
+                'grade_letter': overall_grade,
                 'conduct': conduct_val,
                 'status': status_am,
                 'school_name': school_name,
@@ -846,6 +914,9 @@ class ReportCardSMSService:
                 'total_score': tot_val,
                 'rank': item['rank'],
                 'rank_display': rank_val,
+                'grade': overall_grade,
+                'subjects_summary': subjects_summary,
+                'subj_list': item['subj_list'],
                 'conduct': conduct_val,
                 'promotion_status': status_val,
                 'promotion_status_am': status_am,
@@ -864,7 +935,7 @@ class ReportCardSMSService:
         return recipients
 
     @classmethod
-    def dispatch_single_report_card_sms(cls, school, student, period=None, is_annual=False, parent=None, parent_phone=None, average=None, total_score=None, rank=None, total_students=None, conduct=None, promotion_status=None, custom_message=None, lang_override=None, sender_user=None):
+    def dispatch_single_report_card_sms(cls, school, student, period=None, is_annual=False, parent=None, parent_phone=None, average=None, total_score=None, rank=None, total_students=None, conduct=None, promotion_status=None, grade=None, subjects_summary=None, custom_message=None, lang_override=None, sender_user=None):
         school_name = getattr(school, 'name', 'School')
         period_name = "Annual Cumulative" if is_annual else (period.name if period else "Current Semester")
         phone = parent_phone or (parent.phone if parent else '') or (getattr(parent.user, 'phone', '') if parent and parent.user else '') or student.phone or student.emergency_contact or ''
@@ -874,7 +945,7 @@ class ReportCardSMSService:
         academic_year = period.academic_year if period else getattr(school, 'active_academic_year', None)
         if not academic_year:
             from apps.academics.models import AcademicYear
-            academic_year = AcademicYear.objects.filter(school=school, is_active=True).first()
+            academic_year = AcademicYear.objects.filter(school=school, is_active=True).first() or AcademicYear.objects.filter(school=school).first()
 
         avg_f = float(average or 0.0)
         tot_f = float(total_score or 0.0)
@@ -882,6 +953,8 @@ class ReportCardSMSService:
         conduct_val = conduct or 'A'
         status_val = promotion_status or ("Promoted" if avg_f >= 50.0 else "Retained")
         status_am = "አልፏል" if avg_f >= 50.0 else "አላለፈም"
+        overall_grade = grade or ('A' if avg_f >= 80 else ('B' if avg_f >= 70 else ('C' if avg_f >= 60 else ('D' if avg_f >= 50 else 'F'))))
+        subjs_str = subjects_summary or 'All subjects completed'
 
         if not phone:
             ReportCardSMSLog.objects.create(
@@ -906,31 +979,25 @@ class ReportCardSMSService:
 
         lang = lang_override or getattr(parent, 'preferred_language', 'am') or 'am'
 
+        context = {
+            'student_name': student.amharic_name if (lang == 'am' and student.amharic_name) else student.full_name,
+            'period_name': period_name,
+            'subjects_summary': subjs_str,
+            'total_score': f"{tot_f:.1f}",
+            'average': f"{avg_f:.1f}",
+            'rank': rank_val,
+            'grade': overall_grade,
+            'grade_letter': overall_grade,
+            'conduct': conduct_val,
+            'status': status_am if lang == 'am' else status_val,
+            'school_name': school_name,
+        }
+
         if custom_message and str(custom_message).strip():
-            context = {
-                'student_name': student.amharic_name if (lang == 'am' and student.amharic_name) else student.full_name,
-                'period_name': period_name,
-                'average': f"{avg_f:.1f}",
-                'total_score': f"{tot_f:.1f}",
-                'rank': rank_val,
-                'conduct': conduct_val,
-                'status': status_am if lang == 'am' else status_val,
-                'school_name': school_name,
-            }
             body = str(custom_message)
             for k, v in context.items():
                 body = body.replace(f"{{{k}}}", str(v))
         else:
-            context = {
-                'student_name': student.amharic_name if (lang == 'am' and student.amharic_name) else student.full_name,
-                'period_name': period_name,
-                'average': f"{avg_f:.1f}",
-                'total_score': f"{tot_f:.1f}",
-                'rank': rank_val,
-                'conduct': conduct_val,
-                'status': status_am if lang == 'am' else status_val,
-                'school_name': school_name,
-            }
             body = render_sms_template(school, SMSTemplateType.REPORT_CARD, context, lang=lang)
 
         recipient_user = parent.user if parent else getattr(student, 'user', None)
@@ -1008,6 +1075,8 @@ class ReportCardSMSService:
                 total_students=len(recipients),
                 conduct=r['conduct'],
                 promotion_status=r['promotion_status'],
+                grade=r.get('grade'),
+                subjects_summary=r.get('subjects_summary'),
                 custom_message=custom_message,
                 lang_override=lang_override if lang_override != 'pref' else r['preferred_lang'],
                 sender_user=sender_user

@@ -325,7 +325,8 @@ class ReportCardSMSTests(TestCase):
 
     def test_default_template_generation_and_rendering(self):
         """
-        Verify that report card SMS template is generated and renders properly in Amharic and English.
+        Verify that report card SMS template is generated and renders properly with
+        all subject marks, total, average, rank, and grade in Amharic and English.
         """
         ensure_default_sms_templates(self.school)
         tpl = SMSTemplate.objects.filter(
@@ -336,9 +337,11 @@ class ReportCardSMSTests(TestCase):
         context = {
             'student_name': 'Dawit Haile',
             'period_name': 'Semester 1',
+            'subjects_summary': 'Mathematics: 95, English: 85',
             'average': '90.0',
             'total_score': '180.0',
             'rank': '1/3',
+            'grade': 'A',
             'conduct': 'A',
             'status': 'Promoted',
             'school_name': 'Addis Future Academy'
@@ -346,29 +349,37 @@ class ReportCardSMSTests(TestCase):
 
         en_msg = render_sms_template(self.school, SMSTemplateType.REPORT_CARD, context, lang='en')
         self.assertIn("Dawit Haile", en_msg)
-        self.assertIn("90.0", en_msg)
-        self.assertIn("1/3", en_msg)
+        self.assertIn("Mathematics: 95, English: 85", en_msg)
+        self.assertIn("Total: 180.0", en_msg)
+        self.assertIn("Average: 90.0%", en_msg)
+        self.assertIn("Rank: 1/3", en_msg)
+        self.assertIn("Grade: A", en_msg)
         self.assertIn("Addis Future Academy", en_msg)
 
         context_am = {
             'student_name': 'ዳዊት ኃይሌ',
-            'period_name': 'Semester 1',
+            'period_name': 'ሴሚስተር 1',
+            'subjects_summary': 'Mathematics: 95, English: 85',
             'average': '90.0',
             'total_score': '180.0',
             'rank': '1/3',
+            'grade': 'A',
             'conduct': 'A',
             'status': 'አልፏል',
             'school_name': 'Addis Future Academy'
         }
         am_msg = render_sms_template(self.school, SMSTemplateType.REPORT_CARD, context_am, lang='am')
         self.assertIn("ዳዊት ኃይሌ", am_msg)
-        self.assertIn("አማካይ: 90.0", am_msg)
+        self.assertIn("ውጤቶች: Mathematics: 95, English: 85", am_msg)
+        self.assertIn("ድምር: 180.0", am_msg)
+        self.assertIn("አማካይ: 90.0%", am_msg)
         self.assertIn("ደረጃ: 1/3", am_msg)
+        self.assertIn("ውጤት: A", am_msg)
         self.assertIn("አልፏል", am_msg)
 
     def test_get_section_report_cards_for_dispatch(self):
         """
-        Verify that roster extraction computes accurate averages, totals, ranks, and parent details.
+        Verify that roster extraction computes accurate averages, totals, ranks, grades, and subject summaries.
         """
         recipients = ReportCardSMSService.get_section_report_cards_for_dispatch(
             school=self.school,
@@ -384,14 +395,26 @@ class ReportCardSMSTests(TestCase):
         self.assertEqual(dawit['average_score'], 90.0)
         self.assertEqual(dawit['total_score'], 180.0)
         self.assertEqual(dawit['rank'], 1)
+        self.assertEqual(dawit['grade'], 'A+')
+        self.assertIn("Mathematics: 95", dawit['subjects_summary'])
+        self.assertIn("English: 85", dawit['subjects_summary'])
         self.assertEqual(dawit['parent_phone'], '0911445566')
         self.assertTrue(dawit['has_phone'])
         self.assertTrue(dawit['has_marks'])
+
+        # Check rendered message for Dawit contains all subject mark, total, average, rank, grade
+        self.assertIn("Mathematics: 95, English: 85", dawit['rendered_sms_en'])
+        self.assertIn("Total: 180.0", dawit['rendered_sms_en'])
+        self.assertIn("Average: 90.0%", dawit['rendered_sms_en'])
+        self.assertIn("Rank: 1/3", dawit['rendered_sms_en'])
+        self.assertIn("Grade: A+", dawit['rendered_sms_en'])
 
         selam = next(r for r in recipients if r['student_id'] == str(self.student2.id))
         self.assertEqual(selam['average_score'], 75.0)
         self.assertEqual(selam['total_score'], 150.0)
         self.assertEqual(selam['rank'], 2)
+        self.assertIn("Mathematics: 80", selam['subjects_summary'])
+        self.assertIn("English: 70", selam['subjects_summary'])
         self.assertEqual(selam['parent_phone'], '0922334455')
         self.assertTrue(selam['has_phone'])
 

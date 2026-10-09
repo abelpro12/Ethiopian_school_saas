@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -6,6 +7,8 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q, Count
 from django.views.decorators.http import require_POST
+
+logger = logging.getLogger(__name__)
 
 from apps.accounts.models import User, UserRole
 from apps.academics.models import Grade, Section, Subject, AcademicYear, AcademicPeriod
@@ -434,39 +437,61 @@ def report_cards_sms_send_api(request):
         data = request.POST
 
     section_id = data.get('section_id')
+    if not section_id:
+        return JsonResponse({'success': False, 'error': 'Section ID is required.'}, status=400)
+
+    try:
+        section = Section.objects.get(id=section_id, school=school)
+    except (Section.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': 'Selected section does not exist or is invalid.'}, status=404)
+
+    if not check_can_dispatch_sms(request.user, section=section, school=school):
+        return JsonResponse({'success': False, 'error': 'Unauthorized to dispatch SMS for this section.'}, status=403)
+
     period_id = data.get('period_id')
     is_annual = data.get('is_annual') in (True, 'true', '1') or period_id == 'annual'
-    student_ids = data.get('student_ids')
+    student_ids_raw = data.get('student_ids')
     custom_message = data.get('custom_message') or None
     lang_override = data.get('lang') or 'pref'
 
-    section = get_object_or_404(Section, id=section_id, school=school)
-    if not check_can_dispatch_sms(request.user, section=section, school=school):
-        return JsonResponse({'success': False, 'error': 'Unauthorized to dispatch SMS for this section'}, status=403)
+    student_ids = None
+    if student_ids_raw:
+        if isinstance(student_ids_raw, str):
+            student_ids = [s.strip() for s in student_ids_raw.split(',') if s.strip()]
+        elif isinstance(student_ids_raw, list):
+            student_ids = [str(s).strip() for s in student_ids_raw if str(s).strip()]
 
     period = None
     if not is_annual and period_id and period_id != 'annual':
         period = AcademicPeriod.objects.filter(id=period_id, school=school).first()
 
-    summary = ReportCardSMSService.bulk_dispatch_report_cards(
-        school=school,
-        section=section,
-        period=period,
-        is_annual=is_annual,
-        student_ids=student_ids,
-        custom_message=custom_message,
-        lang_override=lang_override,
-        sender_user=request.user
-    )
+    if not period and not is_annual:
+        ay, sem = get_active_term(request)
+        period = sem
 
-    return JsonResponse({
-        'success': True,
-        'dispatched': summary['dispatched'],
-        'skipped_no_phone': summary['skipped_no_phone'],
-        'failed': summary['failed'],
-        'total_students': summary['total_students'],
-        'details': summary['details']
-    })
+    try:
+        summary = ReportCardSMSService.bulk_dispatch_report_cards(
+            school=school,
+            section=section,
+            period=period,
+            is_annual=is_annual,
+            student_ids=student_ids,
+            custom_message=custom_message,
+            lang_override=lang_override,
+            sender_user=request.user
+        )
+
+        return JsonResponse({
+            'success': True,
+            'dispatched': summary['dispatched'],
+            'skipped_no_phone': summary['skipped_no_phone'],
+            'failed': summary['failed'],
+            'total_students': summary['total_students'],
+            'details': summary['details']
+        })
+    except Exception as e:
+        logger.exception("Failed to dispatch report card SMS")
+        return JsonResponse({'success': False, 'error': f"Failed to dispatch SMS: {str(e)}"}, status=500)
 
 
 @login_required
@@ -479,7 +504,14 @@ def report_cards_sms_preview_modal_api(request, section_id):
     if not school:
         return JsonResponse({'success': False, 'error': 'School context required'}, status=400)
 
-    section = get_object_or_404(Section, id=section_id, school=school)
+    try:
+        section = Section.objects.get(id=section_id, school=school)
+    except (Section.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({'success': False, 'error': 'Section not found'}, status=404)
+
+    if not check_can_dispatch_sms(request.user, section=section, school=school):
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+
     period_id = request.GET.get('period_id')
     is_annual = request.GET.get('is_annual') in (True, 'true', '1') or period_id == 'annual'
 
@@ -491,41 +523,46 @@ def report_cards_sms_preview_modal_api(request, section_id):
         ay, sem = get_active_term(request)
         period = sem
 
-    recipients = ReportCardSMSService.get_section_report_cards_for_dispatch(
-        school=school,
-        section=section,
-        period=period,
-        is_annual=is_annual
-    )
+    try:
+        recipients = ReportCardSMSService.get_section_report_cards_for_dispatch(
+            school=school,
+            section=section,
+            period=period,
+            is_annual=is_annual
+        )
 
-    stats = {
-        'total_students': len(recipients),
-        'has_marks': sum(1 for r in recipients if r['has_marks']),
-        'valid_phones': sum(1 for r in recipients if r['has_phone']),
-        'missing_phones': sum(1 for r in recipients if not r['has_phone']),
-        'already_sent': sum(1 for r in recipients if r['already_sent']),
-    }
+        stats = {
+            'total_students': len(recipients),
+            'has_marks': sum(1 for r in recipients if r['has_marks']),
+            'valid_phones': sum(1 for r in recipients if r['has_phone']),
+            'missing_phones': sum(1 for r in recipients if not r['has_phone']),
+            'already_sent': sum(1 for r in recipients if r['already_sent']),
+        }
 
-    tpl = SMSTemplate.objects.filter(school=school, template_type=SMSTemplateType.REPORT_CARD, is_active=True).first()
-    template_body_en = tpl.body_en if tpl else ""
-    template_body_am = tpl.body_am if tpl else ""
+        tpl = SMSTemplate.objects.filter(school=school, template_type=SMSTemplateType.REPORT_CARD, is_active=True).first()
+        from apps.communication.services import DEFAULT_SMS_TEMPLATES
+        template_body_en = tpl.body_en if tpl else DEFAULT_SMS_TEMPLATES[SMSTemplateType.REPORT_CARD]['body_en']
+        template_body_am = tpl.body_am if tpl else DEFAULT_SMS_TEMPLATES[SMSTemplateType.REPORT_CARD]['body_am']
 
-    period_display = "Annual Cumulative" if is_annual else (period.name if period else "Current Semester")
+        period_display = "Annual Cumulative" if is_annual else (period.name if period else "Current Semester")
 
-    return JsonResponse({
-        'success': True,
-        'section_info': {
-            'id': section.id,
-            'name': section.name,
-            'grade_name': section.grade.name if section.grade else '',
-            'period_name': period_display,
-            'is_annual': is_annual,
-        },
-        'stats': stats,
-        'template_body_en': template_body_en,
-        'template_body_am': template_body_am,
-        'recipients': recipients
-    })
+        return JsonResponse({
+            'success': True,
+            'section_info': {
+                'id': section.id,
+                'name': section.name,
+                'grade_name': section.grade.name if section.grade else '',
+                'period_name': period_display,
+                'is_annual': is_annual,
+            },
+            'stats': stats,
+            'template_body_en': template_body_en,
+            'template_body_am': template_body_am,
+            'recipients': recipients
+        })
+    except Exception as e:
+        logger.exception("Failed to preview report card modal")
+        return JsonResponse({'success': False, 'error': f"Failed to preview report card: {str(e)}"}, status=500)
 
 
 @login_required

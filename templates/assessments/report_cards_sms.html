@@ -4,6 +4,7 @@
 {% block title %}Report Cards SMS Dispatcher | {{ school.name }}{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
 
     <!-- Top Breadcrumbs & Header -->
@@ -24,7 +25,7 @@
             </h1>
             <p class="text-sm text-slate-500 mt-1">
                 Deliver official semester and annual report card summaries directly to parents' mobile phones via SMS.
-                Includes student averages, section ranks, conduct ratings, and pass/promotion statuses.
+                Includes all subject marks, total score, average, section rank, letter grade, conduct, and promotion status.
             </p>
         </div>
 
@@ -134,7 +135,7 @@
                 </h3>
                 <p class="text-xs text-indigo-200/80 mt-1">
                     Term: <strong class="text-white">{% if is_annual %}Annual Cumulative{% else %}{{ selected_period.name }}{% endif %}</strong> • 
-                    Placeholders available: <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{student_name}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{period_name}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{average}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{rank}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{conduct}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{status}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{school_name}</code>
+                    Placeholders: <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{student_name}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{period_name}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{subjects_summary}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{total_score}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{average}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{rank}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{grade}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{conduct}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{status}</code>, <code class="bg-white/10 px-1 py-0.5 rounded text-[11px] text-indigo-200">{school_name}</code>
                 </p>
             </div>
 
@@ -166,11 +167,13 @@
                 <span><i class="fa-solid fa-eye mr-1"></i> Live SMS Preview (Sample for 1st Student)</span>
                 <span id="charCountLabel" class="text-white/60 text-[11px]">~1 SMS segment</span>
             </div>
-            <div id="liveMessagePreview" class="text-sm font-mono text-emerald-300 leading-relaxed bg-black/40 p-3 rounded-xl border border-white/5">
+            <div id="liveMessagePreview" class="text-sm font-mono text-emerald-300 leading-relaxed bg-black/40 p-3 rounded-xl border border-white/5 whitespace-pre-line">
                 {% if recipients %}
                     {{ recipients.0.rendered_sms_am }}
                 {% else %}
-                    ክቡር ወላጅ፣ የተማሪ [የተማሪ ስም] የ[ሴሚስተር] ሪፖርት ካርድ ተዘጋጅቷል:: አማካይ: 85.0%፣ ደረጃ: 3/40፣ ጠባይ: A፣ ውጤት: አልፏል:: {{ school.name }}::
+                    ክቡር ወላጅ፣ የተማሪ [የተማሪ ስም] የ[ሴሚስተር] የውጤት ካርድ በ{{ school.name }}፡
+ውጤቶች: ሒሳብ: 92, እንግሊዝኛ: 88, ሳይንስ: 90
+ድምር: 270.0 | አማካይ: 90.0% | ደረጃ: 1/40 | ውጤት: A | ምግባር: A | ሁኔታ: አልፏል:: እናመሰግናለን::
                 {% endif %}
             </div>
         </div>
@@ -204,10 +207,11 @@
                         <th class="py-3 px-3 text-center w-10">
                             <input type="checkbox" id="masterCheckbox" onchange="handleMasterCheckbox(this)" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
                         </th>
-                        <th class="py-3 px-3">Student</th>
+                        <th class="py-3 px-3">Student & Subjects</th>
                         <th class="py-3 px-3 text-center">Average</th>
                         <th class="py-3 px-3 text-center">Total Score</th>
                         <th class="py-3 px-3 text-center">Rank</th>
+                        <th class="py-3 px-3 text-center">Grade</th>
                         <th class="py-3 px-3 text-center">Conduct</th>
                         <th class="py-3 px-3 text-center">Promotion</th>
                         <th class="py-3 px-3">Parent / Guardian Contact</th>
@@ -236,6 +240,9 @@
                                     <span class="text-[11px] text-slate-400 font-mono">ID: {{ r.student_code }}</span>
                                 </div>
                             </div>
+                            <div class="text-[10px] text-indigo-800 bg-indigo-50/80 border border-indigo-200/60 rounded-md px-2 py-0.5 mt-1 max-w-sm truncate" title="{{ r.subjects_summary }}">
+                                <i class="fa-solid fa-book-open text-[9px] text-indigo-500 mr-1"></i><span class="font-mono">{{ r.subjects_summary }}</span>
+                            </div>
                         </td>
                         <td class="py-3 px-3 text-center">
                             {% if r.has_marks %}
@@ -257,6 +264,11 @@
                             {% else %}
                             <span class="text-slate-400">-</span>
                             {% endif %}
+                        </td>
+                        <td class="py-3 px-3 text-center font-bold">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md font-extrabold text-xs {% if r.grade == 'A' %}bg-emerald-100 text-emerald-800{% elif r.grade == 'B' %}bg-blue-100 text-blue-800{% elif r.grade == 'C' %}bg-amber-100 text-amber-800{% elif r.grade == 'D' %}bg-orange-100 text-orange-800{% else %}bg-rose-100 text-rose-800{% endif %}">
+                                {{ r.grade|default:"-" }}
+                            </span>
                         </td>
                         <td class="py-3 px-3 text-center font-bold text-slate-700">
                             {{ r.conduct }}
@@ -302,14 +314,14 @@
                             {% endif %}
                         </td>
                         <td class="py-3 px-3 text-center">
-                            <button type="button" onclick="dispatchSingleStudent('{{ r.student_id }}', '{{ r.student_name|escapejs }}', '{{ r.parent_phone }}', '{{ r.average_score }}', '{{ r.total_score }}', '{{ r.rank }}', '{{ r.conduct }}', '{{ r.promotion_status }}')" {% if not r.has_phone %}disabled title="Parent phone missing"{% endif %} class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold {% if r.has_phone %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer{% else %}bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed{% endif %} transition">
+                            <button type="button" onclick="dispatchSingleStudent('{{ r.student_id }}', '{{ r.student_name|escapejs }}', '{{ r.parent_phone }}')" {% if not r.has_phone %}disabled title="Parent phone missing"{% endif %} class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold {% if r.has_phone %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer{% else %}bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed{% endif %} transition">
                                 <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
                             </button>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="py-12 text-center text-slate-400">
+                        <td colspan="11" class="py-12 text-center text-slate-400">
                             <i class="fa-solid fa-users-slash text-3xl mb-2 block text-slate-300"></i>
                             No active students found in this section.
                         </td>
@@ -427,6 +439,12 @@ function showToast(title, message, isSuccess = true) {
     }, 4500);
 }
 
+function getCsrfToken() {
+    const el = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (el && el.value) return el.value;
+    return getCookie("csrftoken") || "{{ csrf_token }}";
+}
+
 function dispatchSelectedReportCards() {
     const selectedCbs = Array.from(document.querySelectorAll('.student-checkbox:checked'));
     if (selectedCbs.length === 0) {
@@ -438,6 +456,11 @@ function dispatchSelectedReportCards() {
     const sectionId = "{{ selected_section.id }}";
     const periodId = "{{ selected_period.id|default:'' }}";
     const isAnnual = "{{ is_annual }}" === "True";
+
+    if (!sectionId) {
+        alert("Please select a valid section first.");
+        return;
+    }
 
     if (!confirm(`Are you sure you want to dispatch Report Card SMS to ${studentIds.length} selected parent(s)?`)) {
         return;
@@ -452,7 +475,7 @@ function dispatchSelectedReportCards() {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": getCookie("csrftoken")
+            "X-CSRFToken": getCsrfToken()
         },
         body: JSON.stringify({
             section_id: sectionId,
@@ -462,7 +485,19 @@ function dispatchSelectedReportCards() {
             lang: currentLanguage
         })
     })
-    .then(r => r.json())
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (parseErr) {
+            throw new Error(`Server returned HTTP ${response.status} (${response.statusText}): ${text.slice(0, 150)}`);
+        }
+        if (!response.ok && !data.error) {
+            data.error = `HTTP ${response.status}: ${data.detail || response.statusText}`;
+        }
+        return data;
+    })
     .then(data => {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -482,11 +517,11 @@ function dispatchSelectedReportCards() {
     .catch(err => {
         btn.disabled = false;
         btn.innerHTML = originalText;
-        showToast("Network Error", err.toString(), false);
+        showToast("Network Error", err.message || err.toString(), false);
     });
 }
 
-function dispatchSingleStudent(studentId, studentName, phone, avg, tot, rank, conduct, status) {
+function dispatchSingleStudent(studentId, studentName, phone) {
     if (!phone) {
         alert("Cannot send SMS: No registered phone number for parent.");
         return;
@@ -500,11 +535,16 @@ function dispatchSingleStudent(studentId, studentName, phone, avg, tot, rank, co
     const periodId = "{{ selected_period.id|default:'' }}";
     const isAnnual = "{{ is_annual }}" === "True";
 
+    if (!sectionId) {
+        alert("Please select a valid section first.");
+        return;
+    }
+
     fetch("{% url 'assessments:report_cards_sms_send' %}", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": getCookie("csrftoken")
+            "X-CSRFToken": getCsrfToken()
         },
         body: JSON.stringify({
             section_id: sectionId,
@@ -514,7 +554,19 @@ function dispatchSingleStudent(studentId, studentName, phone, avg, tot, rank, co
             lang: currentLanguage
         })
     })
-    .then(r => r.json())
+    .then(async response => {
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (parseErr) {
+            throw new Error(`Server returned HTTP ${response.status} (${response.statusText}): ${text.slice(0, 150)}`);
+        }
+        if (!response.ok && !data.error) {
+            data.error = `HTTP ${response.status}: ${data.detail || response.statusText}`;
+        }
+        return data;
+    })
     .then(data => {
         if (data.success && data.dispatched > 0) {
             showToast("Report Card SMS Sent!", `Successfully sent to ${phone}`);
@@ -526,7 +578,7 @@ function dispatchSingleStudent(studentId, studentName, phone, avg, tot, rank, co
         }
     })
     .catch(err => {
-        showToast("Network Error", err.toString(), false);
+        showToast("Network Error", err.message || err.toString(), false);
     });
 }
 
