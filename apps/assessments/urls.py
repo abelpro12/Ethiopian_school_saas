@@ -24,6 +24,12 @@ urlpatterns = [
     path('sms-results/preview-api/<int:component_id>/<int:section_id>/', views_sms.exam_results_sms_preview_modal_api, name='exam_results_sms_preview_modal'),
     path('sms-results/history/', views_sms.exam_results_sms_history, name='exam_results_sms_history'),
 
+    # Report Card SMS Dispatcher Routes
+    path('report-cards/sms-dispatch/', views_sms.report_cards_sms_dashboard, name='report_cards_sms'),
+    path('report-cards/sms-send/', views_sms.report_cards_sms_send_api, name='report_cards_sms_send'),
+    path('report-cards/sms-preview-api/<int:section_id>/', views_sms.report_cards_sms_preview_modal_api, name='report_cards_sms_preview_modal'),
+    path('report-cards/sms-history/', views_sms.report_cards_sms_history, name='report_cards_sms_history'),
+
     # Flexible Grading Scale & Policy Routes
     path('grading-scales/', views_grading.grading_scale_list, name='grading_scales'),
     path('grading-scales/save/', views_grading.save_grading_scale, name='save_grading_scale'),

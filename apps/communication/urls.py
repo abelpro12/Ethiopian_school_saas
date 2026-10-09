@@ -21,4 +21,8 @@ urlpatterns = [
     # Exam / Test Results SMS Dispatcher
     path('exam-results-sms/', views_sms.exam_results_sms_dashboard, name='exam_results_sms'),
     path('exam-results-sms/send/', views_sms.exam_results_sms_send_api, name='exam_results_sms_send'),
+
+    # Report Card SMS Dispatcher
+    path('report-cards-sms/', views_sms.report_cards_sms_dashboard, name='report_cards_sms'),
+    path('report-cards-sms/send/', views_sms.report_cards_sms_send_api, name='report_cards_sms_send'),
 ]

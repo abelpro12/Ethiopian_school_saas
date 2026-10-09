@@ -322,6 +322,9 @@
         <a href="{% url 'assessments:report_cards' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-file-signature text-amber-400"></i><span>Report Cards</span>
         </a>
+        <a href="{% url 'assessments:report_cards_sms' %}" class="nav-link {% if 'report-cards/sms' in request.path %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-envelope-open-text text-indigo-400"></i><span>Send Report Cards SMS</span>
+        </a>
         <a href="{% url 'academics:semester_lifecycle' %}" class="nav-link {% if request.resolver_match.url_name == 'semester_lifecycle' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-flag-checkered text-violet-400"></i><span>Term & Semester Lifecycle</span>
         </a>

@@ -81,6 +81,7 @@ class SMSTemplateType(models.TextChoices):
     PAYMENT_OVERDUE = 'PAYMENT_OVERDUE', 'Payment Overdue Notice'
     BELOW_AVERAGE_ALERT = 'BELOW_AVERAGE_ALERT', 'Below Average Performance Alert'
     EXAM_RESULT = 'EXAM_RESULT', 'Exam / Test Result Alert'
+    REPORT_CARD = 'REPORT_CARD', 'Report Card Summary Alert'
     GENERAL_ANNOUNCEMENT = 'GENERAL_ANNOUNCEMENT', 'General Announcement'
     CUSTOM = 'CUSTOM', 'Custom Message'
 
@@ -206,4 +207,34 @@ class ExamResultSMSLog(TenantAwareModel):
     def __str__(self):
         comp_name = self.assessment_component.name if self.assessment_component else (self.online_exam.title if self.online_exam else 'Exam')
         return f"SMS {comp_name} for {self.student.full_name} ({self.recipient_phone}) - {self.status}"
+
+
+class ReportCardSMSLog(TenantAwareModel):
+    """
+    Audit log of dispatched semester / annual report card summaries to parents via SMS.
+    Tracks academic year, period, whether annual, student, parent, scores, conduct, rank, and status.
+    """
+    academic_year = models.ForeignKey('academics.AcademicYear', on_delete=models.CASCADE, related_name='report_card_sms_logs')
+    period = models.ForeignKey('academics.AcademicPeriod', on_delete=models.CASCADE, null=True, blank=True, related_name='report_card_sms_logs')
+    is_annual = models.BooleanField(default=False)
+    student = models.ForeignKey('students.StudentProfile', on_delete=models.CASCADE, related_name='report_card_sms_logs')
+    parent = models.ForeignKey('parents.ParentProfile', on_delete=models.SET_NULL, null=True, blank=True)
+    recipient_phone = models.CharField(max_length=50)
+    average_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    total_score = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    section_rank = models.IntegerField(null=True, blank=True)
+    total_students = models.IntegerField(null=True, blank=True)
+    conduct_grade = models.CharField(max_length=20, blank=True, null=True)
+    promotion_status = models.CharField(max_length=50, blank=True, null=True)
+    message = models.TextField()
+    status = models.CharField(max_length=20, default='SENT')  # SENT, FAILED, NO_PHONE
+    sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        term = 'Annual' if self.is_annual else (self.period.name if self.period else 'Semester')
+        return f"Report Card SMS ({term}) for {self.student.full_name} ({self.recipient_phone}) - {self.status}"
 

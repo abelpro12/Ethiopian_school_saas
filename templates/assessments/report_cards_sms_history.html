@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Report Cards SMS History | {{ school.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mb-1.5">
+                <a href="{% url 'assessments:report_cards_sms' %}" class="hover:text-indigo-600 transition flex items-center gap-1 font-medium">
+                    <i class="fa-solid fa-arrow-left"></i> Report Cards SMS Center
+                </a>
+                <span class="text-slate-300">/</span>
+                <span class="text-slate-700 font-semibold">Dispatch History</span>
+            </div>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
+                Report Cards SMS Dispatch History
+            </h1>
+            <p class="text-xs text-slate-500 mt-1">Audit trail of all semester and annual report card summaries dispatched to parents via SMS.</p>
+        </div>
+
+        <div>
+            <a href="{% url 'assessments:report_cards_sms' %}" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-sm shadow-indigo-200">
+                <i class="fa-solid fa-paper-plane"></i> New Dispatch
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <form method="GET" class="flex items-center gap-3 flex-wrap w-full md:w-auto">
+            <div class="relative w-72">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input type="text" name="q" value="{{ query }}" placeholder="Search student ID, name, or phone..." class="w-full text-xs pl-8 pr-3 py-1.5 rounded-xl border-slate-200 bg-slate-50/50 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+
+            <select name="status" onchange="this.form.submit()" class="text-xs rounded-xl border-slate-200 bg-slate-50/50 py-1.5">
+                <option value="">-- All Statuses --</option>
+                <option value="SENT" {% if selected_status == 'SENT' %}selected{% endif %}>Sent Successfully</option>
+                <option value="NO_PHONE" {% if selected_status == 'NO_PHONE' %}selected{% endif %}>Missing Phone</option>
+                <option value="FAILED" {% if selected_status == 'FAILED' %}selected{% endif %}>Failed</option>
+            </select>
+
+            <button type="submit" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition">
+                Filter
+            </button>
+            {% if query or selected_status %}
+            <a href="{% url 'assessments:report_cards_sms_history' %}" class="text-xs text-slate-500 hover:text-slate-800 font-medium">Clear</a>
+            {% endif %}
+        </form>
+
+        <span class="text-xs font-bold text-slate-500">
+            Total Records: <strong class="text-slate-900">{{ total_count }}</strong>
+        </span>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-100/70 border-b border-slate-200 text-slate-600 font-bold uppercase text-[11px] tracking-wider">
+                        <th class="py-3 px-3.5">Dispatched At</th>
+                        <th class="py-3 px-3.5">Student</th>
+                        <th class="py-3 px-3.5">Term</th>
+                        <th class="py-3 px-3.5 text-center">Average</th>
+                        <th class="py-3 px-3.5 text-center">Rank</th>
+                        <th class="py-3 px-3.5 text-center">Conduct</th>
+                        <th class="py-3 px-3.5">Parent Contact</th>
+                        <th class="py-3 px-3.5">Message Dispatched</th>
+                        <th class="py-3 px-3.5 text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    {% for l in logs %}
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-3 px-3.5 whitespace-nowrap text-slate-500">
+                            <span class="font-bold text-slate-800 block">{{ l.sent_at|date:"M d, Y" }}</span>
+                            <span class="text-[10px]">{{ l.sent_at|time:"H:i" }}</span>
+                        </td>
+                        <td class="py-3 px-3.5">
+                            <span class="font-bold text-slate-900 block">{{ l.student.full_name }}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">{{ l.student.student_id }}</span>
+                        </td>
+                        <td class="py-3 px-3.5">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[11px] bg-slate-100 text-slate-800">
+                                {% if l.is_annual %}Annual Cumulative{% else %}{{ l.period.name|default:"Semester" }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="py-3 px-3.5 text-center font-bold text-slate-900">
+                            {% if l.average_score %}{{ l.average_score|floatformat:1 }}%{% else %}-{% endif %}
+                        </td>
+                        <td class="py-3 px-3.5 text-center font-bold text-indigo-700">
+                            {% if l.section_rank %}#{{ l.section_rank }}{% if l.total_students %}/{{ l.total_students }}{% endif %}{% else %}-{% endif %}
+                        </td>
+                        <td class="py-3 px-3.5 text-center font-bold text-slate-700">
+                            {{ l.conduct_grade|default:"A" }}
+                        </td>
+                        <td class="py-3 px-3.5">
+                            <span class="text-slate-800 font-bold block">{{ l.parent.user.get_full_name|default:l.parent.relationship|default:"Parent" }}</span>
+                            {% if l.recipient_phone %}
+                            <span class="font-mono text-emerald-700 text-[11px]">{{ l.recipient_phone }}</span>
+                            {% else %}
+                            <span class="text-amber-600 text-[11px]">No Phone</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-3.5 max-w-xs">
+                            <p class="truncate text-slate-600 text-[11px]" title="{{ l.message }}">{{ l.message }}</p>
+                        </td>
+                        <td class="py-3 px-3.5 text-center">
+                            {% if l.status == 'SENT' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                <i class="fa-solid fa-circle-check text-[9px]"></i> Delivered
+                            </span>
+                            {% elif l.status == 'NO_PHONE' %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> No Phone
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">
+                                <i class="fa-solid fa-circle-xmark text-[9px]"></i> Failed
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="py-12 text-center text-slate-400">
+                            <i class="fa-solid fa-clock-rotate-left text-3xl mb-2 block text-slate-300"></i>
+                            No Report Card SMS dispatch records found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

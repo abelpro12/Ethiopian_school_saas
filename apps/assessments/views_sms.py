@@ -11,8 +11,12 @@ from apps.accounts.models import User, UserRole
 from apps.academics.models import Grade, Section, Subject, AcademicYear, AcademicPeriod
 from apps.assessments.models import AssessmentComponent, StudentMark
 from apps.assessments.views import get_school, get_active_term, check_admin_access
-from apps.communication.models import SMSTemplate, SMSTemplateType, ExamResultSMSLog
-from apps.communication.services import ExamResultSMSService, ensure_default_sms_templates
+from apps.communication.models import SMSTemplate, SMSTemplateType, ExamResultSMSLog, ReportCardSMSLog
+from apps.communication.services import (
+    ExamResultSMSService,
+    ReportCardSMSService,
+    ensure_default_sms_templates,
+)
 from apps.teachers.models import TeacherAssignment
 from apps.audit.services import AuditService
 
@@ -315,6 +319,247 @@ def exam_results_sms_history(request):
         )
 
     return render(request, 'assessments/exam_results_sms_history.html', {
+        'school': school,
+        'logs': logs_qs[:200],
+        'total_count': logs_qs.count(),
+        'selected_status': status,
+        'query': q,
+    })
+
+
+# ============================================================================
+# Report Card SMS Dispatcher Views & Endpoints
+# ============================================================================
+
+@login_required
+def report_cards_sms_dashboard(request):
+    """
+    Dedicated Report Cards SMS Dispatcher Center.
+    Allows administrators and teachers to select Grade, Section, and Semester (or Annual),
+    review student averages, section ranks, conduct grades, and parent contacts,
+    and dispatch report card summaries to parents with one click.
+    """
+    school = get_school(request)
+    if not school:
+        messages.error(request, "School context required.")
+        return redirect('index')
+
+    if not check_can_dispatch_sms(request.user):
+        messages.error(request, "Unauthorized access to Report Card SMS Center.")
+        return redirect('assessments:report_cards')
+
+    ensure_default_sms_templates(school)
+    ay, current_sem = get_active_term(request)
+
+    grade_id = request.GET.get('grade_id') or ''
+    section_id = request.GET.get('section_id') or ''
+    period_id = request.GET.get('period_id') or (str(current_sem.id) if current_sem else '')
+    is_annual = request.GET.get('is_annual') == '1' or period_id == 'annual'
+
+    # Filter grades & sections
+    grades = Grade.objects.filter(school=school).order_by('level', 'name')
+    sections = Section.objects.filter(school=school).select_related('grade').order_by('grade__level', 'name')
+    if grade_id:
+        sections = sections.filter(grade_id=grade_id)
+
+    # Periods
+    periods = AcademicPeriod.objects.filter(school=school).order_by('start_date')
+    if ay:
+        periods = periods.filter(academic_year=ay)
+
+    selected_period = None
+    if not is_annual and period_id and period_id != 'annual':
+        selected_period = periods.filter(id=period_id).first()
+        if not selected_period and current_sem:
+            selected_period = current_sem
+
+    selected_section = None
+    if section_id:
+        selected_section = sections.filter(id=section_id).first()
+    elif sections.exists():
+        selected_section = sections.first()
+        section_id = str(selected_section.id)
+
+    recipients = []
+    stats = {'total_students': 0, 'has_marks': 0, 'valid_phones': 0, 'missing_phones': 0, 'already_sent': 0}
+
+    if selected_section:
+        recipients = ReportCardSMSService.get_section_report_cards_for_dispatch(
+            school=school,
+            section=selected_section,
+            period=selected_period,
+            is_annual=is_annual
+        )
+        stats['total_students'] = len(recipients)
+        stats['has_marks'] = sum(1 for r in recipients if r['has_marks'])
+        stats['valid_phones'] = sum(1 for r in recipients if r['has_phone'])
+        stats['missing_phones'] = sum(1 for r in recipients if not r['has_phone'])
+        stats['already_sent'] = sum(1 for r in recipients if r['already_sent'])
+
+    tpl = SMSTemplate.objects.filter(school=school, template_type=SMSTemplateType.REPORT_CARD, is_active=True).first()
+    template_body_en = tpl.body_en if tpl else ""
+    template_body_am = tpl.body_am if tpl else ""
+
+    return render(request, 'assessments/report_cards_sms.html', {
+        'school': school,
+        'ay': ay,
+        'periods': periods,
+        'selected_period': selected_period,
+        'is_annual': is_annual,
+        'grades': grades,
+        'sections': sections,
+        'selected_grade_id': grade_id,
+        'selected_section_id': section_id,
+        'selected_section': selected_section,
+        'recipients': recipients,
+        'stats': stats,
+        'template_body_en': template_body_en,
+        'template_body_am': template_body_am,
+    })
+
+
+@login_required
+@require_POST
+def report_cards_sms_send_api(request):
+    """
+    POST API to dispatch report card SMS (bulk or single student).
+    """
+    school = get_school(request)
+    if not school:
+        return JsonResponse({'success': False, 'error': 'School context required'}, status=400)
+
+    try:
+        data = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        data = request.POST
+
+    section_id = data.get('section_id')
+    period_id = data.get('period_id')
+    is_annual = data.get('is_annual') in (True, 'true', '1') or period_id == 'annual'
+    student_ids = data.get('student_ids')
+    custom_message = data.get('custom_message') or None
+    lang_override = data.get('lang') or 'pref'
+
+    section = get_object_or_404(Section, id=section_id, school=school)
+    if not check_can_dispatch_sms(request.user, section=section, school=school):
+        return JsonResponse({'success': False, 'error': 'Unauthorized to dispatch SMS for this section'}, status=403)
+
+    period = None
+    if not is_annual and period_id and period_id != 'annual':
+        period = AcademicPeriod.objects.filter(id=period_id, school=school).first()
+
+    summary = ReportCardSMSService.bulk_dispatch_report_cards(
+        school=school,
+        section=section,
+        period=period,
+        is_annual=is_annual,
+        student_ids=student_ids,
+        custom_message=custom_message,
+        lang_override=lang_override,
+        sender_user=request.user
+    )
+
+    return JsonResponse({
+        'success': True,
+        'dispatched': summary['dispatched'],
+        'skipped_no_phone': summary['skipped_no_phone'],
+        'failed': summary['failed'],
+        'total_students': summary['total_students'],
+        'details': summary['details']
+    })
+
+
+@login_required
+def report_cards_sms_preview_modal_api(request, section_id):
+    """
+    JSON API called by the interactive Report Cards page modal to preview
+    the student roster, scores, and parent contacts before dispatching.
+    """
+    school = get_school(request)
+    if not school:
+        return JsonResponse({'success': False, 'error': 'School context required'}, status=400)
+
+    section = get_object_or_404(Section, id=section_id, school=school)
+    period_id = request.GET.get('period_id')
+    is_annual = request.GET.get('is_annual') in (True, 'true', '1') or period_id == 'annual'
+
+    period = None
+    if not is_annual and period_id and period_id != 'annual':
+        period = AcademicPeriod.objects.filter(id=period_id, school=school).first()
+
+    if not period and not is_annual:
+        ay, sem = get_active_term(request)
+        period = sem
+
+    recipients = ReportCardSMSService.get_section_report_cards_for_dispatch(
+        school=school,
+        section=section,
+        period=period,
+        is_annual=is_annual
+    )
+
+    stats = {
+        'total_students': len(recipients),
+        'has_marks': sum(1 for r in recipients if r['has_marks']),
+        'valid_phones': sum(1 for r in recipients if r['has_phone']),
+        'missing_phones': sum(1 for r in recipients if not r['has_phone']),
+        'already_sent': sum(1 for r in recipients if r['already_sent']),
+    }
+
+    tpl = SMSTemplate.objects.filter(school=school, template_type=SMSTemplateType.REPORT_CARD, is_active=True).first()
+    template_body_en = tpl.body_en if tpl else ""
+    template_body_am = tpl.body_am if tpl else ""
+
+    period_display = "Annual Cumulative" if is_annual else (period.name if period else "Current Semester")
+
+    return JsonResponse({
+        'success': True,
+        'section_info': {
+            'id': section.id,
+            'name': section.name,
+            'grade_name': section.grade.name if section.grade else '',
+            'period_name': period_display,
+            'is_annual': is_annual,
+        },
+        'stats': stats,
+        'template_body_en': template_body_en,
+        'template_body_am': template_body_am,
+        'recipients': recipients
+    })
+
+
+@login_required
+def report_cards_sms_history(request):
+    """
+    Audit trail view of all report card summary SMS dispatches across the school.
+    """
+    school = get_school(request)
+    if not school:
+        messages.error(request, "School context required.")
+        return redirect('index')
+
+    if not check_can_dispatch_sms(request.user):
+        messages.error(request, "Unauthorized.")
+        return redirect('assessments:report_cards')
+
+    logs_qs = ReportCardSMSLog.objects.filter(school=school).select_related(
+        'student', 'parent__user', 'period', 'academic_year', 'sent_by'
+    ).order_by('-sent_at')
+
+    status = request.GET.get('status')
+    if status:
+        logs_qs = logs_qs.filter(status=status)
+
+    q = request.GET.get('q', '').strip()
+    if q:
+        logs_qs = logs_qs.filter(
+            Q(student__first_name__icontains=q) |
+            Q(student__last_name__icontains=q) |
+            Q(student__student_id__icontains=q) |
+            Q(recipient_phone__icontains=q)
+        )
+
+    return render(request, 'assessments/report_cards_sms_history.html', {
         'school': school,
         'logs': logs_qs[:200],
         'total_count': logs_qs.count(),

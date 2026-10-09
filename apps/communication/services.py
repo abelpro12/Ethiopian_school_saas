@@ -12,6 +12,7 @@ from apps.communication.models import (
     PaymentReminderLog,
     PaymentReminderStage,
     ExamResultSMSLog,
+    ReportCardSMSLog,
 )
 from apps.notifications.services import NotificationService
 from apps.parents.models import GuardianRelationship, ParentProfile
@@ -49,6 +50,11 @@ DEFAULT_SMS_TEMPLATES = {
         'name': 'Exam / Test Result Alert',
         'body_en': "Dear Parent, {student_name} scored {score}/{max_score} ({percentage}%) in {subject_name} ({test_name}) at {school_name}. Grade: {grade_letter}. Thank you.",
         'body_am': "ክቡር ወላጅ፣ {student_name} በ {subject_name} ({test_name}) ፈተና {score}/{max_score} ({percentage}%) በ {school_name} አስመዝግቧል/ለች:: ደረጃ: {grade_letter}:: እናመሰግናለን::",
+    },
+    SMSTemplateType.REPORT_CARD: {
+        'name': 'Report Card Summary Alert',
+        'body_en': "Dear Parent, {student_name}'s {period_name} Report Card is ready! Average: {average}%, Total: {total_score}, Section Rank: {rank}, Conduct: {conduct}, Status: {status}. {school_name}.",
+        'body_am': "ክቡር ወላጅ፣ የተማሪ {student_name} የ{period_name} ሪፖርት ካርድ ተዘጋጅቷል:: አማካይ: {average}%፣ ድምር: {total_score}፣ ደረጃ: {rank}፣ ጠባይ: {conduct}፣ ውጤት: {status}:: {school_name}::",
     },
 }
 
@@ -654,6 +660,383 @@ class ExamResultSMSService:
                 'component_name': component.name,
                 'subject_name': component.subject.name if component.subject else '',
                 'section_id': section.id if section else None,
+                'total_students': summary['total_students'],
+                'dispatched': summary['dispatched'],
+                'skipped_no_phone': summary['skipped_no_phone'],
+                'failed': summary['failed']
+            }
+        )
+
+        return summary
+
+
+class ReportCardSMSService:
+    """
+    Dedicated Service for Dispatching Semester and Annual Report Card Summaries to Parents via SMS.
+    Features:
+    - Resolves AcademicPeriodResult or real-time grade calculations
+    - Bilingual message template rendering with dynamic placeholders:
+      {student_name}, {period_name}, {average}, {total_score}, {rank}, {conduct}, {status}, {school_name}
+    - Resolves primary guardian phone number with student emergency contact fallback
+    - Supports bulk section dispatch or individual student dispatch
+    - Complete audit trail logged in ReportCardSMSLog
+    """
+    @classmethod
+    def get_section_report_cards_for_dispatch(cls, school, section, period=None, is_annual=False):
+        from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
+        from apps.assessments.models import AcademicPeriodResult
+        from apps.reports.views import extract_marks_for_enrollment
+
+        ensure_default_sms_templates(school)
+        school_name = getattr(school, 'name', 'School')
+        period_name = "Annual Cumulative" if is_annual else (period.name if period else "Current Semester")
+
+        # Get active enrollments in the section
+        enrollments = StudentEnrollment.objects.filter(
+            school=school,
+            section=section,
+            status=EnrollmentStatus.ACTIVE
+        ).select_related('student', 'student__user', 'grade', 'section').order_by('student__first_name', 'student__last_name')
+
+        # Get existing ReportCardSMSLog to identify already sent
+        query_logs = ReportCardSMSLog.objects.filter(
+            school=school,
+            is_annual=is_annual,
+            status='SENT'
+        )
+        if not is_annual and period:
+            query_logs = query_logs.filter(period=period)
+        elif is_annual and section.grade and section.academic_year:
+            query_logs = query_logs.filter(academic_year=section.academic_year)
+
+        sent_dict = {str(l.student_id): l.sent_at for l in query_logs}
+
+        # Fetch precomputed period results if available
+        period_results_map = {}
+        if not is_annual and period:
+            p_res = AcademicPeriodResult.objects.filter(
+                school=school,
+                period=period,
+                enrollment__section=section
+            ).select_related('enrollment__student')
+            for pr in p_res:
+                period_results_map[pr.enrollment_id] = pr
+
+        # Build list of raw results first so we can rank if not pre-ranked
+        temp_list = []
+        for enr in enrollments:
+            student = enr.student
+            pr = period_results_map.get(enr.id)
+
+            if pr:
+                avg_score = float(pr.average_score or 0)
+                tot_score = float(pr.total_score or 0)
+                rank = pr.section_rank
+                conduct = pr.conduct_grade or 'A'
+                is_published = pr.is_published
+            else:
+                # Calculate from marks
+                enr_marks = extract_marks_for_enrollment(school, enr)
+                scores = []
+                for s_data in enr_marks.values():
+                    if is_annual:
+                        v = s_data.get('avg')
+                    else:
+                        v = s_data.get('sem1') if (period and '1' in period.name) else s_data.get('sem2')
+                        if v is None:
+                            v = s_data.get('avg')
+                    if v is not None and v != '-':
+                        try:
+                            scores.append(float(v))
+                        except (ValueError, TypeError):
+                            pass
+                tot_score = sum(scores)
+                avg_score = round(tot_score / len(scores), 2) if scores else 0.0
+                rank = None
+                conduct = 'A'
+                is_published = bool(scores)
+
+            temp_list.append({
+                'enrollment': enr,
+                'student': student,
+                'avg_score': avg_score,
+                'tot_score': tot_score,
+                'rank': rank,
+                'conduct': conduct,
+                'is_published': is_published,
+                'has_marks': bool(avg_score > 0 or tot_score > 0),
+            })
+
+        # Rank students if rank was not precomputed
+        total_students = len(temp_list)
+        sorted_by_avg = sorted(temp_list, key=lambda x: x['avg_score'], reverse=True)
+        for idx, item in enumerate(sorted_by_avg, start=1):
+            if not item['rank'] and item['has_marks']:
+                item['rank'] = idx
+
+        # Guardian resolution
+        student_ids = [item['student'].id for item in temp_list]
+        guardianships = GuardianRelationship.objects.filter(
+            school=school,
+            student_id__in=student_ids
+        ).select_related('parent__user').order_by('-is_primary')
+
+        guardian_map = {}
+        for g in guardianships:
+            if g.student_id not in guardian_map or g.is_primary:
+                guardian_map[g.student_id] = g.parent
+
+        recipients = []
+        for item in temp_list:
+            student = item['student']
+            enr = item['enrollment']
+            parent = guardian_map.get(student.id)
+
+            phone = ''
+            if parent:
+                phone = parent.phone or (getattr(parent.user, 'phone', '') if parent.user else '')
+            if not phone:
+                phone = student.phone or student.emergency_contact or ''
+            phone = str(phone).strip()
+
+            lang = getattr(parent, 'preferred_language', 'am') or 'am'
+            avg_val = item['avg_score']
+            tot_val = item['tot_score']
+            rank_val = f"{item['rank']}/{total_students}" if item['rank'] else f"-/{total_students}"
+            conduct_val = item['conduct'] or 'A'
+            status_val = "Promoted" if avg_val >= 50.0 else "Retained"
+            status_am = "አልፏል" if avg_val >= 50.0 else "አላለፈም"
+
+            context_en = {
+                'student_name': student.full_name,
+                'period_name': period_name,
+                'average': f"{avg_val:.1f}",
+                'total_score': f"{tot_val:.1f}",
+                'rank': rank_val,
+                'conduct': conduct_val,
+                'status': status_val,
+                'school_name': school_name,
+            }
+            context_am = {
+                'student_name': student.amharic_name or student.full_name,
+                'period_name': period_name,
+                'average': f"{avg_val:.1f}",
+                'total_score': f"{tot_val:.1f}",
+                'rank': rank_val,
+                'conduct': conduct_val,
+                'status': status_am,
+                'school_name': school_name,
+            }
+
+            rendered_en = render_sms_template(school, SMSTemplateType.REPORT_CARD, context_en, lang='en')
+            rendered_am = render_sms_template(school, SMSTemplateType.REPORT_CARD, context_am, lang='am')
+
+            student_id_str = str(student.id)
+            already_sent = student_id_str in sent_dict
+            last_sent_at = sent_dict[student_id_str].strftime('%b %d, %Y %H:%M') if already_sent else None
+
+            recipients.append({
+                'enrollment_id': enr.id,
+                'student_id': student_id_str,
+                'student_code': student.student_id,
+                'student_name': student.full_name,
+                'amharic_name': student.amharic_name or '',
+                'section_name': section.name,
+                'average_score': avg_val,
+                'total_score': tot_val,
+                'rank': item['rank'],
+                'rank_display': rank_val,
+                'conduct': conduct_val,
+                'promotion_status': status_val,
+                'promotion_status_am': status_am,
+                'has_marks': item['has_marks'],
+                'parent_name': parent.user.get_full_name() or parent.user.username if (parent and parent.user) else 'No Guardian Linked',
+                'parent_relationship': parent.relationship if parent else 'Guardian',
+                'parent_phone': phone,
+                'has_phone': bool(phone),
+                'preferred_lang': lang,
+                'rendered_sms_en': rendered_en,
+                'rendered_sms_am': rendered_am,
+                'already_sent': already_sent,
+                'last_sent_at': last_sent_at,
+            })
+
+        return recipients
+
+    @classmethod
+    def dispatch_single_report_card_sms(cls, school, student, period=None, is_annual=False, parent=None, parent_phone=None, average=None, total_score=None, rank=None, total_students=None, conduct=None, promotion_status=None, custom_message=None, lang_override=None, sender_user=None):
+        school_name = getattr(school, 'name', 'School')
+        period_name = "Annual Cumulative" if is_annual else (period.name if period else "Current Semester")
+        phone = parent_phone or (parent.phone if parent else '') or (getattr(parent.user, 'phone', '') if parent and parent.user else '') or student.phone or student.emergency_contact or ''
+        phone = str(phone).strip()
+
+        # Academic Year reference
+        academic_year = period.academic_year if period else getattr(school, 'active_academic_year', None)
+        if not academic_year:
+            from apps.academics.models import AcademicYear
+            academic_year = AcademicYear.objects.filter(school=school, is_active=True).first()
+
+        avg_f = float(average or 0.0)
+        tot_f = float(total_score or 0.0)
+        rank_val = f"{rank}/{total_students}" if (rank and total_students) else (str(rank) if rank else "N/A")
+        conduct_val = conduct or 'A'
+        status_val = promotion_status or ("Promoted" if avg_f >= 50.0 else "Retained")
+        status_am = "አልፏል" if avg_f >= 50.0 else "አላለፈም"
+
+        if not phone:
+            ReportCardSMSLog.objects.create(
+                school=school,
+                academic_year=academic_year,
+                period=period if not is_annual else None,
+                is_annual=is_annual,
+                student=student,
+                parent=parent,
+                recipient_phone='',
+                average_score=Decimal(str(avg_f)),
+                total_score=Decimal(str(tot_f)),
+                section_rank=rank if isinstance(rank, int) else None,
+                total_students=total_students if isinstance(total_students, int) else None,
+                conduct_grade=conduct_val,
+                promotion_status=status_val,
+                message="[SKIPPED: No registered parent phone number]",
+                status='NO_PHONE',
+                sent_by=sender_user
+            )
+            return {'success': False, 'status': 'NO_PHONE', 'error': 'No registered parent phone number'}
+
+        lang = lang_override or getattr(parent, 'preferred_language', 'am') or 'am'
+
+        if custom_message and str(custom_message).strip():
+            context = {
+                'student_name': student.amharic_name if (lang == 'am' and student.amharic_name) else student.full_name,
+                'period_name': period_name,
+                'average': f"{avg_f:.1f}",
+                'total_score': f"{tot_f:.1f}",
+                'rank': rank_val,
+                'conduct': conduct_val,
+                'status': status_am if lang == 'am' else status_val,
+                'school_name': school_name,
+            }
+            body = str(custom_message)
+            for k, v in context.items():
+                body = body.replace(f"{{{k}}}", str(v))
+        else:
+            context = {
+                'student_name': student.amharic_name if (lang == 'am' and student.amharic_name) else student.full_name,
+                'period_name': period_name,
+                'average': f"{avg_f:.1f}",
+                'total_score': f"{tot_f:.1f}",
+                'rank': rank_val,
+                'conduct': conduct_val,
+                'status': status_am if lang == 'am' else status_val,
+                'school_name': school_name,
+            }
+            body = render_sms_template(school, SMSTemplateType.REPORT_CARD, context, lang=lang)
+
+        recipient_user = parent.user if parent else getattr(student, 'user', None)
+
+        sent = NotificationService.send_notification(
+            school=school,
+            recipient_user=recipient_user,
+            channel=NotificationChannel.SMS,
+            message=body,
+            subject=f"REPORT_CARD:{period.id if period else 'ANNUAL'}:{student.id}",
+            category='announcement',
+            phone_number=phone
+        )
+
+        status_str = 'SENT' if sent else 'FAILED'
+        log = ReportCardSMSLog.objects.create(
+            school=school,
+            academic_year=academic_year,
+            period=period if not is_annual else None,
+            is_annual=is_annual,
+            student=student,
+            parent=parent,
+            recipient_phone=phone,
+            average_score=Decimal(str(avg_f)),
+            total_score=Decimal(str(tot_f)),
+            section_rank=rank if isinstance(rank, int) else None,
+            total_students=total_students if isinstance(total_students, int) else None,
+            conduct_grade=conduct_val,
+            promotion_status=status_val,
+            message=body,
+            status=status_str,
+            sent_by=sender_user
+        )
+
+        return {'success': sent, 'status': status_str, 'phone': phone, 'message': body, 'log_id': log.id}
+
+    @classmethod
+    def bulk_dispatch_report_cards(cls, school, section, period=None, is_annual=False, student_ids=None, custom_message=None, lang_override=None, sender_user=None):
+        recipients = cls.get_section_report_cards_for_dispatch(
+            school=school, section=section, period=period, is_annual=is_annual
+        )
+        if student_ids:
+            target_ids = {str(sid) for sid in student_ids}
+            recipients = [r for r in recipients if r['student_id'] in target_ids]
+
+        summary = {
+            'total_students': len(recipients),
+            'dispatched': 0,
+            'skipped_no_phone': 0,
+            'failed': 0,
+            'details': []
+        }
+
+        from apps.students.models import StudentProfile
+        for r in recipients:
+            student = StudentProfile.objects.filter(id=r['student_id'], school=school).first()
+            if not student:
+                continue
+
+            parent = GuardianRelationship.objects.filter(
+                school=school, student=student, is_primary=True
+            ).select_related('parent__user').first()
+            parent_profile = parent.parent if parent else None
+
+            res = cls.dispatch_single_report_card_sms(
+                school=school,
+                student=student,
+                period=period,
+                is_annual=is_annual,
+                parent=parent_profile,
+                parent_phone=r['parent_phone'],
+                average=r['average_score'],
+                total_score=r['total_score'],
+                rank=r['rank'],
+                total_students=len(recipients),
+                conduct=r['conduct'],
+                promotion_status=r['promotion_status'],
+                custom_message=custom_message,
+                lang_override=lang_override if lang_override != 'pref' else r['preferred_lang'],
+                sender_user=sender_user
+            )
+
+            if res['status'] == 'SENT':
+                summary['dispatched'] += 1
+            elif res['status'] == 'NO_PHONE':
+                summary['skipped_no_phone'] += 1
+            else:
+                summary['failed'] += 1
+
+            summary['details'].append({
+                'student_name': student.full_name,
+                'status': res['status'],
+                'phone': res.get('phone', ''),
+                'average': r['average_score']
+            })
+
+        from apps.audit.services import AuditService
+        AuditService.log_action(
+            school=school,
+            user=sender_user,
+            action='REPORT_CARD_SMS_DISPATCH',
+            object_type='Section',
+            object_id=str(section.id),
+            details={
+                'section_name': section.name,
+                'period_name': "Annual" if is_annual else (period.name if period else "Current"),
                 'total_students': summary['total_students'],
                 'dispatched': summary['dispatched'],
                 'skipped_no_phone': summary['skipped_no_phone'],
