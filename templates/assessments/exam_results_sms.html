@@ -49,6 +49,8 @@
                     <span>SMS Gateway: <strong>{{ sms_gateway_info.provider_name }}</strong></span>
                     {% if sms_gateway_info.is_starter_campaign %}
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200/80 text-amber-900 border border-amber-300">STARTER ACCOUNT</span>
+                    {% elif sms_gateway_info.is_business_campaign %}
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300">BUSINESS ACCOUNT</span>
                     {% elif sms_gateway_info.is_live %}
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200/80 text-emerald-900 border border-emerald-300">LIVE PRODUCTION</span>
                     {% else %}
@@ -58,6 +60,10 @@
                 {% if sms_gateway_info.is_starter_campaign %}
                 <p class="text-[11px] text-amber-800 mt-0.5">
                     <strong>Note:</strong> SMSEthiopia starter campaigns deliver SMS only to phone numbers verified in your dashboard (e.g. <code>+251937381801</code>). For other parent numbers, developer simulation is active so you can test complete rosters. For unrestricted live delivery to all parents, upgrade your package on <a href="https://smsethiopia.com" target="_blank" class="underline font-bold">smsethiopia.com</a> or configure AfroMessage.
+                </p>
+                {% elif sms_gateway_info.is_business_campaign %}
+                <p class="text-[11px] text-emerald-800 mt-0.5">
+                    <strong>Active:</strong> Business API key configured. SMS can be dispatched to all parents across Ethio Telecom and Safaricom. Note: When configuring a new custom Sender ID on smsethiopia.com, ensure it is approved in your dashboard.
                 </p>
                 {% else %}
                 <p class="text-[11px] text-slate-600 mt-0.5">Test and exam result scores are formatted in bilingual Ethiopian formats and dispatched with complete delivery tracking.</p>

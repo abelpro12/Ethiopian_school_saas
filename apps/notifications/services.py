@@ -184,19 +184,33 @@ class SMSEthiopiaProvider(SMSProviderBase):
                 return True
             else:
                 err_text = res.text or ""
+                is_sender_id_pending = (
+                    "10006" in err_text
+                    or "SenderID not approved" in err_text
+                    or "SenderID" in err_text
+                )
                 is_unwhitelisted = (
                     "DEFAULT_CAMPAIGN_RECIPIENT_NOT_WHITELISTED" in err_text
                     or "10007" in err_text
                     or "WHITELIST" in err_text.upper()
                 )
 
-                # Check if dev simulation fallback is permitted for unwhitelisted starter campaign recipients
-                # Enabled by default when DEBUG is True or SMS_SIMULATE_UNWHITELISTED=True
+                # Check if dev simulation fallback is permitted during testing
                 simulate_unwhitelisted = getattr(settings, 'SMS_SIMULATE_UNWHITELISTED', None)
                 if simulate_unwhitelisted is None:
                     simulate_unwhitelisted = getattr(settings, 'DEBUG', False) or (
                         os.environ.get('SMS_SIMULATE_UNWHITELISTED', 'True').lower() in ('true', '1', 'yes')
                     )
+
+                if is_sender_id_pending and simulate_unwhitelisted:
+                    notice = (
+                        f"[SMSEthiopia BUSINESS NOTICE]: Sender ID is pending approval on smsethiopia.com "
+                        f"(Error 10006). Delivered to {msisdn} via simulation for local testing while awaiting approval."
+                    )
+                    logger.warning(notice)
+                    _safe_console_print(notice)
+                    self.last_details = {'simulated': True, 'reason': 'BUSINESS_SENDERID_PENDING_SIMULATED', 'msisdn': msisdn}
+                    return True
 
                 if is_unwhitelisted and simulate_unwhitelisted:
                     notice = (
@@ -208,7 +222,12 @@ class SMSEthiopiaProvider(SMSProviderBase):
                     self.last_details = {'simulated': True, 'reason': 'STARTER_UNWHITELISTED_SIMULATED', 'msisdn': msisdn}
                     return True
 
-                if is_unwhitelisted:
+                if is_sender_id_pending:
+                    self.last_error = (
+                        "SMSEthiopia Business Campaign Notice: Your Campaign Sender ID is not approved yet "
+                        "(Error Code 10006). Please contact SMSEthiopia support to approve your custom Sender ID."
+                    )
+                elif is_unwhitelisted:
                     self.last_error = (
                         f"SMSEthiopia Starter Account limitation: Recipient {msisdn} is not whitelisted in your "
                         f"smsethiopia.com dashboard. Starter campaigns only deliver to verified numbers (+251937381801). "
@@ -243,9 +262,10 @@ class NotificationService:
 
         display_name = "Mock / Simulation Provider"
         is_starter = False
+        is_business = False
         if isinstance(provider, SMSEthiopiaProvider):
-            display_name = "SMSEthiopia Live Gateway"
-            is_starter = True
+            display_name = "SMSEthiopia Business Gateway"
+            is_business = True
         elif isinstance(provider, AfroMessageSMSProvider):
             display_name = "AfroMessage Live Gateway"
 
@@ -254,6 +274,7 @@ class NotificationService:
             'provider_name': display_name,
             'is_live': is_live,
             'is_starter_campaign': is_starter,
+            'is_business_campaign': is_business,
         }
 
     @classmethod
