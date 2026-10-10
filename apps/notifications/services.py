@@ -243,6 +243,44 @@ class SMSEthiopiaProvider(SMSProviderBase):
             self.last_error = f"SMSEthiopia Connection Error: {str(e)}"
             logger.error(f"[SMSEthiopia SMS EXCEPTION] {e}")
             _safe_console_print(f"[SMSEthiopia SMS EXCEPTION] {e}")
+class TelegramService:
+    @staticmethod
+    def send_telegram_message(user, message: str) -> bool:
+        import os
+        if not user:
+            return False
+        link = TelegramAccountLink.objects.filter(user=user, is_verified=True).first()
+        if not link or not link.telegram_chat_id:
+            bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+            if not bot_token:
+                logger.info(f"[TELEGRAM SIMULATION] User: {user.username} | Message: {message}")
+                _safe_console_print(f"[TELEGRAM SIMULATION to @{user.username}]: {message}")
+                return True
+            return False
+        from apps.notifications.channels.telegram import TelegramNotificationChannel
+        return TelegramNotificationChannel.send_telegram(link.telegram_chat_id, message)
+
+
+class EmailService:
+    @staticmethod
+    def send_email(email_address: str, subject: str, message: str) -> bool:
+        if not email_address:
+            return False
+        from django.core.mail import send_mail
+        try:
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@school.et')
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=from_email,
+                recipient_list=[email_address],
+                fail_silently=False,
+            )
+            logger.info(f"[EMAIL SUCCESS] Sent to {email_address} | Subject: {subject}")
+            return True
+        except Exception as e:
+            logger.error(f"[EMAIL FAILED] Sent to {email_address} | Error: {e}")
+            _safe_console_print(f"[EMAIL DISPATCH ERROR to {email_address}]: {e}")
             return False
 
 
