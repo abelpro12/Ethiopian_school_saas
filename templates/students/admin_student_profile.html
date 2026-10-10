@@ -194,7 +194,17 @@
                             <i class="fa-solid fa-pen-to-square"></i> Edit Profile
                         </button>
                         
-                        <div class="flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            {% if guardian_rel.parent.user.email %}
+                            <form method="POST" action="{% url 'students:admin_profile' student.id %}" class="inline">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="send_welcome_email">
+                                <input type="hidden" name="parent_id" value="{{ guardian_rel.parent.id }}">
+                                <button type="submit" class="text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 font-bold px-2 py-1 rounded transition flex items-center gap-1 border border-indigo-200" title="Send Welcome & Verification Email with login credentials and Telegram Bot link">
+                                    <i class="fa-solid fa-paper-plane text-[10px]"></i> Send Welcome Email
+                                </button>
+                            </form>
+                            {% endif %}
                             <button type="button" onclick="openResetPasswordModal('PARENT')" class="text-xs text-amber-600 hover:text-amber-800 font-bold px-2 py-1 hover:bg-amber-50 rounded transition">
                                 Reset Password
                             </button>

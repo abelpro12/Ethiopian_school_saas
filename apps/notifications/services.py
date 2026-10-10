@@ -303,6 +303,55 @@ class EmailService:
             _safe_console_print(f"[EMAIL DISPATCH ERROR to {email_address}]: {e}")
             return False
 
+    @classmethod
+    def send_parent_welcome_and_verification_email(cls, school, parent_user, temp_password: str = None, student = None) -> bool:
+        """
+        Sends an automated welcome, credentials, and notification verification email
+        to a newly registered or verified parent.
+        """
+        if not parent_user or not getattr(parent_user, 'email', None):
+            return False
+
+        import os
+        school_name = getattr(school, 'name', 'School')
+        bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', None) or os.environ.get('TELEGRAM_BOT_USERNAME', 'Seattle_Academy_Bot')
+        student_name = student.full_name if student else "your student"
+        parent_name = parent_user.get_full_name() or parent_user.first_name or parent_user.username
+
+        subject = f"🎓 [{school_name}] Welcome & Parent Portal Activation"
+        body = (
+            f"Dear {parent_name},\n\n"
+            f"Welcome to {school_name}! Your parent portal account has been successfully registered and linked to {student_name}.\n\n"
+            f"🔑 PARENT PORTAL LOGIN CREDENTIALS:\n"
+            f"• Username: {parent_user.username}\n"
+        )
+        if temp_password:
+            body += f"• Temporary Password: {temp_password}\n"
+        body += (
+            f"• Login Link: Access attendance, fee payments, and student progress on the web portal.\n\n"
+            f"📲 FREE INSTANT TELEGRAM ALERTS (RECOMMENDED):\n"
+            f"To receive instant push notifications and interactive report cards on your mobile device for 100% free:\n"
+            f"1. Open Telegram and search for: @{bot_username} (https://t.me/{bot_username})\n"
+            f"2. Tap 'START' and tap 'Share Contact' to automatically link your account.\n\n"
+            f"✉️ EMAIL NOTIFICATIONS VERIFIED:\n"
+            f"This email confirms that your inbox is registered for official semester report cards, exam result releases, and school announcements.\n\n"
+            f"Best regards,\n"
+            f"{school_name} Administration\n"
+            f"Addis Ababa, Ethiopia"
+        )
+
+        success = cls.send_email(parent_user.email, subject, body)
+        if success:
+            NotificationLog.objects.create(
+                school=school,
+                recipient=parent_user,
+                channel='EMAIL',
+                subject=subject,
+                message=body,
+                status='SENT'
+            )
+        return success
+
 
 class NotificationService:
     _sms_provider: SMSProviderBase = None

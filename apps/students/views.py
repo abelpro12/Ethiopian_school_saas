@@ -893,6 +893,15 @@ def student_profile_admin_view(request, student_id):
                 is_primary=is_primary
             )
 
+            if email:
+                from apps.notifications.services import EmailService
+                EmailService.send_parent_welcome_and_verification_email(
+                    school=school,
+                    parent_user=parent_user,
+                    temp_password=password,
+                    student=student
+                )
+
             messages.success(request, f"Parent/Guardian '{parent_user.get_full_name() or parent_user.username}' created and linked successfully! (Username: {username}, Password: {password})")
             return redirect('students:admin_profile', student_id=student.id)
 
@@ -983,6 +992,29 @@ def student_profile_admin_view(request, student_id):
                 messages.success(request, f"Parent/Guardian '{parent_name}' unlinked from '{student.full_name}'.")
             except GuardianRelationship.DoesNotExist:
                 messages.error(request, "Guardian relationship not found.")
+
+            return redirect('students:admin_profile', student_id=student.id)
+
+        elif action == 'send_welcome_email':
+            from apps.parents.models import ParentProfile
+            from apps.notifications.services import EmailService
+
+            parent_id = request.POST.get('parent_id')
+            parent_profile = get_object_or_404(ParentProfile, id=parent_id, school=school)
+            if not parent_profile.user.email:
+                messages.error(request, f"Parent '{parent_profile.user.username}' has no email address registered.")
+            else:
+                pwd = getattr(parent_profile.user, 'current_password', None)
+                sent = EmailService.send_parent_welcome_and_verification_email(
+                    school=school,
+                    parent_user=parent_profile.user,
+                    temp_password=pwd,
+                    student=student
+                )
+                if sent:
+                    messages.success(request, f"Welcome & verification email sent to {parent_profile.user.email}!")
+                else:
+                    messages.error(request, f"Failed to deliver email to {parent_profile.user.email}. Please verify SMTP connection.")
 
             return redirect('students:admin_profile', student_id=student.id)
             
