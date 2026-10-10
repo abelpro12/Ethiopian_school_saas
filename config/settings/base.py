@@ -15,6 +15,10 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ethiopian-school-saas
 SMSETHIOPIA_API_KEY = os.environ.get('SMSETHIOPIA_API_KEY', None)
 AFROMESSAGE_API_KEY = os.environ.get('AFROMESSAGE_API_KEY', None)
 
+# Telegram Bot (Free Push Notifications)
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', None)
+TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', None)
+
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']

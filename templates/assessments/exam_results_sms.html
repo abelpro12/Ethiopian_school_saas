@@ -224,12 +224,20 @@
             <!-- 2. Telegram Bot Checkbox (100% Free) -->
             <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-cyan-500/50 cursor-pointer transition">
                 <input type="checkbox" id="channel_telegram" value="TELEGRAM" checked class="mt-1 rounded text-cyan-500 focus:ring-cyan-400 border-slate-600 bg-slate-900">
-                <div class="text-xs">
-                    <div class="font-bold text-white flex items-center gap-1.5">
+                <div class="text-xs flex-1">
+                    <div class="font-bold text-white flex items-center gap-1.5 flex-wrap">
                         <i class="fa-brands fa-telegram text-cyan-400"></i> Telegram Bot
                         <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">100% FREE</span>
                     </div>
                     <div class="text-[11px] text-slate-400 mt-0.5">Instant rich push notification with bold format.</div>
+                    <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-700/60 pt-1.5">
+                        <a href="https://t.me/Seattle_Academy_Bot" target="_blank" onclick="event.stopPropagation();" class="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-white underline">
+                            <i class="fa-brands fa-telegram"></i> @Seattle_Academy_Bot
+                        </a>
+                        <button type="button" onclick="syncTelegramBot(event);" title="Sync incoming parent links from Telegram" class="px-2 py-0.5 rounded-md bg-slate-700 hover:bg-slate-600 text-[10px] font-bold text-slate-200 hover:text-white transition flex items-center gap-1">
+                            <i class="fa-solid fa-arrows-rotate text-[9px]" id="syncIconEr"></i> Sync Bot
+                        </button>
+                    </div>
                 </div>
             </label>
 
@@ -734,6 +742,27 @@ function setChannelsPreset(preset) {
         if (tg) tg.checked = false;
         if (em) em.checked = false;
     }
+}
+
+function syncTelegramBot(event) {
+    if (event) event.stopPropagation();
+    const icon = document.getElementById('syncIconEr');
+    if (icon) icon.classList.add('fa-spin');
+
+    fetch("{% url 'communication:sync_telegram_bot_api' %}")
+        .then(res => res.json())
+        .then(data => {
+            if (icon) icon.classList.remove('fa-spin');
+            if (data.success) {
+                alert(`[Telegram Bot Synced]\nProcessed ${data.processed_updates} updates.\nTotal linked parents: ${data.linked_parents_count}`);
+            } else {
+                alert("Failed to sync Telegram bot updates.");
+            }
+        })
+        .catch(err => {
+            if (icon) icon.classList.remove('fa-spin');
+            alert(`Sync error: ${err.message}`);
+        });
 }
 
 async function executeDispatch(studentIds) {

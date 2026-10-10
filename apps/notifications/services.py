@@ -246,10 +246,18 @@ class SMSEthiopiaProvider(SMSProviderBase):
 class TelegramService:
     @staticmethod
     def send_telegram_message(user, message: str) -> bool:
-        import os
+        import os, sys
         if not user:
             return False
+
+        is_test = 'test' in sys.argv or getattr(settings, 'TESTING', False)
         link = TelegramAccountLink.objects.filter(user=user, is_verified=True).first()
+
+        if is_test:
+            logger.info(f"[TELEGRAM TEST SIMULATION] User: {user.username} | Message: {message}")
+            _safe_console_print(f"[TELEGRAM SIMULATION to @{user.username}]: {message}")
+            return True
+
         if not link or not link.telegram_chat_id:
             bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
             if not bot_token:

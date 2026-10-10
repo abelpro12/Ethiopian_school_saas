@@ -25,4 +25,8 @@ urlpatterns = [
     # Report Card SMS Dispatcher
     path('report-cards-sms/', views_sms.report_cards_sms_dashboard, name='report_cards_sms'),
     path('report-cards-sms/send/', views_sms.report_cards_sms_send_api, name='report_cards_sms_send'),
+
+    # Telegram Bot Webhook & Sync APIs
+    path('telegram/sync/', views.sync_telegram_bot_api, name='sync_telegram_bot_api'),
+    path('telegram/webhook/', views.telegram_webhook, name='telegram_webhook'),
 ]

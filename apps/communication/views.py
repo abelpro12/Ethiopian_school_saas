@@ -369,3 +369,48 @@ def trigger_payment_reminders(request):
         )
 
     return redirect('communication:payment_reminders')
+
+
+@login_required
+def sync_telegram_bot_api(request):
+    """
+    Triggers Telegram Bot updates sync to register newly linked parents.
+    Returns JSON status with count of processed messages and total linked parents.
+    """
+    from apps.notifications.telegram_bot import TelegramBotHandler
+    from apps.communication.models import TelegramAccountLink
+
+    school = get_school(request)
+    processed = TelegramBotHandler.sync_updates()
+    
+    linked_qs = TelegramAccountLink.objects.filter(is_verified=True)
+    if school:
+        linked_qs = linked_qs.filter(school=school)
+    
+    return JsonResponse({
+        'success': True,
+        'processed_updates': processed,
+        'linked_parents_count': linked_qs.count(),
+        'bot_username': getattr(settings, 'TELEGRAM_BOT_USERNAME', 'Seattle_Academy_Bot')
+    })
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
+import json
+
+@csrf_exempt
+def telegram_webhook(request):
+    """
+    Telegram webhook receiver for real-time parent onboarding and message processing.
+    """
+    if request.method == 'POST':
+        try:
+            from apps.notifications.telegram_bot import TelegramBotHandler
+            data = json.loads(request.body.decode('utf-8'))
+            if 'message' in data:
+                TelegramBotHandler.handle_incoming_message(data['message'])
+            return HttpResponse('OK')
+        except Exception as e:
+            return HttpResponse(f'Error: {e}', status=400)
+    return HttpResponse('Telegram Webhook Active')
