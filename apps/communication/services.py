@@ -571,7 +571,9 @@ class ExamResultSMSService:
             phone_number=phone
         )
 
+        failure_reason = NotificationService.get_last_failure_reason() if not sent else None
         status_str = 'SENT' if sent else 'FAILED'
+        log_message = body if sent else f"[{failure_reason or 'FAILED'}] {body}"
         log = ExamResultSMSLog.objects.create(
             school=school,
             assessment_component=component,
@@ -582,12 +584,12 @@ class ExamResultSMSService:
             max_score=Decimal(str(max_score)),
             percentage=Decimal(str(percentage)),
             letter_grade=letter_grade,
-            message=body,
+            message=log_message,
             status=status_str,
             sent_by=sender_user
         )
 
-        return {'success': sent, 'status': status_str, 'phone': phone, 'message': body, 'log_id': log.id}
+        return {'success': sent, 'status': status_str, 'phone': phone, 'message': body, 'log_id': log.id, 'error': failure_reason}
 
     @classmethod
     def bulk_dispatch_results(cls, school, component, section=None, student_ids=None, custom_message=None, lang_override=None, sender_user=None):
@@ -610,6 +612,7 @@ class ExamResultSMSService:
             'skipped_no_mark': 0,
             'skipped_no_phone': 0,
             'failed': 0,
+            'failure_reasons': [],
             'details': []
         }
 
@@ -652,12 +655,15 @@ class ExamResultSMSService:
                 summary['skipped_no_phone'] += 1
             else:
                 summary['failed'] += 1
+                if res.get('error') and res['error'] not in summary['failure_reasons']:
+                    summary['failure_reasons'].append(res['error'])
 
             summary['details'].append({
                 'student_name': student.full_name,
                 'status': res['status'],
                 'phone': res.get('phone', ''),
-                'score': r['score']
+                'score': r['score'],
+                'error': res.get('error')
             })
 
         # Audit log
@@ -1050,7 +1056,9 @@ class ReportCardSMSService:
             phone_number=phone
         )
 
+        failure_reason = NotificationService.get_last_failure_reason() if not sent else None
         status_str = 'SENT' if sent else 'FAILED'
+        log_message = body if sent else f"[{failure_reason or 'FAILED'}] {body}"
         log = ReportCardSMSLog.objects.create(
             school=school,
             academic_year=academic_year,
@@ -1065,12 +1073,12 @@ class ReportCardSMSService:
             total_students=total_students if isinstance(total_students, int) else None,
             conduct_grade=conduct_val,
             promotion_status=status_val,
-            message=body,
+            message=log_message,
             status=status_str,
             sent_by=sender_user
         )
 
-        return {'success': sent, 'status': status_str, 'phone': phone, 'message': body, 'log_id': log.id}
+        return {'success': sent, 'status': status_str, 'phone': phone, 'message': body, 'log_id': log.id, 'error': failure_reason}
 
     @classmethod
     def bulk_dispatch_report_cards(cls, school, section, period=None, is_annual=False, student_ids=None, custom_message=None, lang_override=None, sender_user=None):
@@ -1089,6 +1097,7 @@ class ReportCardSMSService:
             'dispatched': 0,
             'skipped_no_phone': 0,
             'failed': 0,
+            'failure_reasons': [],
             'details': []
         }
 
@@ -1129,12 +1138,15 @@ class ReportCardSMSService:
                 summary['skipped_no_phone'] += 1
             else:
                 summary['failed'] += 1
+                if res.get('error') and res['error'] not in summary['failure_reasons']:
+                    summary['failure_reasons'].append(res['error'])
 
             summary['details'].append({
                 'student_name': student.full_name,
                 'status': res['status'],
                 'phone': res.get('phone', ''),
-                'average': r['average_score']
+                'average': r['average_score'],
+                'error': res.get('error')
             })
 
         from apps.audit.services import AuditService

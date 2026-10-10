@@ -8,6 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 class SMSProviderBase(abc.ABC):
+    last_error: str = None
+    last_details: dict = None
+    is_live_gateway: bool = False
+
     @abc.abstractmethod
     def send_sms(self, phone_number: str, message: str) -> bool:
         pass
@@ -27,7 +31,11 @@ def _safe_console_print(text: str):
 
 
 class MockSMSProvider(SMSProviderBase):
+    is_live_gateway = False
+
     def send_sms(self, phone_number: str, message: str) -> bool:
+        self.last_error = None
+        self.last_details = {'simulated': True}
         logger.info(f"[MOCK SMS] Sent to {phone_number}: {message}")
         _safe_console_print(f"[SIMULATION SMS to {phone_number}]: {message}")
         _safe_console_print("  --> To deliver real SMS to physical phones, configure AFROMESSAGE_API_KEY in .env")
@@ -39,6 +47,8 @@ class AfroMessageSMSProvider(SMSProviderBase):
     Production SMS provider for Ethiopia using the AfroMessage API.
     Supports Ethio Telecom and Safaricom Ethiopia networks.
     """
+    is_live_gateway = True
+
     def __init__(self, api_key: str = None, sender_name: str = None, identifier_id: str = None):
         import os
         self.api_key = (
@@ -63,9 +73,20 @@ class AfroMessageSMSProvider(SMSProviderBase):
         return cleaned
 
     def send_sms(self, phone_number: str, message: str) -> bool:
+        import os
+        self.last_error = None
+        self.last_details = {}
         if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
             logger.warning("[AfroMessage] No live API key configured. Simulating dispatch.")
             _safe_console_print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
+            self.last_details = {'simulated': True}
+            return True
+
+        force_simulation = os.environ.get('SMS_SIMULATION_MODE', 'False').lower() in ('true', '1', 'yes')
+        if force_simulation:
+            logger.info(f"[AfroMessage FORCED SIMULATION to {phone_number}]: {message}")
+            _safe_console_print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
+            self.last_details = {'simulated': True}
             return True
 
         import requests
@@ -89,9 +110,11 @@ class AfroMessageSMSProvider(SMSProviderBase):
                 logger.info(f"[AfroMessage SMS SUCCESS] To: {phone} | HTTP {res.status_code}")
                 return True
             else:
+                self.last_error = f"AfroMessage Error (HTTP {res.status_code}): {res.text}"
                 logger.error(f"[AfroMessage SMS FAILED] HTTP {res.status_code}: {res.text}")
                 return False
         except Exception as e:
+            self.last_error = f"AfroMessage Gateway Exception: {str(e)}"
             logger.error(f"[AfroMessage SMS EXCEPTION] {e}")
             return False
 
@@ -103,6 +126,8 @@ class SMSEthiopiaProvider(SMSProviderBase):
     Header: KEY: <API_KEY>
     Body: {"msisdn": "2519...", "text": "..."}
     """
+    is_live_gateway = True
+
     def __init__(self, api_key: str = None):
         import os
         self.api_key = (
@@ -123,9 +148,21 @@ class SMSEthiopiaProvider(SMSProviderBase):
         return cleaned
 
     def send_sms(self, phone_number: str, message: str) -> bool:
+        import os
+        self.last_error = None
+        self.last_details = {}
         if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
             logger.warning("[SMSEthiopia] No live API key configured. Simulating dispatch.")
             _safe_console_print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
+            self.last_details = {'simulated': True}
+            return True
+
+        # Check if entire SMS simulation mode is forced via environment
+        force_simulation = os.environ.get('SMS_SIMULATION_MODE', 'False').lower() in ('true', '1', 'yes')
+        if force_simulation:
+            logger.info(f"[SMSEthiopia FORCED SIMULATION to {phone_number}]: {message}")
+            _safe_console_print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
+            self.last_details = {'simulated': True}
             return True
 
         import requests
@@ -146,10 +183,45 @@ class SMSEthiopiaProvider(SMSProviderBase):
                 _safe_console_print(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn}: {res.text}")
                 return True
             else:
+                err_text = res.text or ""
+                is_unwhitelisted = (
+                    "DEFAULT_CAMPAIGN_RECIPIENT_NOT_WHITELISTED" in err_text
+                    or "10007" in err_text
+                    or "WHITELIST" in err_text.upper()
+                )
+
+                # Check if dev simulation fallback is permitted for unwhitelisted starter campaign recipients
+                # Enabled by default when DEBUG is True or SMS_SIMULATE_UNWHITELISTED=True
+                simulate_unwhitelisted = getattr(settings, 'SMS_SIMULATE_UNWHITELISTED', None)
+                if simulate_unwhitelisted is None:
+                    simulate_unwhitelisted = getattr(settings, 'DEBUG', False) or (
+                        os.environ.get('SMS_SIMULATE_UNWHITELISTED', 'True').lower() in ('true', '1', 'yes')
+                    )
+
+                if is_unwhitelisted and simulate_unwhitelisted:
+                    notice = (
+                        f"[SMSEthiopia STARTER NOTICE]: Recipient {msisdn} is not whitelisted on your smsethiopia.com "
+                        f"Starter campaign. Delivered via simulation for local testing."
+                    )
+                    logger.warning(notice)
+                    _safe_console_print(notice)
+                    self.last_details = {'simulated': True, 'reason': 'STARTER_UNWHITELISTED_SIMULATED', 'msisdn': msisdn}
+                    return True
+
+                if is_unwhitelisted:
+                    self.last_error = (
+                        f"SMSEthiopia Starter Account limitation: Recipient {msisdn} is not whitelisted in your "
+                        f"smsethiopia.com dashboard. Starter campaigns only deliver to verified numbers (+251937381801). "
+                        f"To send real SMS to all parents, upgrade to a paid SMSEthiopia package or switch to AfroMessage."
+                    )
+                else:
+                    self.last_error = f"SMSEthiopia Error (HTTP {res.status_code}): {err_text}"
+
                 logger.error(f"[SMSEthiopia SMS FAILED] To: {msisdn} | HTTP {res.status_code}: {res.text}")
                 _safe_console_print(f"[SMSEthiopia SMS FAILED] To {msisdn} HTTP {res.status_code}: {res.text}")
                 return False
         except Exception as e:
+            self.last_error = f"SMSEthiopia Connection Error: {str(e)}"
             logger.error(f"[SMSEthiopia SMS EXCEPTION] {e}")
             _safe_console_print(f"[SMSEthiopia SMS EXCEPTION] {e}")
             return False
@@ -157,6 +229,32 @@ class SMSEthiopiaProvider(SMSProviderBase):
 
 class NotificationService:
     _sms_provider: SMSProviderBase = None
+    _last_failure_reason: str = None
+
+    @classmethod
+    def get_last_failure_reason(cls) -> str:
+        return cls._last_failure_reason
+
+    @classmethod
+    def get_active_provider_info(cls) -> dict:
+        provider = cls.get_sms_provider()
+        name = provider.__class__.__name__
+        is_live = getattr(provider, 'is_live_gateway', False)
+
+        display_name = "Mock / Simulation Provider"
+        is_starter = False
+        if isinstance(provider, SMSEthiopiaProvider):
+            display_name = "SMSEthiopia Live Gateway"
+            is_starter = True
+        elif isinstance(provider, AfroMessageSMSProvider):
+            display_name = "AfroMessage Live Gateway"
+
+        return {
+            'provider_class': name,
+            'provider_name': display_name,
+            'is_live': is_live,
+            'is_starter_campaign': is_starter,
+        }
 
     @classmethod
     def get_sms_provider(cls) -> SMSProviderBase:
@@ -199,55 +297,66 @@ class NotificationService:
         Unified method to send notifications respecting user preferences.
         categories: 'attendance', 'payment', 'announcement', 'marketing'
         """
-        prefs, _ = UserNotificationPreference.objects.get_or_create(user=recipient_user)
+        cls._last_failure_reason = None
+        if recipient_user:
+            prefs, _ = UserNotificationPreference.objects.get_or_create(user=recipient_user)
 
-        # Check preferences
-        if category == 'attendance' and not prefs.attendance_alerts:
-            return False
-        if category == 'payment' and not prefs.payment_alerts:
-            return False
-        if category == 'announcement' and not prefs.announcement_alerts:
-            return False
-        if category == 'marketing' and not prefs.marketing_alerts:
-            return False
+            # Check preferences
+            if category == 'attendance' and not prefs.attendance_alerts:
+                cls._last_failure_reason = "Recipient opted out of attendance alerts"
+                return False
+            if category == 'payment' and not prefs.payment_alerts:
+                cls._last_failure_reason = "Recipient opted out of payment alerts"
+                return False
+            if category == 'announcement' and not prefs.announcement_alerts:
+                cls._last_failure_reason = "Recipient opted out of announcement alerts"
+                return False
+            if category == 'marketing' and not prefs.marketing_alerts:
+                cls._last_failure_reason = "Recipient opted out of marketing alerts"
+                return False
 
         success = False
         failure_reason = None
 
         if channel == NotificationChannel.SMS:
-            phone = phone_number or getattr(recipient_user, 'phone', None)
-            if not phone and hasattr(recipient_user, 'parent_profile'):
+            phone = phone_number or (getattr(recipient_user, 'phone', None) if recipient_user else None)
+            if not phone and recipient_user and hasattr(recipient_user, 'parent_profile'):
                 phone = getattr(recipient_user.parent_profile, 'phone', None)
             provider = cls.get_sms_provider()
             success = provider.send_sms(phone, message)
             if not success:
-                failure_reason = "SMS Gateway unreachable"
+                failure_reason = getattr(provider, 'last_error', None) or "SMS Gateway unreachable"
+                cls._last_failure_reason = failure_reason
 
         elif channel == NotificationChannel.TELEGRAM:
-            success = TelegramService.send_telegram_message(recipient_user, message)
+            success = TelegramService.send_telegram_message(recipient_user, message) if recipient_user else False
             if not success:
                 failure_reason = "User Telegram account not linked or unverified"
+                cls._last_failure_reason = failure_reason
 
         elif channel == NotificationChannel.EMAIL:
-            email = recipient_user.email
+            email = getattr(recipient_user, 'email', None) if recipient_user else None
             if email:
                 success = EmailService.send_email(email, subject or "School Notification", message)
             else:
                 failure_reason = "User email address missing"
+            if not success:
+                cls._last_failure_reason = failure_reason
 
         elif channel == NotificationChannel.IN_APP:
             success = True
 
         status = 'SENT' if success else 'FAILED'
 
-        NotificationLog.objects.create(
-            school=school,
-            recipient=recipient_user,
-            channel=channel,
-            subject=subject,
-            message=message,
-            status=status,
-            failure_reason=failure_reason
-        )
+        if recipient_user:
+            NotificationLog.objects.create(
+                school=school,
+                recipient=recipient_user,
+                channel=channel,
+                subject=subject,
+                message=message,
+                status=status,
+                failure_reason=failure_reason
+            )
 
         return success

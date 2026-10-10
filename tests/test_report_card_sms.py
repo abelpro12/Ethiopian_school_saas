@@ -634,3 +634,46 @@ class ReportCardSMSTests(TestCase):
         self.assertContains(response, "Report Cards SMS Dispatch History")
         self.assertContains(response, "Dawit Haile")
         self.assertContains(response, "0911445566")
+
+    def test_starter_campaign_handling_and_error_propagation(self):
+        """
+        Verify that starter campaign unwhitelisted numbers are handled gracefully,
+        errors are propagated, and user=None does not trigger an IntegrityError.
+        """
+        from apps.notifications.services import NotificationService, SMSEthiopiaProvider
+        from unittest.mock import patch, MagicMock
+
+        # 1. Test unwhitelisted with simulate_unwhitelisted = True
+        provider = SMSEthiopiaProvider(api_key="dummy_test_starter_key_mock")
+        NotificationService.set_sms_provider(provider)
+
+        mock_resp_400 = MagicMock()
+        mock_resp_400.status_code = 400
+        mock_resp_400.text = '{"error_message":"DEFAULT_CAMPAIGN_RECIPIENT_NOT_WHITELISTED: This is a starter (default) campaign and can only deliver to numbers verified in the dashboard. Error Code :: 10007"}'
+
+        with patch('requests.post', return_value=mock_resp_400):
+            # In test environment with simulate_unwhitelisted = True
+            with self.settings(SMS_SIMULATE_UNWHITELISTED=True):
+                sent = provider.send_sms("0953905885", "Test report card message")
+                self.assertTrue(sent)
+                self.assertTrue(provider.last_details.get('simulated'))
+
+            # With simulate_unwhitelisted = False, it should fail and record exact error
+            with self.settings(SMS_SIMULATE_UNWHITELISTED=False, DEBUG=False):
+                sent_fail = provider.send_sms("0953905885", "Test report card message")
+                self.assertFalse(sent_fail)
+                self.assertIn("SMSEthiopia Starter Account limitation", provider.last_error)
+
+        # 2. Test user=None safety in NotificationService
+        sent_none_user = NotificationService.send_notification(
+            school=self.school,
+            recipient_user=None,
+            channel="SMS",
+            message="Test message without user",
+            phone_number="0911445566"
+        )
+        self.assertTrue(sent_none_user)
+
+        # Reset provider
+        from apps.notifications.services import MockSMSProvider
+        NotificationService.set_sms_provider(MockSMSProvider())

@@ -22,6 +22,7 @@ from apps.communication.services import (
 )
 from apps.teachers.models import TeacherAssignment
 from apps.audit.services import AuditService
+from apps.notifications.services import NotificationService
 
 
 def check_can_dispatch_sms(user, section=None, subject=None, school=None):
@@ -171,6 +172,7 @@ def exam_results_sms_dashboard(request):
         'template_body_en': template_body_en,
         'template_body_am': template_body_am,
         'recent_logs': recent_logs,
+        'sms_gateway_info': NotificationService.get_active_provider_info(),
     })
 
 
@@ -228,6 +230,8 @@ def exam_results_sms_send_api(request):
         msg += f" ({summary['skipped_no_phone']} skipped due to missing parent phone number)."
     if summary['failed'] > 0:
         msg += f" ({summary['failed']} failed)."
+        if summary.get('failure_reasons'):
+            msg += f" Reason: {summary['failure_reasons'][0]}"
 
     return JsonResponse({
         'success': True,
@@ -418,6 +422,7 @@ def report_cards_sms_dashboard(request):
         'stats': stats,
         'template_body_en': template_body_en,
         'template_body_am': template_body_am,
+        'sms_gateway_info': NotificationService.get_active_provider_info(),
     })
 
 
@@ -487,6 +492,7 @@ def report_cards_sms_send_api(request):
             'skipped_no_phone': summary['skipped_no_phone'],
             'failed': summary['failed'],
             'total_students': summary['total_students'],
+            'failure_reasons': summary.get('failure_reasons', []),
             'details': summary['details']
         })
     except Exception as e:
