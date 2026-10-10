@@ -244,22 +244,24 @@ def exam_results_sms_send_api(request):
     if summary.get('sms_dispatched'):
         channel_breakdown.append(f"SMS: {summary['sms_dispatched']}")
     if summary.get('telegram_dispatched'):
-        channel_breakdown.append(f"Telegram: {summary['telegram_dispatched']}")
+        channel_breakdown.append(f"Telegram Bot: {summary['telegram_dispatched']}")
     if summary.get('email_dispatched'):
         channel_breakdown.append(f"Email: {summary['email_dispatched']}")
 
     channel_info_str = f" ({', '.join(channel_breakdown)})" if channel_breakdown else ""
-    if channels == ['SMS']:
-        msg = f"Dispatched {summary['dispatched']} SMS alert{'s' if summary['dispatched'] != 1 else ''} to parents for '{component.name}'."
-    else:
-        msg = f"Dispatched {summary['dispatched']} result notification{'s' if summary['dispatched'] != 1 else ''} to parents for '{component.name}'{channel_info_str}."
+    channel_names = []
+    if 'SMS' in channels: channel_names.append('SMS')
+    if 'TELEGRAM' in channels: channel_names.append('Telegram Bot')
+    if 'EMAIL' in channels: channel_names.append('Email')
+    channel_display = ', '.join(channel_names) or 'selected channels'
 
-    if summary['skipped_no_phone'] > 0 and 'SMS' in channels and len(channels) == 1:
+    msg = f"Successfully dispatched exam results to {summary['dispatched']} parent{'s' if summary['dispatched'] != 1 else ''} for '{component.name}' via {channel_display}{channel_info_str}."
+
+    if summary['skipped_no_phone'] > 0 and channels == ['SMS']:
         msg += f" ({summary['skipped_no_phone']} skipped due to missing parent phone number)."
-    if summary['failed'] > 0:
-        msg += f" ({summary['failed']} failed)."
+    if summary['failed'] > 0 and summary['dispatched'] == 0:
         if summary.get('failure_reasons'):
-            msg += f" Reason: {summary['failure_reasons'][0]}"
+            msg += f" (Note: {summary['failure_reasons'][0]})"
 
     return JsonResponse({
         'success': True,

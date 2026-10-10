@@ -563,26 +563,12 @@ class ExamResultSMSService:
         email_sent = False
         failure_reason = None
         log = None
+        delivered_channels = []
 
         # 1. SMS Dispatch
         if 'SMS' in active_channels:
             if not phone:
-                if len(active_channels) == 1:
-                    ExamResultSMSLog.objects.create(
-                        school=school,
-                        assessment_component=component,
-                        student=student,
-                        parent=parent,
-                        recipient_phone='',
-                        score=Decimal(str(score_val)),
-                        max_score=Decimal(str(max_score)),
-                        percentage=Decimal(str(percentage)),
-                        letter_grade=letter_grade,
-                        message="[SKIPPED: No registered parent phone number]",
-                        status='NO_PHONE',
-                        sent_by=sender_user
-                    )
-                    return {'success': False, 'status': 'NO_PHONE', 'error': 'No registered phone number for parent', 'sms_sent': False, 'telegram_sent': False, 'email_sent': False}
+                failure_reason = "No registered parent phone number"
             else:
                 sms_sent = NotificationService.send_notification(
                     school=school,
@@ -593,25 +579,10 @@ class ExamResultSMSService:
                     category='announcement',
                     phone_number=phone
                 )
-                if not sms_sent:
+                if sms_sent:
+                    delivered_channels.append('SMS')
+                else:
                     failure_reason = NotificationService.get_last_failure_reason()
-
-                status_str = 'SENT' if sms_sent else 'FAILED'
-                log_message = body if sms_sent else f"[{failure_reason or 'FAILED'}] {body}"
-                log = ExamResultSMSLog.objects.create(
-                    school=school,
-                    assessment_component=component,
-                    student=student,
-                    parent=parent,
-                    recipient_phone=phone,
-                    score=Decimal(str(score_val)),
-                    max_score=Decimal(str(max_score)),
-                    percentage=Decimal(str(percentage)),
-                    letter_grade=letter_grade,
-                    message=log_message,
-                    status=status_str,
-                    sent_by=sender_user
-                )
 
         # 2. Telegram Bot Dispatch (100% Free)
         if 'TELEGRAM' in active_channels:
@@ -632,6 +603,8 @@ class ExamResultSMSService:
                 subject=f"EXAM_RESULT_TG:{component.id}:{student.id}",
                 category='announcement'
             )
+            if telegram_sent:
+                delivered_channels.append('Telegram Bot')
 
         # 3. Email Dispatch (100% Free)
         if 'EMAIL' in active_channels:
@@ -641,30 +614,54 @@ class ExamResultSMSService:
                 or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
                 or (getattr(student.user, 'email', None) if student and student.user else None)
             )
-            email_subj = f"[{school_name}] Exam Result: {student.full_name} - {subject_name} ({test_name})"
-            email_body = (
-                f"Dear Parent/Guardian,\n\n"
-                f"Here is the assessment result for {student.full_name} at {school_name}:\n\n"
-                f"  • Student: {student.full_name}\n"
-                f"  • Subject: {subject_name}\n"
-                f"  • Assessment: {test_name}\n"
-                f"  • Score: {score_val:g} / {max_score:g} ({percentage:.1f}%)\n"
-                f"  • Grade: {letter_grade}\n\n"
-                f"Best regards,\n"
-                f"{school_name}\n"
-            )
-            email_sent = NotificationService.send_notification(
-                school=school,
-                recipient_user=recipient_user,
-                channel=NotificationChannel.EMAIL,
-                message=email_body,
-                subject=email_subj,
-                category='announcement',
-                email_address=email_addr
-            )
+            if not email_addr and getattr(settings, 'DEBUG', False):
+                email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+
+            if email_addr:
+                email_subj = f"[{school_name}] Exam Result: {student.full_name} - {subject_name} ({test_name})"
+                email_body = (
+                    f"Dear Parent/Guardian,\n\n"
+                    f"Here is the assessment result for {student.full_name} at {school_name}:\n\n"
+                    f"  • Student: {student.full_name}\n"
+                    f"  • Subject: {subject_name}\n"
+                    f"  • Assessment: {test_name}\n"
+                    f"  • Score: {score_val:g} / {max_score:g} ({percentage:.1f}%)\n"
+                    f"  • Grade: {letter_grade}\n\n"
+                    f"Best regards,\n"
+                    f"{school_name}\n"
+                )
+                email_sent = NotificationService.send_notification(
+                    school=school,
+                    recipient_user=recipient_user,
+                    channel=NotificationChannel.EMAIL,
+                    message=email_body,
+                    subject=email_subj,
+                    category='announcement',
+                    email_address=email_addr
+                )
+                if email_sent:
+                    delivered_channels.append('Email')
 
         any_sent = sms_sent or telegram_sent or email_sent
         overall_status = 'SENT' if any_sent else ('NO_PHONE' if ('SMS' in active_channels and not phone and not any_sent) else 'FAILED')
+
+        # Always record ExamResultSMSLog for tracking and dashboard status badges
+        channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
+        log_message = f"{channel_tag} {body}"
+        log = ExamResultSMSLog.objects.create(
+            school=school,
+            assessment_component=component,
+            student=student,
+            parent=parent,
+            recipient_phone=phone or 'N/A',
+            score=Decimal(str(score_val)),
+            max_score=Decimal(str(max_score)),
+            percentage=Decimal(str(percentage)),
+            letter_grade=letter_grade,
+            message=log_message,
+            status=overall_status,
+            sent_by=sender_user
+        )
 
         return {
             'success': any_sent,
@@ -1150,30 +1147,12 @@ class ReportCardSMSService:
         email_sent = False
         failure_reason = None
         log = None
+        delivered_channels = []
 
         # 1. SMS Dispatch
         if 'SMS' in active_channels:
             if not phone:
-                if len(active_channels) == 1:
-                    ReportCardSMSLog.objects.create(
-                        school=school,
-                        academic_year=academic_year,
-                        period=period if not is_annual else None,
-                        is_annual=is_annual,
-                        student=student,
-                        parent=parent,
-                        recipient_phone='',
-                        average_score=Decimal(str(avg_f)),
-                        total_score=Decimal(str(tot_f)),
-                        section_rank=sec_rank_int,
-                        total_students=total_students if isinstance(total_students, int) else None,
-                        conduct_grade=conduct_val,
-                        promotion_status=status_val,
-                        message="[SKIPPED: No registered parent phone number]",
-                        status='NO_PHONE',
-                        sent_by=sender_user
-                    )
-                    return {'success': False, 'status': 'NO_PHONE', 'error': 'No registered parent phone number', 'sms_sent': False, 'telegram_sent': False, 'email_sent': False}
+                failure_reason = "No registered parent phone number"
             else:
                 sent = NotificationService.send_notification(
                     school=school,
@@ -1185,29 +1164,10 @@ class ReportCardSMSService:
                     phone_number=phone
                 )
                 sms_sent = sent
-                if not sent:
+                if sent:
+                    delivered_channels.append('SMS')
+                else:
                     failure_reason = NotificationService.get_last_failure_reason()
-
-                status_str = 'SENT' if sent else 'FAILED'
-                log_message = body if sent else f"[{failure_reason or 'FAILED'}] {body}"
-                log = ReportCardSMSLog.objects.create(
-                    school=school,
-                    academic_year=academic_year,
-                    period=period if not is_annual else None,
-                    is_annual=is_annual,
-                    student=student,
-                    parent=parent,
-                    recipient_phone=phone,
-                    average_score=Decimal(str(avg_f)),
-                    total_score=Decimal(str(tot_f)),
-                    section_rank=sec_rank_int,
-                    total_students=total_students if isinstance(total_students, int) else None,
-                    conduct_grade=conduct_val,
-                    promotion_status=status_val,
-                    message=log_message,
-                    status=status_str,
-                    sent_by=sender_user
-                )
 
         # 2. Telegram Bot Dispatch (100% Free)
         if 'TELEGRAM' in active_channels:
@@ -1233,6 +1193,8 @@ class ReportCardSMSService:
                 subject=f"REPORT_CARD_TG:{period.id if period else 'ANNUAL'}:{student.id}",
                 category='announcement'
             )
+            if telegram_sent:
+                delivered_channels.append('Telegram Bot')
 
         # 3. Email Dispatch (100% Free)
         if 'EMAIL' in active_channels:
@@ -1242,35 +1204,63 @@ class ReportCardSMSService:
                 or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
                 or (getattr(student.user, 'email', None) if student and student.user else None)
             )
-            email_subj = f"[{school_name}] Official Report Card: {student.full_name} ({period_name})"
-            email_body = (
-                f"Dear Parent/Guardian,\n\n"
-                f"Please find below the {period_name} report card summary for {student.full_name} at {school_name}:\n\n"
-                f"Student Name: {student.full_name}\n"
-                f"Academic Year / Period: {academic_year.name if academic_year else ''} - {period_name}\n\n"
-                f"Subject Breakdown:\n{subjs_str}\n\n"
-                f"Performance Summary:\n"
-                f"  • Total Score: {tot_f:.1f}\n"
-                f"  • Average: {avg_f:.1f}%\n"
-                f"  • Section Rank: {rank_val}\n"
-                f"  • Overall Grade: {overall_grade}\n"
-                f"  • Conduct: {conduct_val}\n"
-                f"  • Promotion Status: {status_am if lang == 'am' else status_val}\n\n"
-                f"Best regards,\n"
-                f"{school_name}\n"
-            )
-            email_sent = NotificationService.send_notification(
-                school=school,
-                recipient_user=recipient_user,
-                channel=NotificationChannel.EMAIL,
-                message=email_body,
-                subject=email_subj,
-                category='announcement',
-                email_address=email_addr
-            )
+            if not email_addr and getattr(settings, 'DEBUG', False):
+                email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+
+            if email_addr:
+                email_subj = f"[{school_name}] Official Report Card: {student.full_name} ({period_name})"
+                email_body = (
+                    f"Dear Parent/Guardian,\n\n"
+                    f"Please find below the {period_name} report card summary for {student.full_name} at {school_name}:\n\n"
+                    f"Student Name: {student.full_name}\n"
+                    f"Academic Year / Period: {academic_year.name if academic_year else ''} - {period_name}\n\n"
+                    f"Subject Breakdown:\n{subjs_str}\n\n"
+                    f"Performance Summary:\n"
+                    f"  • Total Score: {tot_f:.1f}\n"
+                    f"  • Average: {avg_f:.1f}%\n"
+                    f"  • Section Rank: {rank_val}\n"
+                    f"  • Overall Grade: {overall_grade}\n"
+                    f"  • Conduct: {conduct_val}\n"
+                    f"  • Promotion Status: {status_am if lang == 'am' else status_val}\n\n"
+                    f"Best regards,\n"
+                    f"{school_name}\n"
+                )
+                email_sent = NotificationService.send_notification(
+                    school=school,
+                    recipient_user=recipient_user,
+                    channel=NotificationChannel.EMAIL,
+                    message=email_body,
+                    subject=email_subj,
+                    category='announcement',
+                    email_address=email_addr
+                )
+                if email_sent:
+                    delivered_channels.append('Email')
 
         any_sent = sms_sent or telegram_sent or email_sent
         overall_status = 'SENT' if any_sent else ('NO_PHONE' if ('SMS' in active_channels and not phone and not any_sent) else 'FAILED')
+
+        # Always record ReportCardSMSLog for tracking and dashboard status badges
+        channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
+        log_message = f"{channel_tag} {body}"
+        log = ReportCardSMSLog.objects.create(
+            school=school,
+            academic_year=academic_year,
+            period=period if not is_annual else None,
+            is_annual=is_annual,
+            student=student,
+            parent=parent,
+            recipient_phone=phone or 'N/A',
+            average_score=Decimal(str(avg_f)),
+            total_score=Decimal(str(tot_f)),
+            section_rank=sec_rank_int,
+            total_students=total_students if isinstance(total_students, int) else None,
+            conduct_grade=conduct_val,
+            promotion_status=status_val,
+            message=log_message,
+            status=overall_status,
+            sent_by=sender_user
+        )
 
         return {
             'success': any_sent,

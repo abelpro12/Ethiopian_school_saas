@@ -706,11 +706,12 @@ function setFilterCategory(cat) {
 async function dispatchSelectedSMS() {
     const checked = Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
     if (checked.length === 0) {
-        alert("Please select at least one student to send SMS results.");
+        alert("Please select at least one student to send exam results.");
         return;
     }
 
-    if (!confirm(`Are you sure you want to send test results to ${checked.length} parents via SMS?`)) {
+    const channels = getSelectedChannels();
+    if (!confirm(`Are you sure you want to send exam results to ${checked.length} parents via ${channels.join(', ')}?`)) {
         return;
     }
 
@@ -718,14 +719,16 @@ async function dispatchSelectedSMS() {
 }
 
 async function dispatchAllEligibleSMS() {
-    if (!confirm("Are you sure you want to send test results to all parents with recorded marks?")) {
+    const channels = getSelectedChannels();
+    if (!confirm(`Are you sure you want to send exam results to all parents with recorded marks via ${channels.join(', ')}?`)) {
         return;
     }
     await executeDispatch(null);
 }
 
 async function dispatchSingleStudentSMS(studentId) {
-    if (!confirm("Send SMS result to this student's parent now?")) {
+    const channels = getSelectedChannels();
+    if (!confirm(`Send exam result to this student's parent via ${channels.join(', ')} now?`)) {
         return;
     }
     await executeDispatch([studentId]);

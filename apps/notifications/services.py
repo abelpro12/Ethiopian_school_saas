@@ -260,9 +260,10 @@ class TelegramService:
 
         if not link or not link.telegram_chat_id:
             bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
-            if not bot_token:
+            if not bot_token or getattr(settings, 'DEBUG', False):
                 logger.info(f"[TELEGRAM SIMULATION] User: {user.username} | Message: {message}")
                 _safe_console_print(f"[TELEGRAM SIMULATION to @{user.username}]: {message}")
+                _safe_console_print("  --> Note: Parent hasn't linked @Seattle_Academy_Bot yet. Start bot in Telegram to receive live push.")
                 return True
             return False
         from apps.notifications.channels.telegram import TelegramNotificationChannel
