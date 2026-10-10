@@ -28,6 +28,10 @@
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                 <span>1-Click Standard Scheme (100%)</span>
             </button>
+            <button onclick="openCopySubjectModal()" class="bg-indigo-700 hover:bg-indigo-600 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-code-compare"></i>
+                <span>Copy Scheme by Subject</span>
+            </button>
             <button onclick="openReplicateModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition flex items-center gap-1.5">
                 <i class="fa-solid fa-copy"></i>
                 <span>Replicate Across Grades</span>
@@ -57,10 +61,10 @@
             <!-- All Grades Tab -->
             <a href="{% url 'assessments:components' %}"
                class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 border
-               {% if not selected_grade_id %}bg-slate-900 text-white border-slate-900 shadow-sm{% else %}bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}">
+               {% if not selected_grade_id and not selected_subject_id %}bg-slate-900 text-white border-slate-900 shadow-sm{% else %}bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100{% endif %}">
                 <i class="fa-solid fa-grid-2"></i>
                 <span>All Grades Overview</span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] {% if not selected_grade_id %}bg-slate-700 text-white{% else %}bg-slate-200 text-slate-700{% endif %}">
+                <span class="px-2 py-0.5 rounded-full text-[10px] {% if not selected_grade_id and not selected_subject_id %}bg-slate-700 text-white{% else %}bg-slate-200 text-slate-700{% endif %}">
                     {{ total_configured_grades }}/{{ total_school_grades }}
                 </span>
             </a>
@@ -69,18 +73,18 @@
             {% for g in all_grade_groups %}
             <a href="{% url 'assessments:components' %}?grade={{ g.grade.id }}"
                class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 border
-               {% if selected_grade_id == g.grade.id|stringformat:"s" %}
+               {% if selected_grade_id == g.grade.id|stringformat:"s" and not selected_subject_id %}
                    bg-indigo-600 text-white border-indigo-600 shadow-sm
                {% else %}
                    bg-white text-slate-700 border-slate-200 hover:bg-slate-50
                {% endif %}">
                 <span>{{ g.grade.name }}</span>
                 {% if g.total_weight == 100.0 %}
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold {% if selected_grade_id == g.grade.id|stringformat:"s" %}bg-indigo-800 text-emerald-300{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold {% if selected_grade_id == g.grade.id|stringformat:"s" and not selected_subject_id %}bg-indigo-800 text-emerald-300{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">
                         <i class="fa-solid fa-check text-[9px] mr-1"></i>100%
                     </span>
                 {% elif g.component_count > 0 %}
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold {% if selected_grade_id == g.grade.id|stringformat:"s" %}bg-amber-800 text-amber-200{% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-extrabold {% if selected_grade_id == g.grade.id|stringformat:"s" and not selected_subject_id %}bg-amber-800 text-amber-200{% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">
                         {{ g.total_weight }}%
                     </span>
                 {% else %}
@@ -90,6 +94,36 @@
                 {% endif %}
             </a>
             {% endfor %}
+        </div>
+
+        <!-- Subject Drill-down Filter Bar -->
+        <div class="flex items-center gap-2 pt-3 border-t border-slate-100 flex-wrap">
+            <span class="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-book-bookmark text-indigo-600"></i> Direct Subject Customizer:
+            </span>
+            <select onchange="if(this.value){window.location.href=this.value}else{window.location.href='{% url 'assessments:components' %}{% if selected_grade_id %}?grade={{ selected_grade_id }}{% endif %}'}"
+                    class="text-xs px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="{% url 'assessments:components' %}{% if selected_grade_id %}?grade={{ selected_grade_id }}{% endif %}">
+                    -- Select Subject to Customize Components ({% if selected_grade_id %}{{ selected_group.grade.name }}{% else %}All Subjects{% endif %}) --
+                </option>
+                {% for subj in all_subjects %}
+                {% if not selected_grade_id or subj.grade.id|stringformat:"s" == selected_grade_id %}
+                <option value="{% url 'assessments:components' %}?grade={{ subj.grade.id }}&subject={{ subj.id }}"
+                        {% if selected_subject_id == subj.id|stringformat:"s" %}selected{% endif %}>
+                    {{ subj.name }} ({{ subj.code }}) &bull; {{ subj.grade.name }}{% if subj.stream and subj.stream.code != 'GEN' %} - {{ subj.stream.name }}{% endif %}
+                </option>
+                {% endif %}
+                {% endfor %}
+            </select>
+
+            {% if selected_subject %}
+            <a href="{% url 'assessments:components' %}?grade={{ selected_subject.grade.id }}" class="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 px-2.5 py-1 bg-rose-50 border border-rose-200 rounded-lg">
+                <i class="fa-solid fa-xmark"></i> Clear Subject Filter
+            </a>
+            <span class="text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
+                <i class="fa-solid fa-sparkles text-[10px] mr-1"></i>Customizing {{ selected_subject.name }} Components
+            </span>
+            {% endif %}
         </div>
     </div>
 
@@ -102,16 +136,18 @@
                     <span>Evaluation Weight Summary &bull; {{ scope_title }}</span>
                 </h3>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    {% if selected_grade_id %}
+                    {% if selected_subject %}
+                        The combined weight of evaluation components for <strong>{{ selected_subject.name }}</strong> must equal exactly 100.0%.
+                    {% elif selected_grade_id %}
                         The combined weight of all evaluation components for this Grade must equal exactly 100.0%.
                     {% else %}
-                        Each individual grade maintains its own independent 100.0% evaluation breakdown.
+                        Each individual grade and subject maintains its own independent 100.0% evaluation breakdown.
                     {% endif %}
                 </p>
             </div>
 
             <div class="flex items-center gap-3">
-                {% if selected_grade_id %}
+                {% if selected_subject or selected_grade_id %}
                     <span class="text-2xl font-black {% if is_scope_valid %}text-emerald-600{% else %}text-amber-600{% endif %}">
                         {{ scope_total_weight }}%
                     </span>
@@ -125,8 +161,8 @@
             </div>
         </div>
 
-        {% if selected_grade_id %}
-            <!-- Single Grade Progress Bar -->
+        {% if selected_subject or selected_grade_id %}
+            <!-- Single Scope Progress Bar -->
             <div class="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden shadow-inner flex">
                 <div class="h-full transition-all duration-500 {% if is_scope_valid %}bg-gradient-to-r from-emerald-500 to-teal-500{% elif scope_total_weight > 100 %}bg-rose-500{% else %}bg-gradient-to-r from-amber-400 to-indigo-500{% endif %}"
                      style="width: {% if scope_total_weight > 100 %}100{% else %}{{ scope_total_weight }}{% endif %}%;"></div>
@@ -135,17 +171,17 @@
             {% if is_scope_valid %}
             <div class="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl">
                 <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
-                <span><strong>Compliant:</strong> {{ scope_title }} components total exactly 100.0%. Mark calculation and report card generation are ready.</span>
+                <span><strong>Compliant:</strong> {{ scope_title }} components total exactly 100.0%. Mark recording and report card calculation are fully supported.</span>
             </div>
             {% else %}
             <div class="flex items-center gap-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl">
                 <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
-                <span><strong>Adjustment Needed:</strong> Current total is {{ scope_total_weight }}%. Please adjust weights to reach exactly 100.0%.</span>
+                <span><strong>Adjustment Needed:</strong> Current total is {{ scope_total_weight }}%. Please adjust component weights to reach exactly 100.0%.</span>
             </div>
             {% endif %}
         {% else %}
             <!-- All Grades Overview Banner -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
                 <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
                     <p class="text-[11px] font-bold text-slate-500 uppercase">Configured Grade Schemes</p>
                     <p class="text-lg font-black text-slate-800 mt-1">{{ total_configured_grades }} of {{ total_school_grades }} Grades</p>
@@ -154,16 +190,20 @@
                     <p class="text-[11px] font-bold text-emerald-700 uppercase">100% Validated Schemes</p>
                     <p class="text-lg font-black text-emerald-800 mt-1">{{ total_valid_grades }} Grades Validated</p>
                 </div>
+                <div class="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200">
+                    <p class="text-[11px] font-bold text-purple-700 uppercase">Custom Subject Schemes</p>
+                    <p class="text-lg font-black text-purple-800 mt-1">{{ total_custom_subjects }} Subjects Customized</p>
+                </div>
                 <div class="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200">
                     <p class="text-[11px] font-bold text-indigo-700 uppercase">Evaluation Standard</p>
-                    <p class="text-lg font-black text-indigo-800 mt-1">100% per Grade</p>
+                    <p class="text-lg font-black text-indigo-800 mt-1">100% per Subject</p>
                 </div>
             </div>
 
             {% if is_scope_valid %}
             <div class="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-xl">
                 <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
-                <span><strong>All Active Schemes Compliant:</strong> Every configured grade in your school has an accurate 100.0% evaluation breakdown!</span>
+                <span><strong>All Active Schemes Compliant:</strong> Every configured grade and subject in your school has an accurate 100.0% evaluation breakdown!</span>
             </div>
             {% endif %}
         {% endif %}
@@ -192,7 +232,12 @@
                                 {{ group.grade.get_stream_type_display }}
                             </span>
                         </div>
-                        <p class="text-xs text-slate-500">{{ group.component_count }} assessment component{{ group.component_count|pluralize }} configured</p>
+                        <p class="text-xs text-slate-500">
+                            {{ group.component_count }} common component{{ group.component_count|pluralize }} &bull; {{ group.total_subjects }} subject{{ group.total_subjects|pluralize }}
+                            {% if group.custom_subjects_count > 0 %}
+                            <span class="text-purple-700 font-bold ml-1">({{ group.custom_subjects_count }} with custom subject scheme)</span>
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
 
@@ -216,8 +261,32 @@
                 </div>
             </div>
 
-            <!-- Components Table for this Grade -->
-            <div class="overflow-x-auto">
+            <!-- Grade Card Tabs: Grade Default vs Per-Subject Schemes -->
+            <div class="px-5 pt-3 pb-2 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <button type="button" id="tab-btn-default-{{ group.grade.id }}" onclick="switchGradeTab('{{ group.grade.id }}', 'default')"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {% if selected_subject and selected_subject.grade.id == group.grade.id %}bg-slate-100 text-slate-600 hover:bg-slate-200{% else %}bg-indigo-600 text-white shadow-xs{% endif %}">
+                        <i class="fa-solid fa-layer-group text-[10px]"></i>
+                        <span>Grade Overview Scheme</span>
+                    </button>
+                    <button type="button" id="tab-btn-subjects-{{ group.grade.id }}" onclick="switchGradeTab('{{ group.grade.id }}', 'subjects')"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 {% if selected_subject and selected_subject.grade.id == group.grade.id %}bg-indigo-600 text-white shadow-xs{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                        <i class="fa-solid fa-book text-[10px]"></i>
+                        <span>Subject Schemes ({{ group.subject_schemes|length }})</span>
+                        {% if group.custom_subjects_count > 0 %}
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-purple-500 text-white">
+                            {{ group.custom_subjects_count }} custom
+                        </span>
+                        {% endif %}
+                    </button>
+                </div>
+                <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                    Toggle to view or customize evaluation components for specific subjects
+                </span>
+            </div>
+
+            <!-- TAB 1: Components Table for this Grade (Grade Default View) -->
+            <div id="grade-default-{{ group.grade.id }}" class="overflow-x-auto {% if selected_subject and selected_subject.grade.id == group.grade.id %}hidden{% endif %}">
                 <table class="w-full text-left text-xs border-collapse">
                     <thead>
                         <tr class="bg-slate-50/50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100">
@@ -259,7 +328,7 @@
                             <td class="p-4 text-right">
                                 <div class="inline-flex items-center gap-1.5">
                                     <button type="button" onclick="openEditModal('{{ comp.name|escapejs }}', '{{ comp.weight }}', '{{ comp.max_marks }}', '{{ group.grade.id }}', '{{ comp.scope_stream.id|default:'' }}')"
-                                            class="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition" title="Edit Component">
+                                            class="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition" title="Edit Component (Grade-wide)">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
                                     <form method="POST" action="{% url 'assessments:components' %}" class="inline" onsubmit="return confirm('Are you sure you want to delete component \'{{ comp.name|escapejs }}\' for {{ group.grade.name }}?');">
@@ -268,7 +337,7 @@
                                         <input type="hidden" name="component_name" value="{{ comp.name }}">
                                         <input type="hidden" name="grade_id" value="{{ group.grade.id }}">
                                         <input type="hidden" name="stream_id" value="{{ comp.scope_stream.id|default:'' }}">
-                                        <button type="submit" class="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition" title="Delete Component">
+                                        <button type="submit" class="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition" title="Delete Component (Grade-wide)">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                     </form>
@@ -288,6 +357,157 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+
+            <!-- TAB 2: Per-Subject Customizer View -->
+            <div id="grade-subjects-{{ group.grade.id }}" class="p-5 space-y-4 {% if not selected_subject or selected_subject.grade.id != group.grade.id %}hidden{% endif %}">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+                    <p class="text-xs text-slate-600 font-semibold">
+                        <i class="fa-solid fa-sliders text-indigo-600 mr-1"></i> Individual subjects can define custom evaluation components (e.g., Lab Practicals, Oral Speaking, Portfolios).
+                    </p>
+                    <button onclick="openCopySubjectModal('', '', '{{ group.grade.id }}')" class="text-xs text-indigo-700 font-bold hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-copy text-[10px]"></i> Copy scheme between subjects
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    {% for ss in group.subject_schemes %}
+                    <div id="subject-card-{{ ss.subject.id }}"
+                         class="border rounded-2xl p-4.5 space-y-3 transition
+                         {% if selected_subject_id == ss.subject.id|stringformat:"s" %}
+                             border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/20 shadow-sm
+                         {% else %}
+                             border-slate-200/90 bg-white hover:border-slate-300
+                         {% endif %}">
+                        
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <div class="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                                    <i class="fa-solid fa-book-open"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h4 class="font-extrabold text-slate-900 text-sm font-heading">{{ ss.subject.name }}</h4>
+                                        <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold">{{ ss.subject.code }}</span>
+                                        {% if ss.is_custom %}
+                                        <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+                                            <i class="fa-solid fa-sparkles text-[9px]"></i> Custom Scheme
+                                        </span>
+                                        {% else %}
+                                        <span class="text-[10px] font-medium text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">Standard Grade Scheme</span>
+                                        {% endif %}
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">
+                                        {{ ss.component_count }} assessment component{{ ss.component_count|pluralize }} &bull; {{ ss.subject.grade.name }}
+                                        {% if ss.subject.stream and ss.subject.stream.code != 'GEN' %} ({{ ss.subject.stream.name }}){% endif %}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <!-- Subject Weight Status Badge -->
+                                {% if ss.is_valid %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <i class="fa-solid fa-check text-[10px]"></i> 100.0% (Valid)
+                                </span>
+                                {% elif ss.component_count > 0 %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-50 text-amber-800 border border-amber-200">
+                                    <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> {{ ss.total_weight }}% / 100%
+                                </span>
+                                {% else %}
+                                <span class="text-[11px] text-slate-400 font-medium px-2 py-1 bg-slate-100 rounded-lg">No components</span>
+                                {% endif %}
+
+                                <button onclick="openAddModal('{{ group.grade.id }}', '{{ ss.subject.id }}', '{{ ss.subject.name|escapejs }}')"
+                                        class="bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition inline-flex items-center gap-1">
+                                    <i class="fa-solid fa-plus text-[9px]"></i> Add Component
+                                </button>
+                                <button onclick="openStandardSchemeModal('{{ group.grade.id }}', '{{ ss.subject.id }}', '{{ ss.subject.name|escapejs }}')"
+                                        class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition inline-flex items-center gap-1" title="Apply Standard 100% Scheme to {{ ss.subject.name }}">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-[9px]"></i> 100% Preset
+                                </button>
+                                <button onclick="openCopySubjectModal('{{ ss.subject.id }}', '{{ ss.subject.name|escapejs }}', '{{ group.grade.id }}')"
+                                        class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold px-2 py-1.5 rounded-xl transition" title="Copy {{ ss.subject.name }}'s scheme to other subjects">
+                                    <i class="fa-solid fa-copy text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mini Component Table for this Subject -->
+                        {% if ss.components %}
+                        <div class="overflow-x-auto rounded-xl border border-slate-100">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100 text-[10px]">
+                                        <th class="p-3 w-8">#</th>
+                                        <th class="p-3">Component Name</th>
+                                        <th class="p-3 text-center">Evaluation Weight</th>
+                                        <th class="p-3 text-center">Max Marks</th>
+                                        <th class="p-3 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-800">
+                                    {% for sc in ss.components %}
+                                    <tr class="hover:bg-slate-50/70 transition">
+                                        <td class="p-3 font-mono text-slate-400 font-bold text-[11px]">{{ forloop.counter }}</td>
+                                        <td class="p-3 font-bold text-slate-900 text-xs">
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                                                <span>{{ sc.name }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="p-3 text-center">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-lg font-black text-xs bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                {{ sc.weight }}%
+                                            </span>
+                                        </td>
+                                        <td class="p-3 text-center font-bold text-slate-600 font-mono text-xs">
+                                            {{ sc.max_marks }}
+                                        </td>
+                                        <td class="p-3 text-right">
+                                            <div class="inline-flex items-center gap-1.5">
+                                                <button type="button"
+                                                        onclick="openEditModal('{{ sc.name|escapejs }}', '{{ sc.weight }}', '{{ sc.max_marks }}', '{{ group.grade.id }}', '{{ sc.subject.stream_id|default:'' }}', '{{ sc.id }}', '{{ ss.subject.id }}', '{{ ss.subject.name|escapejs }}')"
+                                                        class="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 transition" title="Edit this component for {{ ss.subject.name }}">
+                                                    <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                                                </button>
+                                                <form method="POST" action="{% url 'assessments:components' %}" class="inline" onsubmit="return confirm('Delete component \'{{ sc.name|escapejs }}\' from {{ ss.subject.name }}?');">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="action" value="delete_component">
+                                                    <input type="hidden" name="component_id" value="{{ sc.id }}">
+                                                    <input type="hidden" name="subject_id" value="{{ ss.subject.id }}">
+                                                    <input type="hidden" name="scope_type" value="single">
+                                                    <button type="submit" class="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition" title="Delete from {{ ss.subject.name }}">
+                                                        <i class="fa-solid fa-trash-can text-[10px]"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="p-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-slate-400 text-xs">
+                            <i class="fa-solid fa-flask-vial text-slate-300 text-lg mb-1 block"></i>
+                            No assessment components defined for <strong>{{ ss.subject.name }}</strong> yet.
+                            <button onclick="openAddModal('{{ group.grade.id }}', '{{ ss.subject.id }}', '{{ ss.subject.name|escapejs }}')" class="text-indigo-600 font-bold hover:underline ml-1">
+                                + Add Component
+                            </button>
+                            <span class="mx-1">&bull;</span>
+                            <button onclick="openStandardSchemeModal('{{ group.grade.id }}', '{{ ss.subject.id }}', '{{ ss.subject.name|escapejs }}')" class="text-emerald-600 font-bold hover:underline">
+                                Apply 100% Preset
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-xl">
+                        No subjects found in this grade. Add subjects under Academics Config first.
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         {% empty %}
@@ -338,7 +558,7 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Target Grade</label>
-                    <select id="add_grade_id" name="grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+                    <select id="add_grade_id" name="grade_id" onchange="filterAddModalSubjects()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
                         <option value="">All Grades</option>
                         {% for g in grades %}
                         <option value="{{ g.id }}">{{ g.name }}</option>
@@ -347,13 +567,33 @@
                 </div>
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Target Stream</label>
-                    <select name="stream_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <select id="add_stream_id" name="stream_id" onchange="filterAddModalSubjects()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="">All Streams</option>
                         {% for s in streams %}
                         <option value="{{ s.id }}">{{ s.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Target Subject Scope</span>
+                    <span class="text-[10px] text-indigo-600 font-medium">Optional: Leave blank for all subjects in grade</span>
+                </label>
+                <select id="add_subject_id" name="subject_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-800">
+                    <option value="">All Subjects in Grade (Standard Grade-wide)</option>
+                    {% for s in all_subjects %}
+                    <option value="{{ s.id }}" data-grade="{{ s.grade.id }}" data-stream="{{ s.stream.id }}">{{ s.name }} ({{ s.grade.name }}{% if s.stream and s.stream.code != 'GEN' %} - {{ s.stream.name }}{% endif %})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="add_overwrite_existing" name="overwrite_existing" value="true" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                <label for="add_overwrite_existing" class="text-xs text-slate-700 font-medium cursor-pointer">
+                    Overwrite weight / max marks if component name already exists
+                </label>
             </div>
 
             <div class="pt-3 flex justify-end space-x-2 border-t">
@@ -407,14 +647,25 @@
                 <p class="text-[11px] font-bold text-emerald-900 pt-1">Total: 100.0%</p>
             </div>
 
-            <div>
-                <label class="block font-semibold text-slate-700 mb-1">Apply to Grade</label>
-                <select name="grade_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold">
-                    <option value="">Apply to ALL Grades in School</option>
-                    {% for g in grades %}
-                    <option value="{{ g.id }}">{{ g.name }}</option>
-                    {% endfor %}
-                </select>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Apply to Grade</label>
+                    <select id="standard_grade_id" name="grade_id" onchange="filterStandardSubjects()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-bold">
+                        <option value="">Apply to ALL Grades in School</option>
+                        {% for g in grades %}
+                        <option value="{{ g.id }}">{{ g.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Target Subject Scope</label>
+                    <select id="standard_subject_id" name="subject_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800">
+                        <option value="">All Subjects in Grade</option>
+                        {% for s in all_subjects %}
+                        <option value="{{ s.id }}" data-grade="{{ s.grade.id }}">{{ s.name }} ({{ s.grade.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
 
             <div class="flex items-center gap-2">
@@ -546,9 +797,17 @@
         <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
             {% csrf_token %}
             <input type="hidden" name="action" value="edit_component">
+            <input type="hidden" name="component_id" id="edit_component_id">
+            <input type="hidden" name="subject_id" id="edit_subject_id">
             <input type="hidden" name="old_name" id="edit_old_name">
             <input type="hidden" name="grade_id" id="edit_grade_id">
             <input type="hidden" name="stream_id" id="edit_stream_id">
+            <input type="hidden" name="scope_type" id="edit_scope_type" value="grade">
+
+            <div id="edit_target_badge_wrapper" class="bg-indigo-50/80 border border-indigo-200 text-indigo-900 rounded-xl p-3 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-indigo-600 text-xs"></i>
+                <span class="text-xs font-semibold">Editing for: <strong id="edit_target_label" class="font-extrabold text-indigo-950">Grade Scope</strong></span>
+            </div>
 
             <div>
                 <label class="block font-semibold text-slate-700 mb-1">Component Name</label>
@@ -731,10 +990,113 @@
     </div>
 </div>
 
+<!-- Modal 6: Copy Subject Scheme Modal -->
+<div id="copySubjectModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-6 border-0 w-full max-w-lg shadow-2xl rounded-2xl bg-white max-h-[90vh] overflow-y-auto space-y-4">
+        <div class="flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-code-compare"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-slate-900 font-heading">Copy Scheme Between Subjects</h3>
+                    <p class="text-xs text-slate-500">Replicate assessment breakdown from one subject to other subjects</p>
+                </div>
+            </div>
+            <button onclick="closeCopySubjectModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+        </div>
+
+        <form method="POST" action="{% url 'assessments:components' %}" class="space-y-4 text-xs">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="copy_subject_scheme">
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Source Subject (Copy From) *</label>
+                <select id="copy_source_subject_id" name="source_subject_id" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold text-slate-800" required>
+                    <option value="">-- Select Source Subject --</option>
+                    {% for s in all_subjects %}
+                    <option value="{{ s.id }}">{{ s.name }} ({{ s.grade.name }}{% if s.stream and s.stream.code != 'GEN' %} - {{ s.stream.name }}{% endif %})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-semibold text-slate-700 mb-1">Target Subjects (Copy To) *</label>
+                <select id="copy_target_subject_ids" name="target_subject_ids" multiple size="6" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none text-slate-800 font-medium" required>
+                    {% for s in all_subjects %}
+                    <option value="{{ s.id }}">{{ s.name }} ({{ s.grade.name }}{% if s.stream and s.stream.code != 'GEN' %} - {{ s.stream.name }}{% endif %})</option>
+                    {% endfor %}
+                </select>
+                <p class="text-[11px] text-slate-400 mt-1">Hold Ctrl (Windows) or Cmd (Mac) to select multiple target subjects.</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="overwrite_copy_existing" name="overwrite_existing" value="true" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                <label for="overwrite_copy_existing" class="text-xs text-slate-700 font-medium cursor-pointer">
+                    Cleanly replace existing unmarked components on target subjects
+                </label>
+            </div>
+
+            <div class="pt-3 flex justify-end space-x-2 border-t">
+                <button type="button" onclick="closeCopySubjectModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-copy"></i>
+                    <span>Copy Assessment Scheme</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-    function openAddModal(gradeId) {
+    function filterAddModalSubjects() {
+        const gradeId = document.getElementById('add_grade_id').value;
+        const streamId = document.getElementById('add_stream_id').value;
+        const subjSelect = document.getElementById('add_subject_id');
+        const opts = subjSelect.querySelectorAll('option');
+        opts.forEach(opt => {
+            if (!opt.value) {
+                opt.style.display = '';
+                return;
+            }
+            const g = opt.getAttribute('data-grade');
+            const s = opt.getAttribute('data-stream');
+            let show = true;
+            if (gradeId && g !== gradeId) show = false;
+            if (streamId && s && s !== streamId) show = false;
+            opt.style.display = show ? '' : 'none';
+        });
+        if (subjSelect.selectedOptions[0] && subjSelect.selectedOptions[0].style.display === 'none') {
+            subjSelect.value = '';
+        }
+    }
+
+    function filterStandardSubjects() {
+        const gradeId = document.getElementById('standard_grade_id').value;
+        const subjSelect = document.getElementById('standard_subject_id');
+        const opts = subjSelect.querySelectorAll('option');
+        opts.forEach(opt => {
+            if (!opt.value) {
+                opt.style.display = '';
+                return;
+            }
+            const g = opt.getAttribute('data-grade');
+            opt.style.display = (!gradeId || g === gradeId) ? '' : 'none';
+        });
+        if (subjSelect.selectedOptions[0] && subjSelect.selectedOptions[0].style.display === 'none') {
+            subjSelect.value = '';
+        }
+    }
+
+    function openAddModal(gradeId, subjectId, subjectName) {
         if (gradeId) {
             document.getElementById('add_grade_id').value = gradeId;
+        }
+        filterAddModalSubjects();
+        if (subjectId) {
+            document.getElementById('add_subject_id').value = subjectId;
+        } else {
+            document.getElementById('add_subject_id').value = '';
         }
         document.getElementById('addModal').classList.remove('hidden');
     }
@@ -742,7 +1104,16 @@
         document.getElementById('addModal').classList.add('hidden');
     }
 
-    function openStandardSchemeModal() {
+    function openStandardSchemeModal(gradeId, subjectId, subjectName) {
+        if (gradeId) {
+            document.getElementById('standard_grade_id').value = gradeId;
+        }
+        filterStandardSubjects();
+        if (subjectId) {
+            document.getElementById('standard_subject_id').value = subjectId;
+        } else {
+            document.getElementById('standard_subject_id').value = '';
+        }
         document.getElementById('standardSchemeModal').classList.remove('hidden');
     }
     function closeStandardSchemeModal() {
@@ -763,17 +1134,68 @@
         document.getElementById('importPastModal').classList.add('hidden');
     }
 
-    function openEditModal(oldName, weight, maxMarks, gradeId, streamId) {
+    function openCopySubjectModal(sourceSubjectId, sourceSubjectName, gradeId) {
+        if (sourceSubjectId) {
+            document.getElementById('copy_source_subject_id').value = sourceSubjectId;
+        }
+        document.getElementById('copySubjectModal').classList.remove('hidden');
+    }
+    function closeCopySubjectModal() {
+        document.getElementById('copySubjectModal').classList.add('hidden');
+    }
+
+    function openEditModal(oldName, weight, maxMarks, gradeId, streamId, compId, subjectId, subjectName) {
         document.getElementById('edit_old_name').value = oldName;
         document.getElementById('edit_name').value = oldName;
         document.getElementById('edit_weight').value = weight;
         document.getElementById('edit_max_marks').value = maxMarks;
         document.getElementById('edit_grade_id').value = gradeId || '';
         document.getElementById('edit_stream_id').value = streamId || '';
+        document.getElementById('edit_component_id').value = compId || '';
+        document.getElementById('edit_subject_id').value = subjectId || '';
+        document.getElementById('edit_scope_type').value = compId ? 'single' : (subjectId ? 'subject' : 'grade');
+        
+        const labelEl = document.getElementById('edit_target_label');
+        if (subjectName) {
+            labelEl.textContent = 'Subject: ' + subjectName;
+        } else {
+            labelEl.textContent = 'All Subjects in Grade';
+        }
         document.getElementById('editModal').classList.remove('hidden');
     }
     function closeEditModal() {
         document.getElementById('editModal').classList.add('hidden');
+    }
+
+    function switchGradeTab(gradeId, tabName) {
+        const defaultView = document.getElementById('grade-default-' + gradeId);
+        const subjectsView = document.getElementById('grade-subjects-' + gradeId);
+        const btnDefault = document.getElementById('tab-btn-default-' + gradeId);
+        const btnSubjects = document.getElementById('tab-btn-subjects-' + gradeId);
+
+        if (tabName === 'subjects') {
+            if (defaultView) defaultView.classList.add('hidden');
+            if (subjectsView) subjectsView.classList.remove('hidden');
+            if (btnDefault) {
+                btnDefault.classList.remove('bg-indigo-600', 'text-white', 'shadow-xs');
+                btnDefault.classList.add('bg-slate-100', 'text-slate-600');
+            }
+            if (btnSubjects) {
+                btnSubjects.classList.remove('bg-slate-100', 'text-slate-600');
+                btnSubjects.classList.add('bg-indigo-600', 'text-white', 'shadow-xs');
+            }
+        } else {
+            if (subjectsView) subjectsView.classList.add('hidden');
+            if (defaultView) defaultView.classList.remove('hidden');
+            if (btnSubjects) {
+                btnSubjects.classList.remove('bg-indigo-600', 'text-white', 'shadow-xs');
+                btnSubjects.classList.add('bg-slate-100', 'text-slate-600');
+            }
+            if (btnDefault) {
+                btnDefault.classList.remove('bg-slate-100', 'text-slate-600');
+                btnDefault.classList.add('bg-indigo-600', 'text-white', 'shadow-xs');
+            }
+        }
     }
 </script>
 {% endblock %}

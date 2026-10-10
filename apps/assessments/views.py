@@ -73,6 +73,8 @@ def manage_components(request):
 
     selected_grade_id = request.GET.get('grade') or request.POST.get('selected_grade_id') or ''
     selected_stream_id = request.GET.get('stream') or request.POST.get('selected_stream_id') or ''
+    selected_subject_id = request.GET.get('subject') or request.POST.get('selected_subject_id') or ''
+    view_mode = request.GET.get('view') or ('subject' if selected_subject_id else 'grade')
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -82,22 +84,27 @@ def manage_components(request):
             max_marks = request.POST.get('max_marks', 100.0)
             target_grade_id = request.POST.get('grade_id')
             target_stream_id = request.POST.get('stream_id')
+            target_subject_id = request.POST.get('subject_id')
             
             if not name:
                 messages.error(request, "Component name is required.")
                 return redirect('assessments:components')
 
             try:
-                subjects = Subject.objects.filter(school=school)
-                if target_grade_id:
-                    subjects = subjects.filter(grade_id=target_grade_id)
-                if target_stream_id:
-                    subjects = subjects.filter(stream_id=target_stream_id)
+                if target_subject_id:
+                    subjects = Subject.objects.filter(school=school, id=target_subject_id)
+                else:
+                    subjects = Subject.objects.filter(school=school)
+                    if target_grade_id:
+                        subjects = subjects.filter(grade_id=target_grade_id)
+                    if target_stream_id:
+                        subjects = subjects.filter(stream_id=target_stream_id)
 
                 created_count = 0
+                updated_count = 0
                 if subjects.exists():
                     for subject in subjects:
-                        _, created = AssessmentComponent.objects.get_or_create(
+                        comp, created = AssessmentComponent.objects.get_or_create(
                             school=school,
                             academic_year=ay,
                             period=sem,
@@ -108,18 +115,29 @@ def manage_components(request):
                                 'max_marks': max_marks
                             }
                         )
-                        if created:
+                        if not created:
+                            if request.POST.get('overwrite_existing') == 'true':
+                                comp.weight = weight
+                                comp.max_marks = max_marks
+                                comp.save()
+                                updated_count += 1
+                        else:
                             created_count += 1
-                    target_desc = ""
-                    if target_grade_id:
-                        g_obj = grades.filter(id=target_grade_id).first()
-                        if g_obj: target_desc += f" {g_obj.name}"
-                    if target_stream_id:
-                        s_obj = streams.filter(id=target_stream_id).first()
-                        if s_obj: target_desc += f" ({s_obj.name})"
-                    messages.success(request, f"Assessment component '{name}' ({weight}%) saved for{target_desc or ' all subjects'}.")
+
+                    if target_subject_id:
+                        s_obj = subjects.first()
+                        messages.success(request, f"Assessment component '{name}' ({weight}%) configured for {s_obj.name} ({s_obj.grade.name}).")
+                    else:
+                        target_desc = ""
+                        if target_grade_id:
+                            g_obj = grades.filter(id=target_grade_id).first()
+                            if g_obj: target_desc += f" {g_obj.name}"
+                        if target_stream_id:
+                            s_obj = streams.filter(id=target_stream_id).first()
+                            if s_obj: target_desc += f" ({s_obj.name})"
+                        messages.success(request, f"Assessment component '{name}' ({weight}%) saved for{target_desc or ' all subjects'}.")
                 else:
-                    messages.error(request, "No matching subjects found for the selected Grade & Stream.")
+                    messages.error(request, "No matching subjects found for the selected Grade, Stream, or Subject.")
 
             except Exception as e:
                 messages.error(request, f"Error adding component: {e}")
@@ -127,46 +145,84 @@ def manage_components(request):
         elif action == 'delete_component':
             comp_name = request.POST.get('component_name')
             comp_id = request.POST.get('component_id')
+            target_subject_id = request.POST.get('subject_id')
             target_grade_id = request.POST.get('grade_id')
             target_stream_id = request.POST.get('stream_id')
+            scope_type = request.POST.get('scope_type')
+
             try:
                 comps = AssessmentComponent.objects.filter(school=school, academic_year=ay, period=sem)
-                if comp_name:
-                    comps = comps.filter(name=comp_name)
-                elif comp_id:
-                    comp = AssessmentComponent.objects.get(id=comp_id, school=school)
-                    comps = comps.filter(name=comp.name)
+                if comp_id and (scope_type == 'single' or target_subject_id):
+                    comps = comps.filter(id=comp_id)
+                elif target_subject_id:
+                    comps = comps.filter(subject_id=target_subject_id)
+                    if comp_name:
+                        comps = comps.filter(name=comp_name)
+                    elif comp_id:
+                        comps = comps.filter(id=comp_id)
+                else:
+                    if comp_name:
+                        comps = comps.filter(name=comp_name)
+                    elif comp_id:
+                        c_obj = AssessmentComponent.objects.filter(id=comp_id, school=school).first()
+                        if c_obj:
+                            comps = comps.filter(name=c_obj.name)
+                    if target_grade_id:
+                        comps = comps.filter(subject__grade_id=target_grade_id)
+                    if target_stream_id:
+                        comps = comps.filter(subject__stream_id=target_stream_id)
 
-                if target_grade_id:
-                    comps = comps.filter(subject__grade_id=target_grade_id)
-                if target_stream_id:
-                    comps = comps.filter(subject__stream_id=target_stream_id)
-
-                comps.delete()
-                messages.success(request, "Component deleted successfully.")
+                marked_comps = [c for c in comps if StudentMark.objects.filter(assessment_component=c).exists()]
+                if marked_comps:
+                    messages.error(
+                        request,
+                        "Cannot delete component(s) because student marks have already been recorded for them. Please clear recorded marks first to preserve data integrity."
+                    )
+                else:
+                    count = comps.count()
+                    comps.delete()
+                    messages.success(request, f"Successfully deleted {count} assessment component(s).")
             except Exception as e:
                 messages.error(request, f"Error deleting component: {e}")
                 
         elif action == 'edit_component':
+            comp_id = request.POST.get('component_id')
             old_name = request.POST.get('old_name')
             new_name = request.POST.get('name', '').strip()
             weight = request.POST.get('weight')
             max_marks = request.POST.get('max_marks')
+            target_subject_id = request.POST.get('subject_id')
             target_grade_id = request.POST.get('grade_id')
             target_stream_id = request.POST.get('stream_id')
+            scope_type = request.POST.get('scope_type')
             
             try:
-                comps = AssessmentComponent.objects.filter(school=school, academic_year=ay, period=sem, name=old_name)
-                if target_grade_id:
-                    comps = comps.filter(subject__grade_id=target_grade_id)
-                if target_stream_id:
-                    comps = comps.filter(subject__stream_id=target_stream_id)
+                comps = AssessmentComponent.objects.filter(school=school, academic_year=ay, period=sem)
+                if comp_id and (scope_type == 'single' or target_subject_id):
+                    comps = comps.filter(id=comp_id)
+                elif target_subject_id:
+                    comps = comps.filter(subject_id=target_subject_id)
+                    if old_name:
+                        comps = comps.filter(name=old_name)
+                    elif comp_id:
+                        comps = comps.filter(id=comp_id)
+                else:
+                    if old_name:
+                        comps = comps.filter(name=old_name)
+                    elif comp_id:
+                        c_obj = AssessmentComponent.objects.filter(id=comp_id, school=school).first()
+                        if c_obj:
+                            comps = comps.filter(name=c_obj.name)
+                    if target_grade_id:
+                        comps = comps.filter(subject__grade_id=target_grade_id)
+                    if target_stream_id:
+                        comps = comps.filter(subject__stream_id=target_stream_id)
 
                 update_dict = {'weight': weight, 'max_marks': max_marks}
                 if new_name:
                     update_dict['name'] = new_name
-                comps.update(**update_dict)
-                messages.success(request, f"Assessment component '{new_name or old_name}' updated successfully.")
+                updated = comps.update(**update_dict)
+                messages.success(request, f"Assessment component '{new_name or old_name}' updated successfully ({updated} component(s) modified).")
             except Exception as e:
                 messages.error(request, f"Error updating component: {e}")
                 
@@ -392,7 +448,10 @@ def manage_components(request):
                 ]
 
             target_subjects = Subject.objects.filter(school=school)
-            if target_grade_id:
+            target_subject_id = request.POST.get('subject_id')
+            if target_subject_id:
+                target_subjects = target_subjects.filter(id=target_subject_id)
+            elif target_grade_id:
                 target_subjects = target_subjects.filter(grade_id=target_grade_id)
 
             if not target_subjects.exists():
@@ -437,7 +496,59 @@ def manage_components(request):
                                 )
                                 if created:
                                     created_total += 1
-                messages.success(request, f"Standard Ethiopian 100% Assessment Scheme initialized successfully! ({created_total} components created).")
+
+                if target_subject_id and target_subjects.first():
+                    messages.success(request, f"Standard Ethiopian 100% Assessment Scheme initialized for {target_subjects.first().name}!")
+                else:
+                    messages.success(request, f"Standard Ethiopian 100% Assessment Scheme initialized successfully! ({created_total} components created).")
+
+        elif action == 'copy_subject_scheme':
+            source_subject_id = request.POST.get('source_subject_id')
+            target_subject_ids = request.POST.getlist('target_subject_ids') or ([request.POST.get('target_subject_id')] if request.POST.get('target_subject_id') else [])
+            target_subject_ids = [s for s in target_subject_ids if s]
+            overwrite_existing = request.POST.get('overwrite_existing') == 'true'
+
+            if not source_subject_id:
+                messages.error(request, "Please select a source subject to copy scheme from.")
+            elif not target_subject_ids:
+                messages.error(request, "Please select at least one target subject.")
+            else:
+                source_subj = Subject.objects.filter(id=source_subject_id, school=school).first()
+                if not source_subj:
+                    messages.error(request, "Source subject not found.")
+                else:
+                    source_comps = AssessmentComponent.objects.filter(
+                        school=school, academic_year=ay, period=sem, subject=source_subj
+                    )
+                    if not source_comps.exists():
+                        messages.error(request, f"Subject '{source_subj.name}' has no configured assessment components to copy.")
+                    else:
+                        comp_defs = [{'name': c.name, 'weight': c.weight, 'max_marks': c.max_marks} for c in source_comps]
+                        target_subjs = Subject.objects.filter(school=school, id__in=target_subject_ids)
+                        copied_total = 0
+                        with transaction.atomic():
+                            for t_subj in target_subjs:
+                                if overwrite_existing:
+                                    for ec in AssessmentComponent.objects.filter(school=school, academic_year=ay, period=sem, subject=t_subj):
+                                        if not StudentMark.objects.filter(assessment_component=ec).exists():
+                                            ec.delete()
+                                for cd in comp_defs:
+                                    if overwrite_existing:
+                                        _, was_created = AssessmentComponent.objects.update_or_create(
+                                            school=school, academic_year=ay, period=sem, subject=t_subj, name=cd['name'],
+                                            defaults={'weight': cd['weight'], 'max_marks': cd['max_marks']}
+                                        )
+                                    else:
+                                        _, was_created = AssessmentComponent.objects.get_or_create(
+                                            school=school, academic_year=ay, period=sem, subject=t_subj, name=cd['name'],
+                                            defaults={'weight': cd['weight'], 'max_marks': cd['max_marks']}
+                                        )
+                                    if was_created:
+                                        copied_total += 1
+                        messages.success(
+                            request,
+                            f"Successfully replicated assessment scheme from {source_subj.name} to {target_subjs.count()} subject(s) ({copied_total} components configured)!"
+                        )
 
         elif action == 'replicate_grade_scheme':
             source_grade_id = request.POST.get('source_grade_id')
@@ -543,13 +654,29 @@ def manage_components(request):
         params = []
         if selected_grade_id: params.append(f"grade={selected_grade_id}")
         if selected_stream_id: params.append(f"stream={selected_stream_id}")
+        if selected_subject_id: params.append(f"subject={selected_subject_id}")
+        if view_mode: params.append(f"view={view_mode}")
         if params: redirect_url += "?" + "&".join(params)
         return redirect(redirect_url)
 
-    # Calculate per-grade grouped breakdown & validation
+    # Calculate per-grade and per-subject grouped breakdown & validation
     all_components_raw = AssessmentComponent.objects.filter(
         school=school, academic_year=ay, period=sem
     ).select_related('subject__grade', 'subject__stream').order_by('name')
+
+    all_subjects = Subject.objects.filter(school=school).select_related('grade', 'stream').order_by('grade__level', 'name')
+
+    selected_subject = None
+    selected_subject_components = []
+    selected_subject_weight = 0.0
+    selected_subject_is_valid = False
+
+    if selected_subject_id:
+        selected_subject = all_subjects.filter(id=selected_subject_id).first()
+        if selected_subject:
+            selected_subject_components = list(all_components_raw.filter(subject=selected_subject).order_by('id'))
+            selected_subject_weight = round(sum(float(c.weight) for c in selected_subject_components), 2)
+            selected_subject_is_valid = (selected_subject_weight == 100.0)
 
     grade_groups = []
     unique_components = []
@@ -560,14 +687,24 @@ def manage_components(request):
         g_seen = set()
         g_raw = all_components_raw.filter(subject__grade=g)
         
-        # Calculate subject-by-subject total weights
-        g_subjects = Subject.objects.filter(school=school, grade=g)
+        # Calculate subject-by-subject breakdowns
+        g_subjects = all_subjects.filter(grade=g)
+        subject_schemes = []
         subject_weights = []
+
         for subj in g_subjects:
-            s_comps = g_raw.filter(subject=subj)
-            if s_comps.exists():
-                sw = sum(float(c.weight) for c in s_comps)
+            s_comps = list(g_raw.filter(subject=subj).order_by('id'))
+            sw = round(sum(float(c.weight) for c in s_comps), 2)
+            if s_comps:
                 subject_weights.append(sw)
+            is_valid_subj = (sw == 100.0)
+            subject_schemes.append({
+                'subject': subj,
+                'components': s_comps,
+                'total_weight': sw,
+                'is_valid': is_valid_subj,
+                'component_count': len(s_comps),
+            })
 
         for comp in g_raw:
             k = (comp.name, comp.weight, comp.max_marks, comp.subject.stream_id if comp.subject.stream else None)
@@ -583,6 +720,12 @@ def manage_components(request):
                 seen_global_keys.add(gk)
                 unique_components.append(comp)
 
+        # Grade modal scheme signature to detect custom subjects
+        grade_sig = tuple(sorted((c.name, float(c.weight), float(c.max_marks)) for c in g_comps)) if g_comps else ()
+        for ss in subject_schemes:
+            ss_sig = tuple(sorted((c.name, float(c.weight), float(c.max_marks)) for c in ss['components'])) if ss['components'] else ()
+            ss['is_custom'] = bool(ss_sig and grade_sig and ss_sig != grade_sig)
+
         if subject_weights:
             is_valid_grade = all(round(sw, 2) == 100.0 for sw in subject_weights)
             g_weight = round(sum(subject_weights) / len(subject_weights), 2)
@@ -596,10 +739,18 @@ def manage_components(request):
             'total_weight': g_weight,
             'is_valid': is_valid_grade,
             'component_count': len(g_comps),
+            'subject_schemes': subject_schemes,
+            'custom_subjects_count': sum(1 for ss in subject_schemes if ss.get('is_custom')),
+            'total_subjects': len(g_subjects),
         })
 
     # Determine scope summary metrics
-    if selected_grade_id:
+    if selected_subject:
+        scope_total_weight = selected_subject_weight
+        is_scope_valid = selected_subject_is_valid
+        scope_title = f"{selected_subject.name} ({selected_subject.grade.name}) Scheme"
+        displayed_groups = [gg for gg in grade_groups if str(gg['grade'].id) == str(selected_subject.grade.id)]
+    elif selected_grade_id:
         filtered_groups = [gg for gg in grade_groups if str(gg['grade'].id) == str(selected_grade_id)]
         selected_group = filtered_groups[0] if filtered_groups else None
         scope_total_weight = selected_group['total_weight'] if selected_group else 0.0
@@ -632,6 +783,7 @@ def manage_components(request):
         'total_configured_grades': sum(1 for gg in grade_groups if gg['component_count'] > 0),
         'total_valid_grades': sum(1 for gg in grade_groups if gg['is_valid']),
         'total_school_grades': len(grades),
+        'total_custom_subjects': sum(gg['custom_subjects_count'] for gg in grade_groups),
         'ay': ay,
         'sem': sem,
         'grades': grades,
@@ -642,6 +794,13 @@ def manage_components(request):
         'all_period_names': all_period_names,
         'selected_grade_id': selected_grade_id,
         'selected_stream_id': selected_stream_id,
+        'selected_subject_id': selected_subject_id,
+        'selected_subject': selected_subject,
+        'selected_subject_components': selected_subject_components,
+        'selected_subject_weight': selected_subject_weight,
+        'selected_subject_is_valid': selected_subject_is_valid,
+        'all_subjects': all_subjects,
+        'view_mode': view_mode,
     })
 
 

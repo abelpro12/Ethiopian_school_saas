@@ -423,3 +423,111 @@ class FlexibleGradingAndInterventionsTests(TestCase):
         self.assertEqual(res_sms.status_code, 302)
         intervention.refresh_from_db()
         self.assertTrue(intervention.parent_notified)
+
+    def test_subject_specific_component_management(self):
+        """Test creating, editing, and deleting components specifically for an individual subject."""
+        self.client.force_login(self.admin)
+
+        # Create a second subject in the same grade (e.g. Biology)
+        subject_bio = Subject.objects.create(
+            school=self.school, grade=self.grade, stream=self.stream,
+            name="Biology", code="BIO-9"
+        )
+
+        url = reverse('assessments:components')
+
+        # 1. Add component specifically for Biology (e.g., Lab Practical 25%)
+        res = self.client.post(url, {
+            'action': 'add_component',
+            'name': 'Lab Practical Examination',
+            'weight': '25.00',
+            'max_marks': '50.00',
+            'grade_id': self.grade.id,
+            'subject_id': subject_bio.id,
+        })
+        self.assertEqual(res.status_code, 302)
+
+        # Verify component exists for Biology ONLY, and NOT for Mathematics
+        bio_comp = AssessmentComponent.objects.filter(
+            school=self.school, subject=subject_bio, name='Lab Practical Examination'
+        ).first()
+        self.assertIsNotNone(bio_comp)
+        self.assertEqual(bio_comp.weight, Decimal('25.00'))
+        self.assertEqual(bio_comp.max_marks, Decimal('50.00'))
+
+        math_has_lab = AssessmentComponent.objects.filter(
+            school=self.school, subject=self.subject, name='Lab Practical Examination'
+        ).exists()
+        self.assertFalse(math_has_lab)
+
+        # 2. Edit component specifically for Biology by component_id
+        res_edit = self.client.post(url, {
+            'action': 'edit_component',
+            'component_id': bio_comp.id,
+            'subject_id': subject_bio.id,
+            'scope_type': 'single',
+            'old_name': 'Lab Practical Examination',
+            'name': 'Science Lab & Practical Exam',
+            'weight': '30.00',
+            'max_marks': '60.00',
+        })
+        self.assertEqual(res_edit.status_code, 302)
+        bio_comp.refresh_from_db()
+        self.assertEqual(bio_comp.name, 'Science Lab & Practical Exam')
+        self.assertEqual(bio_comp.weight, Decimal('30.00'))
+        self.assertEqual(bio_comp.max_marks, Decimal('60.00'))
+
+        # 3. Seed 1-Click standard 100% scheme for a single subject
+        res_seed = self.client.post(url, {
+            'action': 'seed_standard_scheme',
+            'preset': 'STANDARD_3',
+            'grade_id': self.grade.id,
+            'subject_id': subject_bio.id,
+            'overwrite_existing': 'true',
+        })
+        self.assertEqual(res_seed.status_code, 302)
+        bio_comps = AssessmentComponent.objects.filter(
+            school=self.school, academic_year=self.ay, period=self.sem1, subject=subject_bio
+        )
+        self.assertEqual(bio_comps.count(), 3)
+        total_bio_weight = sum(c.weight for c in bio_comps)
+        self.assertEqual(total_bio_weight, Decimal('100.00'))
+
+        # 4. Copy scheme between subjects
+        subject_chem = Subject.objects.create(
+            school=self.school, grade=self.grade, stream=self.stream,
+            name="Chemistry", code="CHEM-9"
+        )
+        res_copy = self.client.post(url, {
+            'action': 'copy_subject_scheme',
+            'source_subject_id': subject_bio.id,
+            'target_subject_ids': [str(subject_chem.id)],
+            'overwrite_existing': 'true',
+        })
+        self.assertEqual(res_copy.status_code, 302)
+        chem_comps = AssessmentComponent.objects.filter(
+            school=self.school, academic_year=self.ay, period=self.sem1, subject=subject_chem
+        )
+        self.assertEqual(chem_comps.count(), 3)
+        self.assertEqual(sum(c.weight for c in chem_comps), Decimal('100.00'))
+
+        # 5. Delete component for a specific subject
+        comp_to_del = chem_comps.first()
+        res_del = self.client.post(url, {
+            'action': 'delete_component',
+            'component_id': comp_to_del.id,
+            'subject_id': subject_chem.id,
+            'scope_type': 'single',
+        })
+        self.assertEqual(res_del.status_code, 302)
+        self.assertFalse(AssessmentComponent.objects.filter(id=comp_to_del.id).exists())
+        # Biology's corresponding component should still exist
+        self.assertTrue(AssessmentComponent.objects.filter(
+            school=self.school, subject=subject_bio, name=comp_to_del.name
+        ).exists())
+
+        # 6. View rendering with subject filter and breakdown tabs
+        res_view = self.client.get(f"{url}?grade={self.grade.id}&subject={subject_bio.id}")
+        self.assertEqual(res_view.status_code, 200)
+        self.assertContains(res_view, "Biology")
+        self.assertContains(res_view, "Subject Schemes")
