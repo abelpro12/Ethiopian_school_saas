@@ -158,6 +158,69 @@
             <span class="text-2xl font-black text-purple-700 mt-1 block">{{ stats.already_sent }}</span>
             <span class="text-[11px] text-purple-600 mt-0.5 block">Previously dispatched</span>
         </div>
+    <!-- OMNI-CHANNEL DISPATCH SELECTOR (SMS, Telegram Bot, Email) -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white border border-indigo-900/50 shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">Omni-Channel Engine</span>
+                    <span class="text-xs text-indigo-300 font-semibold">Select Report Card Channels</span>
+                </div>
+                <h3 class="text-base font-bold text-white mt-1">Multi-Channel Report Card Dispatcher</h3>
+                <p class="text-xs text-slate-300">Choose which channels to deliver report cards through. Telegram Bot and Email are 100% free with unlimited delivery.</p>
+            </div>
+
+            <!-- Quick Preset Selectors -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="setChannelsPreset('all')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
+                    <i class="fa-solid fa-check-double mr-1"></i> All 3 Channels
+                </button>
+                <button type="button" onclick="setChannelsPreset('free')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
+                    <i class="fa-solid fa-gift mr-1"></i> Free Only (Bot + Email)
+                </button>
+                <button type="button" onclick="setChannelsPreset('sms')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                    <i class="fa-solid fa-mobile-screen mr-1"></i> SMS Only
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-4 pt-3.5 border-t border-slate-800/80">
+            <!-- 1. SMS Checkbox -->
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-emerald-500/50 cursor-pointer transition">
+                <input type="checkbox" id="channel_sms" value="SMS" checked class="mt-1 rounded text-emerald-500 focus:ring-emerald-400 border-slate-600 bg-slate-900">
+                <div class="text-xs">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-comment-sms text-emerald-400"></i> SMS Gateway
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-700 text-slate-300">GSM</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Concise summary sent to any mobile phone offline.</div>
+                </div>
+            </label>
+
+            <!-- 2. Telegram Bot Checkbox (100% Free) -->
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-cyan-500/50 cursor-pointer transition">
+                <input type="checkbox" id="channel_telegram" value="TELEGRAM" checked class="mt-1 rounded text-cyan-500 focus:ring-cyan-400 border-slate-600 bg-slate-900">
+                <div class="text-xs">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-brands fa-telegram text-cyan-400"></i> Telegram Bot
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">100% FREE</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Full subjects breakdown, grade rank, push alert.</div>
+                </div>
+            </label>
+
+            <!-- 3. Email Checkbox (100% Free) -->
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-indigo-500/50 cursor-pointer transition">
+                <input type="checkbox" id="channel_email" value="EMAIL" checked class="mt-1 rounded text-indigo-500 focus:ring-indigo-400 border-slate-600 bg-slate-900">
+                <div class="text-xs">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-envelope text-indigo-400"></i> Email Report Card
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">100% FREE</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Formal official report card summary in inbox.</div>
+                </div>
+            </label>
+        </div>
     </div>
 
     <!-- Live Template Customizer & Dispatch Controls Card -->
@@ -482,10 +545,37 @@ function getCsrfToken() {
     return getCookie("csrftoken") || "{{ csrf_token }}";
 }
 
+function getSelectedChannels() {
+    const channels = [];
+    if (document.getElementById('channel_sms')?.checked) channels.push('SMS');
+    if (document.getElementById('channel_telegram')?.checked) channels.push('TELEGRAM');
+    if (document.getElementById('channel_email')?.checked) channels.push('EMAIL');
+    return channels.length > 0 ? channels : ['SMS'];
+}
+
+function setChannelsPreset(preset) {
+    const sms = document.getElementById('channel_sms');
+    const tg = document.getElementById('channel_telegram');
+    const em = document.getElementById('channel_email');
+    if (preset === 'all') {
+        if (sms) sms.checked = true;
+        if (tg) tg.checked = true;
+        if (em) em.checked = true;
+    } else if (preset === 'free') {
+        if (sms) sms.checked = false;
+        if (tg) tg.checked = true;
+        if (em) em.checked = true;
+    } else if (preset === 'sms') {
+        if (sms) sms.checked = true;
+        if (tg) tg.checked = false;
+        if (em) em.checked = false;
+    }
+}
+
 function dispatchSelectedReportCards() {
-    const selectedCbs = Array.from(document.querySelectorAll('.student-checkbox:checked'));
+    const selectedCbs = Array.from(document.querySelectorAll('.student-cb:checked'));
     if (selectedCbs.length === 0) {
-        alert("Please select at least one student to dispatch report card SMS.");
+        alert("Please select at least one student to dispatch report card notifications.");
         return;
     }
 
@@ -493,20 +583,21 @@ function dispatchSelectedReportCards() {
     const sectionId = "{{ selected_section.id }}";
     const periodId = "{{ selected_period.id|default:'' }}";
     const isAnnual = "{{ is_annual }}" === "True";
+    const channels = getSelectedChannels();
 
     if (!sectionId) {
         alert("Please select a valid section first.");
         return;
     }
 
-    if (!confirm(`Are you sure you want to dispatch Report Card SMS to ${studentIds.length} selected parent(s)?`)) {
+    if (!confirm(`Are you sure you want to dispatch report cards to ${studentIds.length} parent(s) via [${channels.join(', ')}]?`)) {
         return;
     }
 
     const btn = document.getElementById('bulkSendBtn');
     const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dispatching via SMS Gateway...';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dispatching notifications...';
 
     fetch("{% url 'assessments:report_cards_sms_send' %}", {
         method: "POST",
@@ -519,7 +610,8 @@ function dispatchSelectedReportCards() {
             period_id: isAnnual ? 'annual' : periodId,
             is_annual: isAnnual,
             student_ids: studentIds,
-            lang: currentLanguage
+            lang: currentLanguage,
+            channels: channels
         })
     })
     .then(async response => {
@@ -540,12 +632,13 @@ function dispatchSelectedReportCards() {
         btn.innerHTML = originalText;
 
         if (data.success) {
-            let msg = `Dispatched: ${data.dispatched} | Skipped (No Phone): ${data.skipped_no_phone} | Failed: ${data.failed}`;
+            let chDetails = data.channel_summary_str ? ` (${data.channel_summary_str})` : "";
+            let msg = `Dispatched: ${data.dispatched}${chDetails} | Failed: ${data.failed}`;
             if (data.failed > 0 && data.failure_reasons && data.failure_reasons.length > 0) {
                 msg += `\n\nNotice: ${data.failure_reasons.join('\n')}`;
             }
             showToast(
-                data.failed > 0 ? "SMS Processed with Notices" : "Report Card SMS Sent!",
+                data.failed > 0 ? "Notifications Processed with Notices" : "Report Cards Sent!",
                 msg,
                 data.failed === 0
             );
@@ -553,7 +646,7 @@ function dispatchSelectedReportCards() {
                 window.location.reload();
             }, 2500);
         } else {
-            showToast("Dispatch Failed", data.error || "Unable to send SMS.", false);
+            showToast("Dispatch Failed", data.error || "Unable to send notifications.", false);
         }
     })
     .catch(err => {
@@ -564,12 +657,13 @@ function dispatchSelectedReportCards() {
 }
 
 function dispatchSingleStudent(studentId, studentName, phone) {
-    if (!phone) {
+    const channels = getSelectedChannels();
+    if (!phone && channels.includes('SMS') && channels.length === 1) {
         alert("Cannot send SMS: No registered phone number for parent.");
         return;
     }
 
-    if (!confirm(`Send Report Card SMS to parent of ${studentName} (${phone})?`)) {
+    if (!confirm(`Send Report Card to parent of ${studentName} via [${channels.join(', ')}]?`)) {
         return;
     }
 
@@ -593,7 +687,8 @@ function dispatchSingleStudent(studentId, studentName, phone) {
             period_id: isAnnual ? 'annual' : periodId,
             is_annual: isAnnual,
             student_ids: [studentId],
-            lang: currentLanguage
+            lang: currentLanguage,
+            channels: channels
         })
     })
     .then(async response => {

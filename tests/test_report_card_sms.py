@@ -677,3 +677,48 @@ class ReportCardSMSTests(TestCase):
         # Reset provider
         from apps.notifications.services import MockSMSProvider
         NotificationService.set_sms_provider(MockSMSProvider())
+
+    def test_omni_channel_dispatch_report_cards_and_exam_results(self):
+        """
+        Verify multi-channel dispatch across SMS, free Telegram Bot, and free Email.
+        """
+        from apps.communication.services import ReportCardSMSService, ExamResultSMSService
+
+        # 1. Test Report Card dispatch with all 3 channels
+        summary_all = ReportCardSMSService.bulk_dispatch_report_cards(
+            school=self.school,
+            section=self.section10a,
+            period=self.period,
+            sender_user=self.teacher,
+            channels=['SMS', 'TELEGRAM', 'EMAIL']
+        )
+        self.assertGreater(summary_all['dispatched'], 0)
+        self.assertGreater(summary_all['sms_dispatched'], 0)
+        self.assertGreater(summary_all['telegram_dispatched'], 0)
+        self.assertGreater(summary_all['email_dispatched'], 0)
+
+        # 2. Test Report Card dispatch with FREE ONLY channels (Telegram + Email, no SMS cost)
+        summary_free = ReportCardSMSService.bulk_dispatch_report_cards(
+            school=self.school,
+            section=self.section10a,
+            period=self.period,
+            sender_user=self.teacher,
+            channels=['TELEGRAM', 'EMAIL']
+        )
+        self.assertGreater(summary_free['dispatched'], 0)
+        self.assertEqual(summary_free['sms_dispatched'], 0)
+        self.assertGreater(summary_free['telegram_dispatched'], 0)
+        self.assertGreater(summary_free['email_dispatched'], 0)
+
+        # 3. Test Exam Result dispatch with all 3 channels
+        exam_summary = ExamResultSMSService.bulk_dispatch_results(
+            school=self.school,
+            component=self.comp_math,
+            section=self.section10a,
+            sender_user=self.teacher,
+            channels=['SMS', 'TELEGRAM', 'EMAIL']
+        )
+        self.assertGreater(exam_summary['dispatched'], 0)
+        self.assertGreater(exam_summary['sms_dispatched'], 0)
+        self.assertGreater(exam_summary['telegram_dispatched'], 0)
+        self.assertGreater(exam_summary['email_dispatched'], 0)

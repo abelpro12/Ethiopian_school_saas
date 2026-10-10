@@ -1,6 +1,8 @@
+import os
 import json
 import logging
 from decimal import Decimal
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -173,6 +175,8 @@ def exam_results_sms_dashboard(request):
         'template_body_am': template_body_am,
         'recent_logs': recent_logs,
         'sms_gateway_info': NotificationService.get_active_provider_info(),
+        'telegram_bot_configured': bool(os.environ.get('TELEGRAM_BOT_TOKEN')),
+        'email_configured': bool(getattr(settings, 'EMAIL_HOST_USER', None) or os.environ.get('EMAIL_HOST_USER') or getattr(settings, 'EMAIL_BACKEND', None)),
     })
 
 
@@ -180,8 +184,8 @@ def exam_results_sms_dashboard(request):
 @require_POST
 def exam_results_sms_send_api(request):
     """
-    POST API to dispatch exam results via SMS to parents.
-    Supports sending to all students in class or a selected subset.
+    POST API to dispatch exam results via SMS, Telegram, and/or Email to parents.
+    Supports sending to all students in class or a selected subset across multi-channels.
     """
     school = get_school(request)
     if not school:
@@ -197,6 +201,16 @@ def exam_results_sms_send_api(request):
     student_ids_raw = data.get('student_ids')
     custom_message = data.get('custom_message', '').strip()
     lang = data.get('lang', 'pref')  # 'am', 'en', or 'pref'
+    channels_raw = data.get('channels')
+
+    channels = ['SMS']
+    if channels_raw:
+        if isinstance(channels_raw, list):
+            channels = [str(c).upper().strip() for c in channels_raw if str(c).strip()]
+        elif isinstance(channels_raw, str):
+            channels = [c.upper().strip() for c in channels_raw.split(',') if c.strip()]
+    if not channels:
+        channels = ['SMS']
 
     if not component_id:
         return JsonResponse({'success': False, 'error': 'Assessment component / Test ID is required.'}, status=400)
@@ -222,11 +236,25 @@ def exam_results_sms_send_api(request):
         student_ids=student_ids,
         custom_message=custom_message if custom_message else None,
         lang_override=lang,
-        sender_user=request.user
+        sender_user=request.user,
+        channels=channels
     )
 
-    msg = f"Dispatched {summary['dispatched']} SMS alert{'s' if summary['dispatched'] != 1 else ''} to parents for '{component.name}'."
-    if summary['skipped_no_phone'] > 0:
+    channel_breakdown = []
+    if summary.get('sms_dispatched'):
+        channel_breakdown.append(f"SMS: {summary['sms_dispatched']}")
+    if summary.get('telegram_dispatched'):
+        channel_breakdown.append(f"Telegram: {summary['telegram_dispatched']}")
+    if summary.get('email_dispatched'):
+        channel_breakdown.append(f"Email: {summary['email_dispatched']}")
+
+    channel_info_str = f" ({', '.join(channel_breakdown)})" if channel_breakdown else ""
+    if channels == ['SMS']:
+        msg = f"Dispatched {summary['dispatched']} SMS alert{'s' if summary['dispatched'] != 1 else ''} to parents for '{component.name}'."
+    else:
+        msg = f"Dispatched {summary['dispatched']} result notification{'s' if summary['dispatched'] != 1 else ''} to parents for '{component.name}'{channel_info_str}."
+
+    if summary['skipped_no_phone'] > 0 and 'SMS' in channels and len(channels) == 1:
         msg += f" ({summary['skipped_no_phone']} skipped due to missing parent phone number)."
     if summary['failed'] > 0:
         msg += f" ({summary['failed']} failed)."
@@ -423,6 +451,8 @@ def report_cards_sms_dashboard(request):
         'template_body_en': template_body_en,
         'template_body_am': template_body_am,
         'sms_gateway_info': NotificationService.get_active_provider_info(),
+        'telegram_bot_configured': bool(os.environ.get('TELEGRAM_BOT_TOKEN')),
+        'email_configured': bool(getattr(settings, 'EMAIL_HOST_USER', None) or os.environ.get('EMAIL_HOST_USER') or getattr(settings, 'EMAIL_BACKEND', None)),
     })
 
 
@@ -430,7 +460,7 @@ def report_cards_sms_dashboard(request):
 @require_POST
 def report_cards_sms_send_api(request):
     """
-    POST API to dispatch report card SMS (bulk or single student).
+    POST API to dispatch report card notifications via SMS, Telegram, and/or Email.
     """
     school = get_school(request)
     if not school:
@@ -458,6 +488,16 @@ def report_cards_sms_send_api(request):
     student_ids_raw = data.get('student_ids')
     custom_message = data.get('custom_message') or None
     lang_override = data.get('lang') or 'pref'
+    channels_raw = data.get('channels')
+
+    channels = ['SMS']
+    if channels_raw:
+        if isinstance(channels_raw, list):
+            channels = [str(c).upper().strip() for c in channels_raw if str(c).strip()]
+        elif isinstance(channels_raw, str):
+            channels = [c.upper().strip() for c in channels_raw.split(',') if c.strip()]
+    if not channels:
+        channels = ['SMS']
 
     student_ids = None
     if student_ids_raw:
@@ -483,12 +523,25 @@ def report_cards_sms_send_api(request):
             student_ids=student_ids,
             custom_message=custom_message,
             lang_override=lang_override,
-            sender_user=request.user
+            sender_user=request.user,
+            channels=channels
         )
+
+        channel_breakdown = []
+        if summary.get('sms_dispatched'):
+            channel_breakdown.append(f"SMS: {summary['sms_dispatched']}")
+        if summary.get('telegram_dispatched'):
+            channel_breakdown.append(f"Telegram: {summary['telegram_dispatched']}")
+        if summary.get('email_dispatched'):
+            channel_breakdown.append(f"Email: {summary['email_dispatched']}")
 
         return JsonResponse({
             'success': True,
             'dispatched': summary['dispatched'],
+            'sms_dispatched': summary.get('sms_dispatched', 0),
+            'telegram_dispatched': summary.get('telegram_dispatched', 0),
+            'email_dispatched': summary.get('email_dispatched', 0),
+            'channel_summary_str': ", ".join(channel_breakdown) if channel_breakdown else "",
             'skipped_no_phone': summary['skipped_no_phone'],
             'failed': summary['failed'],
             'total_students': summary['total_students'],

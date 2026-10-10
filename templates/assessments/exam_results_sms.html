@@ -180,6 +180,69 @@
                 <div class="text-xs font-semibold text-slate-500">Already Sent</div>
             </div>
         </div>
+    <!-- OMNI-CHANNEL DISPATCH SELECTOR (SMS, Telegram Bot, Email) -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-5 text-white border border-indigo-900/50 shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">Omni-Channel Engine</span>
+                    <span class="text-xs text-indigo-300 font-semibold">Select Dispatch Channels</span>
+                </div>
+                <h3 class="text-base font-bold text-white mt-1">Multi-Channel Exam Result Dispatcher</h3>
+                <p class="text-xs text-slate-300">Choose which channels to notify parents through. Telegram Bot and Email are 100% free with unlimited delivery.</p>
+            </div>
+
+            <!-- Quick Preset Selectors -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="button" onclick="setChannelsPreset('all')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm">
+                    <i class="fa-solid fa-check-double mr-1"></i> All 3 Channels
+                </button>
+                <button type="button" onclick="setChannelsPreset('free')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm">
+                    <i class="fa-solid fa-gift mr-1"></i> Free Only (Bot + Email)
+                </button>
+                <button type="button" onclick="setChannelsPreset('sms')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                    <i class="fa-solid fa-mobile-screen mr-1"></i> SMS Only
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-4 pt-3.5 border-t border-slate-800/80">
+            <!-- 1. SMS Checkbox -->
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-emerald-500/50 cursor-pointer transition">
+                <input type="checkbox" id="channel_sms" value="SMS" checked class="mt-1 rounded text-emerald-500 focus:ring-emerald-400 border-slate-600 bg-slate-900">
+                <div class="text-xs">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-comment-sms text-emerald-400"></i> SMS Gateway
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-700 text-slate-300">GSM</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Works on any phone offline without data.</div>
+                </div>
+            </label>
+
+            <!-- 2. Telegram Bot Checkbox (100% Free) -->
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-cyan-500/50 cursor-pointer transition">
+                <input type="checkbox" id="channel_telegram" value="TELEGRAM" checked class="mt-1 rounded text-cyan-500 focus:ring-cyan-400 border-slate-600 bg-slate-900">
+                <div class="text-xs">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-brands fa-telegram text-cyan-400"></i> Telegram Bot
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">100% FREE</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Instant rich push notification with bold format.</div>
+                </div>
+            </label>
+
+            <!-- 3. Email Checkbox (100% Free) -->
+            <label class="flex items-start gap-3 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-indigo-500/50 cursor-pointer transition">
+                <input type="checkbox" id="channel_email" value="EMAIL" checked class="mt-1 rounded text-indigo-500 focus:ring-indigo-400 border-slate-600 bg-slate-900">
+                <div class="text-xs">
+                    <div class="font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-solid fa-envelope text-indigo-400"></i> Email Alert
+                        <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">100% FREE</span>
+                    </div>
+                    <div class="text-[11px] text-slate-400 mt-0.5">Formal record delivered to parent email.</div>
+                </div>
+            </label>
+        </div>
     </div>
 
     <!-- MESSAGE PREVIEW & CUSTOMIZATION BOX -->
@@ -644,15 +707,43 @@ async function dispatchSingleStudentSMS(studentId) {
     await executeDispatch([studentId]);
 }
 
+function getSelectedChannels() {
+    const channels = [];
+    if (document.getElementById('channel_sms')?.checked) channels.push('SMS');
+    if (document.getElementById('channel_telegram')?.checked) channels.push('TELEGRAM');
+    if (document.getElementById('channel_email')?.checked) channels.push('EMAIL');
+    return channels.length > 0 ? channels : ['SMS'];
+}
+
+function setChannelsPreset(preset) {
+    const sms = document.getElementById('channel_sms');
+    const tg = document.getElementById('channel_telegram');
+    const em = document.getElementById('channel_email');
+    if (preset === 'all') {
+        if (sms) sms.checked = true;
+        if (tg) tg.checked = true;
+        if (em) em.checked = true;
+    } else if (preset === 'free') {
+        if (sms) sms.checked = false;
+        if (tg) tg.checked = true;
+        if (em) em.checked = true;
+    } else if (preset === 'sms') {
+        if (sms) sms.checked = true;
+        if (tg) tg.checked = false;
+        if (em) em.checked = false;
+    }
+}
+
 async function executeDispatch(studentIds) {
     const componentId = "{{ selected_component.id|default:'' }}";
     const sectionId = "{{ selected_section.id|default:'' }}";
     const customMessage = customMessageEnabled ? (document.getElementById('customMessageInput')?.value || '') : '';
+    const channels = getSelectedChannels();
 
     const btn = document.getElementById('btnSendSelected');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending SMS...`;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Dispatching notifications...`;
     }
 
     try {
@@ -667,7 +758,8 @@ async function executeDispatch(studentIds) {
                 section_id: sectionId,
                 student_ids: studentIds,
                 custom_message: customMessage,
-                lang: currentLanguage
+                lang: currentLanguage,
+                channels: channels
             })
         });
 
@@ -676,7 +768,7 @@ async function executeDispatch(studentIds) {
             alert(data.message);
             window.location.reload();
         } else {
-            alert("Error: " + (data.error || "Failed to dispatch SMS."));
+            alert("Error: " + (data.error || "Failed to dispatch notifications."));
         }
     } catch (e) {
         alert("Network error: " + e.message);
