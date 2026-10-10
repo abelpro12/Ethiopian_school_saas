@@ -547,7 +547,7 @@
                             <span class="px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 text-[10px] border border-rose-200">Failed</span>
                             {% endif %}
                         </td>
-                        <td class="px-3 py-2 text-slate-500">{{ log.sent_by.get_full_name|default:log.sent_by.username|default:"System" }}</td>
+                        <td class="px-3 py-2 text-slate-500">{% if log.sent_by %}{{ log.sent_by.get_full_name|default:log.sent_by.username }}{% else %}System{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -233,9 +233,8 @@
                             {{ l.reason|default:"Administrative Lock" }}
                         </td>
 
-                        <!-- Enforced By & Date -->
                         <td class="py-3 px-4 whitespace-nowrap text-slate-500">
-                            <div>{{ l.locked_by.get_full_name|default:l.locked_by.username|default:"System" }}</div>
+                            <div>{% if l.locked_by %}{{ l.locked_by.get_full_name|default:l.locked_by.username }}{% else %}System{% endif %}</div>
                             <div class="text-[10px] text-slate-400 font-mono">{{ l.created_at|date:"M d, Y h:i A" }}</div>
                         </td>
 
