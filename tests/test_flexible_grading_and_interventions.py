@@ -396,7 +396,7 @@ class FlexibleGradingAndInterventionsTests(TestCase):
         self.assertContains(res, "Academic Intervention & Support Hub")
         self.assertContains(res, "Dawit")
 
-        # Create intervention via view
+        # Create intervention via view with UUID teacher ID (exact production scenario)
         create_url = reverse('assessments:create_intervention')
         res_post = self.client.post(create_url, {
             'student_id': str(self.student.id),
@@ -407,9 +407,19 @@ class FlexibleGradingAndInterventionsTests(TestCase):
             'intervention_type': 'PARENT_MEETING',
             'action_plan': 'Meeting scheduled with guardian to review exam papers.',
             'scheduled_date': datetime.date.today().strftime('%Y-%m-%d'),
+            'assigned_teacher_id': str(self.teacher_user.id),
             'notify_parent': 'on'
         })
         self.assertEqual(res_post.status_code, 302)
         intervention = AcademicIntervention.objects.filter(school=self.school, student=self.student).first()
         self.assertIsNotNone(intervention)
         self.assertEqual(intervention.intervention_type, 'PARENT_MEETING')
+        self.assertEqual(intervention.assigned_teacher, self.teacher_user)
+        self.assertTrue(intervention.parent_notified)
+
+        # Test resending parent SMS via send_parent_sms_view
+        send_sms_url = reverse('assessments:send_parent_sms', kwargs={'pk': intervention.id})
+        res_sms = self.client.post(send_sms_url)
+        self.assertEqual(res_sms.status_code, 302)
+        intervention.refresh_from_db()
+        self.assertTrue(intervention.parent_notified)

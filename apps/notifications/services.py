@@ -13,11 +13,24 @@ class SMSProviderBase(abc.ABC):
         pass
 
 
+def _safe_console_print(text: str):
+    import sys
+    try:
+        print(text)
+    except (UnicodeEncodeError, Exception):
+        try:
+            encoding = getattr(sys.stdout, 'encoding', None) or 'utf-8'
+            safe_text = text.encode(encoding, errors='replace').decode(encoding, errors='replace')
+            print(safe_text)
+        except Exception:
+            pass
+
+
 class MockSMSProvider(SMSProviderBase):
     def send_sms(self, phone_number: str, message: str) -> bool:
         logger.info(f"[MOCK SMS] Sent to {phone_number}: {message}")
-        print(f"[SIMULATION SMS to {phone_number}]: {message}")
-        print("  --> To deliver real SMS to physical phones, configure AFROMESSAGE_API_KEY in .env")
+        _safe_console_print(f"[SIMULATION SMS to {phone_number}]: {message}")
+        _safe_console_print("  --> To deliver real SMS to physical phones, configure AFROMESSAGE_API_KEY in .env")
         return True
 
 
@@ -52,7 +65,7 @@ class AfroMessageSMSProvider(SMSProviderBase):
     def send_sms(self, phone_number: str, message: str) -> bool:
         if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
             logger.warning("[AfroMessage] No live API key configured. Simulating dispatch.")
-            print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
+            _safe_console_print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
             return True
 
         import requests
@@ -112,7 +125,7 @@ class SMSEthiopiaProvider(SMSProviderBase):
     def send_sms(self, phone_number: str, message: str) -> bool:
         if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
             logger.warning("[SMSEthiopia] No live API key configured. Simulating dispatch.")
-            print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
+            _safe_console_print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
             return True
 
         import requests
@@ -130,15 +143,15 @@ class SMSEthiopiaProvider(SMSProviderBase):
             res = requests.post("https://smsethiopia.com/api/sms/send", json=payload, headers=headers, timeout=12)
             if res.status_code in (200, 201):
                 logger.info(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn} | HTTP {res.status_code}")
-                print(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn}: {res.text}")
+                _safe_console_print(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn}: {res.text}")
                 return True
             else:
                 logger.error(f"[SMSEthiopia SMS FAILED] To: {msisdn} | HTTP {res.status_code}: {res.text}")
-                print(f"[SMSEthiopia SMS FAILED] To {msisdn} HTTP {res.status_code}: {res.text}")
+                _safe_console_print(f"[SMSEthiopia SMS FAILED] To {msisdn} HTTP {res.status_code}: {res.text}")
                 return False
         except Exception as e:
             logger.error(f"[SMSEthiopia SMS EXCEPTION] {e}")
-            print(f"[SMSEthiopia SMS EXCEPTION] {e}")
+            _safe_console_print(f"[SMSEthiopia SMS EXCEPTION] {e}")
             return False
 
 
@@ -150,7 +163,8 @@ class NotificationService:
         if cls._sms_provider is not None:
             return cls._sms_provider
 
-        if getattr(settings, 'TESTING', False):
+        import sys
+        if getattr(settings, 'TESTING', False) or 'test' in sys.argv or 'pytest' in sys.modules:
             return MockSMSProvider()
         # 1. Check SMSEthiopia API key
         smsethiopia_key = (

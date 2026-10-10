@@ -270,13 +270,21 @@
               </td>
               <td class="py-3.5 px-4">
                 {% if item.parent_notified %}
-                <span class="inline-flex items-center gap-1 text-emerald-700 font-bold text-[10px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  <i class="fa-solid fa-check"></i> SMS Sent
-                </span>
+                <div class="flex items-center gap-1.5">
+                  <span class="inline-flex items-center gap-1 text-emerald-700 font-bold text-[10px] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title="Parent SMS delivered at {{ item.parent_notified_at|date:'M d, Y H:i' }}">
+                    <i class="fa-solid fa-check"></i> SMS Sent
+                  </span>
+                  <form method="POST" action="{% url 'assessments:send_parent_sms' item.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" title="Resend Parent SMS Alert" class="text-[10px] text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-1.5 py-0.5 rounded-full transition">
+                      <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                  </form>
+                </div>
                 {% else %}
                 <form method="POST" action="{% url 'assessments:send_parent_sms' item.id %}" class="inline">
                   {% csrf_token %}
-                  <button type="submit" class="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200 transition">
+                  <button type="submit" class="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-200 transition flex items-center gap-1">
                     <i class="fa-solid fa-paper-plane"></i> Send SMS
                   </button>
                 </form>
@@ -476,6 +484,8 @@
     document.getElementById('intScoreDisplay').innerText = score + '%';
     if (teacherId) {
       document.getElementById('intTeacherSelect').value = teacherId;
+    } else {
+      document.getElementById('intTeacherSelect').value = '';
     }
     openModal('createIntModal');
   }

@@ -43,8 +43,8 @@ DEFAULT_SMS_TEMPLATES = {
     },
     SMSTemplateType.BELOW_AVERAGE_ALERT: {
         'name': 'Academic Support Alert',
-        'body_en': "Notice: {student_name} has achieved {score}% in {subject_name} at {school_name}. An academic support intervention has been initiated.",
-        'body_am': "ማስታወቂያ: {student_name} በ {subject_name} ትምህርት {score}% አስመዝግቧል:: የትምህርት ማሻሻያ ድጋፍ ተዘጋጅቷል:: {school_name}::",
+        'body_en': "Notice: {student_name} has achieved {score}% in {subject_name} at {school_name}. An academic support intervention ({intervention_type}) has been initiated. Scheduled: {date}.",
+        'body_am': "ማስታወቂያ: {student_name} በ {subject_name} ትምህርት {score}% አስመዝግቧል:: የትምህርት ማሻሻያ ድጋፍ ({intervention_type}) ቀን: {date} ተዘጋጅቷል:: {school_name}::",
     },
     SMSTemplateType.EXAM_RESULT: {
         'name': 'Exam / Test Result Alert',
@@ -77,6 +77,12 @@ def ensure_default_sms_templates(school):
         if not created and template_type == SMSTemplateType.REPORT_CARD:
             # Upgrade existing templates to include subjects_summary and grade
             if '{subjects_summary}' not in (tpl.body_en or '') or '{grade}' not in (tpl.body_en or ''):
+                tpl.body_en = config['body_en']
+                tpl.body_am = config['body_am']
+                tpl.save(update_fields=['body_en', 'body_am'])
+        if not created and template_type == SMSTemplateType.BELOW_AVERAGE_ALERT:
+            # Upgrade existing templates to include intervention_type and date
+            if '{intervention_type}' not in (tpl.body_en or ''):
                 tpl.body_en = config['body_en']
                 tpl.body_am = config['body_am']
                 tpl.save(update_fields=['body_en', 'body_am'])

@@ -117,28 +117,39 @@ def create_intervention_view(request):
     intervention_type = request.POST.get('intervention_type', InterventionType.TUTORIAL)
     action_plan = request.POST.get('action_plan', '').strip()
     scheduled_date = request.POST.get('scheduled_date') or None
-    teacher_id = request.POST.get('assigned_teacher_id') or None
-    notify_parent = request.POST.get('notify_parent') == 'on' or request.POST.get('notify_parent') == 'true'
+    teacher_id = (request.POST.get('assigned_teacher_id') or '').strip() or None
+    notify_parent = request.POST.get('notify_parent') in ('on', 'true', '1')
 
     try:
+        parsed_enrollment_id = int(enrollment_id) if enrollment_id and str(enrollment_id).isdigit() else enrollment_id
+        parsed_subject_id = int(subject_id) if subject_id and str(subject_id).isdigit() else subject_id
+        parsed_component_id = int(component_id) if component_id and str(component_id).isdigit() else None
+        try:
+            parsed_trigger_score = float(trigger_score) if trigger_score else 0.0
+        except (ValueError, TypeError):
+            parsed_trigger_score = 0.0
+
         intervention = AcademicInterventionService.create_intervention(
             school=school,
             student_id=student_id,
-            enrollment_id=int(enrollment_id),
-            subject_id=int(subject_id),
-            component_id=int(component_id) if component_id else None,
-            trigger_score=float(trigger_score),
+            enrollment_id=parsed_enrollment_id,
+            subject_id=parsed_subject_id,
+            component_id=parsed_component_id,
+            trigger_score=parsed_trigger_score,
             intervention_type=intervention_type,
             action_plan=action_plan,
             scheduled_date=scheduled_date,
-            assigned_teacher_id=int(teacher_id) if teacher_id else None,
+            assigned_teacher_id=teacher_id,
             notify_parent=notify_parent,
             user=request.user,
             ip_address=AuditService.get_client_ip(request)
         )
         msg = f"Intervention registered for {intervention.student.full_name} ({intervention.get_intervention_type_display()})."
         if notify_parent:
-            msg += " Parent SMS notification dispatched."
+            if intervention.parent_notified:
+                msg += " Guardian SMS alert dispatched successfully."
+            else:
+                msg += " (Note: Guardian SMS could not be dispatched — please verify contact phone number)."
         messages.success(request, msg)
     except Exception as e:
         messages.error(request, f"Error creating intervention: {e}")
@@ -188,8 +199,9 @@ def send_parent_sms_view(request, pk):
 
     success = AcademicInterventionService.dispatch_parent_notification(intervention, school=school)
     if success:
-        messages.success(request, f"SMS alert sent successfully to parent of {intervention.student.full_name}.")
+        messages.success(request, f"Intervention SMS alert dispatched successfully to guardian of {intervention.student.full_name}.")
     else:
-        messages.warning(request, f"SMS dispatched in simulation/mock mode for {intervention.student.full_name}.")
+        messages.warning(request, f"Could not dispatch SMS to guardian of {intervention.student.full_name}. Please verify registered phone number.")
 
-    return redirect('assessments:interventions')
+    referer = request.POST.get('referer') or request.META.get('HTTP_REFERER')
+    return redirect(referer or 'assessments:interventions')

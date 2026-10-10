@@ -128,15 +128,15 @@ class AcademicInterventionService:
     def create_intervention(
         cls,
         school,
-        enrollment_id: int,
-        subject_id: int,
+        enrollment_id: Any,
+        subject_id: Any,
         trigger_score: float,
         intervention_type: str,
         action_plan: str,
         student_id: Optional[str] = None,
-        component_id: Optional[int] = None,
+        component_id: Optional[Any] = None,
         scheduled_date=None,
-        assigned_teacher_id: Optional[int] = None,
+        assigned_teacher_id: Optional[Any] = None,
         notify_parent: bool = False,
         user=None,
         ip_address: Optional[str] = None
@@ -145,9 +145,22 @@ class AcademicInterventionService:
         Creates an official academic intervention, schedules remedial action,
         and dispatches SMS alert to registered parent/guardian if enabled.
         """
-        enrollment = StudentEnrollment.objects.get(id=enrollment_id, school=school)
+        enrollment = None
+        if enrollment_id:
+            try:
+                enrollment = StudentEnrollment.objects.filter(id=enrollment_id, school=school).select_related('student', 'grade', 'section', 'academic_year').first()
+            except Exception:
+                enrollment = None
+        if not enrollment and student_id:
+            enrollment = StudentEnrollment.objects.filter(student_id=student_id, school=school).select_related('student', 'grade', 'section', 'academic_year').order_by('-academic_year__gregorian_start_date', '-id').first()
+        if not enrollment:
+            raise ValueError("Student enrollment record could not be found.")
+
         student = enrollment.student
-        subject = Subject.objects.get(id=subject_id, school=school)
+        subject = Subject.objects.filter(id=subject_id, school=school).first()
+        if not subject:
+            raise ValueError(f"Subject not found.")
+
         component = AssessmentComponent.objects.filter(id=component_id, school=school).first() if component_id else None
 
         scale = GradingScale.get_effective_scale(school, grade=enrollment.grade)
@@ -157,15 +170,42 @@ class AcademicInterventionService:
 
         assigned_teacher = None
         if assigned_teacher_id:
-            assigned_teacher = User.objects.filter(id=assigned_teacher_id, school=school).first()
-            if not assigned_teacher:
+            if isinstance(assigned_teacher_id, User):
+                assigned_teacher = assigned_teacher_id
+            else:
+                tid_str = str(assigned_teacher_id).strip()
+                # 1. Try User lookup by UUID/pk
                 try:
-                    from apps.teachers.models import TeacherProfile
-                    tp = TeacherProfile.objects.filter(id=assigned_teacher_id, school=school).select_related('user').first()
-                    if tp:
-                        assigned_teacher = tp.user
+                    assigned_teacher = User.objects.filter(id=tid_str, school=school).first()
                 except Exception:
-                    pass
+                    assigned_teacher = None
+
+                # 2. Try TeacherProfile lookup if User query didn't find or if an integer ID was passed
+                if not assigned_teacher:
+                    try:
+                        from apps.teachers.models import TeacherProfile
+                        tp = None
+                        if tid_str.isdigit():
+                            tp = TeacherProfile.objects.filter(id=int(tid_str), school=school).select_related('user').first()
+                        if not tp:
+                            tp = TeacherProfile.objects.filter(school=school, employee_id=tid_str).select_related('user').first()
+                        if tp:
+                            assigned_teacher = tp.user
+                    except Exception:
+                        pass
+
+        # Ensure scheduled_date is parsed to date object if passed as string
+        parsed_date = scheduled_date
+        if isinstance(parsed_date, str) and parsed_date.strip():
+            try:
+                import datetime
+                parsed_date = datetime.date.fromisoformat(parsed_date.strip())
+            except Exception:
+                try:
+                    from django.utils.dateparse import parse_date
+                    parsed_date = parse_date(parsed_date.strip())
+                except Exception:
+                    parsed_date = None
 
         intervention = AcademicIntervention.objects.create(
             school=school,
@@ -178,11 +218,11 @@ class AcademicInterventionService:
             trigger_score=Decimal(str(round(float(trigger_score), 2))),
             threshold_applied=applied_threshold,
             intervention_type=intervention_type,
-            status=InterventionStatus.IN_PROGRESS if scheduled_date else InterventionStatus.IDENTIFIED,
+            status=InterventionStatus.IN_PROGRESS if parsed_date else InterventionStatus.IDENTIFIED,
             assigned_teacher=assigned_teacher,
             created_by=user,
             action_plan=action_plan or f"Academic remediation and revision plan for {subject.name}.",
-            scheduled_date=scheduled_date,
+            scheduled_date=parsed_date,
         )
 
         # Parent SMS Notification Trigger
@@ -211,35 +251,150 @@ class AcademicInterventionService:
     def dispatch_parent_notification(cls, intervention: AcademicIntervention, school=None) -> bool:
         """
         Dispatches SMS to student parent/guardian regarding below-average score and intervention.
+        Supports Ethiopic Amharic and English templating and live gateway routing.
         """
+        school = school or intervention.school
         student = intervention.student
-        parent = student.primary_guardian
-        recipient_user = parent.user if (parent and getattr(parent, 'user', None)) else student.user
 
-        date_str = intervention.scheduled_date.strftime('%b %d, %Y') if intervention.scheduled_date else "this week"
-        type_display = intervention.get_intervention_type_display()
+        # 1. Resolve Parent / Guardian
+        guardian_rel = None
+        try:
+            from apps.parents.models import GuardianRelationship
+            guardian_rel = GuardianRelationship.objects.filter(
+                school=school, student=student, is_primary=True
+            ).select_related('parent__user').first()
+            if not guardian_rel:
+                guardian_rel = GuardianRelationship.objects.filter(
+                    school=school, student=student
+                ).select_related('parent__user').first()
+        except Exception:
+            guardian_rel = None
 
-        msg = (
-            f"Dear Parent/Guardian, {student.full_name} scored {intervention.trigger_score}% "
-            f"in {intervention.subject.name}. An academic support session ({type_display}) has been "
-            f"scheduled on {date_str}. Please contact {intervention.school.name} administration for details."
+        parent = guardian_rel.parent if guardian_rel else None
+        if not parent:
+            try:
+                parent = student.primary_guardian
+            except Exception:
+                parent = None
+
+        parent_user = getattr(parent, 'user', None) if parent else None
+
+        # 2. Resolve Contact Phone Number
+        raw_phone = (
+            (parent.phone if parent and getattr(parent, 'phone', None) else '')
+            or (getattr(parent_user, 'phone', '') if parent_user else '')
+            or (student.phone or '')
+            or (student.emergency_contact or '')
+            or (getattr(student.user, 'phone', '') if getattr(student, 'user', None) else '')
+        )
+        phone = "".join(ch for ch in str(raw_phone).strip() if ch.isdigit() or ch == '+')
+
+        if not phone or len([c for c in phone if c.isdigit()]) < 8:
+            logger.warning(
+                f"[Intervention SMS] No valid phone number found for student {student.student_id} "
+                f"or primary guardian. Skipping SMS alert."
+            )
+            return False
+
+        # 3. Resolve Language & Text
+        lang = getattr(parent, 'preferred_language', 'am') if parent else 'am'
+
+        sch_date = intervention.scheduled_date
+        if isinstance(sch_date, str) and sch_date.strip():
+            try:
+                import datetime
+                sch_date = datetime.date.fromisoformat(sch_date.strip())
+            except Exception:
+                try:
+                    from django.utils.dateparse import parse_date
+                    sch_date = parse_date(sch_date.strip())
+                except Exception:
+                    pass
+
+        if hasattr(sch_date, 'strftime'):
+            date_en = sch_date.strftime('%b %d, %Y')
+            date_am = sch_date.strftime('%Y-%m-%d')
+        elif sch_date:
+            date_en = str(sch_date)
+            date_am = str(sch_date)
+        else:
+            date_en = "this week"
+            date_am = "በዚህ ሳምንት"
+
+        date_str = date_am if lang == 'am' else date_en
+
+        type_map_am = {
+            'TUTORIAL': 'ተጨማሪ የማጠናከሪያ ትምህርት (Tutorial)',
+            'PARENT_MEETING': 'የወላጅ ውይይት (Parent Conference)',
+            'COUNSELING': 'የትምህርት ምክርና ድጋፍ (Counseling)',
+            'PEER_TUTORING': 'የእኩዮች ድጋፍ (Peer Tutoring)',
+            'BEHAVIOR_CONTRACT': 'የትምህርት እቅድ ስምምነት (Study Contract)',
+            'CUSTOM': 'ልዩ የትምህርት ድጋፍ (Academic Support)',
+        }
+        type_display = type_map_am.get(intervention.intervention_type, intervention.get_intervention_type_display()) if lang == 'am' else intervention.get_intervention_type_display()
+
+        stu_name = (student.amharic_name if (lang == 'am' and student.amharic_name) else None) or student.full_name
+        school_name = school.name
+        action_plan_brief = (intervention.action_plan[:75] + '...') if len(intervention.action_plan or '') > 75 else (intervention.action_plan or '')
+
+        context = {
+            'student_name': stu_name,
+            'subject_name': intervention.subject.name,
+            'score': f"{intervention.trigger_score:g}",
+            'intervention_type': type_display,
+            'date': date_str,
+            'action_plan': action_plan_brief,
+            'school_name': school_name,
+        }
+
+        # Render via configured SMS Template
+        msg = ""
+        try:
+            from apps.communication.services import render_sms_template
+            from apps.communication.models import SMSTemplateType
+            msg = render_sms_template(school, SMSTemplateType.BELOW_AVERAGE_ALERT, context, lang=lang)
+        except Exception as e:
+            logger.warning(f"[Intervention SMS] Failed rendering template: {e}")
+
+        # High-standard Ethiopic / English fallback
+        if not msg or not msg.strip():
+            if lang == 'am':
+                msg = (
+                    f"ክቡር ወላጅ፣ ተማሪ {stu_name} በ{intervention.subject.name} ትምህርት {intervention.trigger_score:g}% አስመዝግቧል:: "
+                    f"የትምህርት ማሻሻያ ድጋፍ ({type_display}) ቀን: {date_str} ተዘጋጅቷል:: {school_name}::"
+                )
+            else:
+                msg = (
+                    f"Dear Parent/Guardian, {student.full_name} scored {intervention.trigger_score:g}% "
+                    f"in {intervention.subject.name}. An academic support session ({type_display}) has been "
+                    f"scheduled on {date_en}. Please contact {school_name} administration for details."
+                )
+
+        # 4. Resolve Recipient User (non-null for NotificationLog)
+        recipient_user = (
+            parent_user
+            or getattr(student, 'user', None)
+            or intervention.created_by
+            or school.users.first()
         )
 
         success = NotificationDispatcher.send_notification(
-            school=intervention.school,
+            school=school,
             recipient_user=recipient_user,
             channel=NotificationChannel.SMS,
             message=msg,
             subject=f"Academic Support Alert: {student.full_name}",
-            category='announcement'
+            category='announcement',
+            phone_number=phone
         )
 
-        intervention.parent_notified = True
-        intervention.parent_notified_at = timezone.now()
-        intervention.parent_notification_channel = 'SMS'
-        intervention.save(update_fields=['parent_notified', 'parent_notified_at', 'parent_notification_channel'])
+        if success:
+            intervention.parent_notified = True
+            intervention.parent_notified_at = timezone.now()
+            intervention.parent_notification_channel = 'SMS'
+            intervention.save(update_fields=['parent_notified', 'parent_notified_at', 'parent_notification_channel'])
 
-        return success
+        return bool(success)
 
     @classmethod
     def update_intervention(
