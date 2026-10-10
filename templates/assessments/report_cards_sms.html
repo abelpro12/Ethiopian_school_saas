@@ -399,14 +399,26 @@
                                 <span class="font-bold text-slate-800">{{ r.parent_name }}</span>
                                 <span class="text-slate-400 text-[10px]">({{ r.parent_relationship }})</span>
                             </div>
-                            <div class="mt-0.5">
+                            <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                                 {% if r.has_phone %}
-                                <span class="inline-flex items-center gap-1 font-mono text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">
+                                <span class="inline-flex items-center gap-1 font-mono text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10.5px] border border-emerald-200" title="SMS Enabled">
                                     <i class="fa-solid fa-phone text-[9px]"></i> {{ r.parent_phone }}
                                 </span>
                                 {% else %}
-                                <span class="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px] font-bold border border-amber-200">
-                                    <i class="fa-solid fa-triangle-exclamation text-[9px]"></i> Missing Phone
+                                <span class="inline-flex items-center gap-1 text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded text-[10px] border border-slate-200" title="No phone number">
+                                    <i class="fa-solid fa-phone-slash text-[9px]"></i> No SMS
+                                </span>
+                                {% endif %}
+
+                                {% if r.has_email %}
+                                <span class="inline-flex items-center gap-1 font-mono text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded text-[10.5px] border border-indigo-200" title="Email: {{ r.parent_email }}">
+                                    <i class="fa-solid fa-envelope text-[9px]"></i> {{ r.parent_email }}
+                                </span>
+                                {% endif %}
+
+                                {% if r.has_telegram %}
+                                <span class="inline-flex items-center gap-1 text-cyan-700 font-bold bg-cyan-50 px-1.5 py-0.5 rounded text-[10px] border border-cyan-200" title="Telegram Bot Connected">
+                                    <i class="fa-brands fa-telegram text-[9px]"></i> Bot Linked
                                 </span>
                                 {% endif %}
                             </div>
@@ -424,7 +436,7 @@
                             {% endif %}
                         </td>
                         <td class="py-3 px-3 text-center">
-                            <button type="button" onclick="dispatchSingleStudent('{{ r.student_id }}', '{{ r.student_name|escapejs }}', '{{ r.parent_phone }}')" {% if not r.has_phone %}disabled title="Parent phone missing"{% endif %} class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold {% if r.has_phone %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer{% else %}bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed{% endif %} transition">
+                            <button type="button" onclick="dispatchSingleStudent('{{ r.student_id }}', '{{ r.student_name|escapejs }}', '{{ r.parent_phone }}')" {% if not r.can_dispatch %}disabled title="No phone, email, or Telegram linked"{% endif %} class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold {% if r.can_dispatch %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer{% else %}bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed{% endif %} transition">
                                 <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
                             </button>
                         </td>

@@ -475,6 +475,12 @@ class ExamResultSMSService:
             already_sent = student_id_str in sent_dict
             last_sent_at = sent_dict[student_id_str].strftime('%b %d, %Y %H:%M') if already_sent else None
 
+            email = (parent.email if hasattr(parent, 'email') else '') or (getattr(parent_user, 'email', '') if parent_user else '') or (getattr(student, 'email', '') if hasattr(student, 'email') else (getattr(student.user, 'email', '') if student and student.user else ''))
+            email = str(email).strip()
+
+            from apps.communication.models import TelegramAccountLink
+            has_tg = TelegramAccountLink.objects.filter(user=parent_user, is_verified=True).exists() if parent_user else False
+
             recipients.append({
                 'enrollment_id': enr.id,
                 'student_id': student_id_str,
@@ -491,6 +497,10 @@ class ExamResultSMSService:
                 'parent_relationship': parent.relationship if parent else 'Guardian',
                 'parent_phone': phone,
                 'has_phone': bool(phone),
+                'parent_email': email,
+                'has_email': bool(email),
+                'has_telegram': has_tg,
+                'can_dispatch': bool(phone or email or has_tg),
                 'preferred_lang': lang,
                 'rendered_sms_en': rendered_en,
                 'rendered_sms_am': rendered_am,
@@ -1007,6 +1017,16 @@ class ReportCardSMSService:
             already_sent = student_id_str in sent_dict
             last_sent_at = sent_dict[student_id_str].strftime('%b %d, %Y %H:%M') if already_sent else None
 
+            email = ''
+            if parent:
+                email = getattr(parent, 'email', '') or (getattr(parent.user, 'email', '') if parent.user else '')
+            if not email:
+                email = getattr(student, 'email', '') or (getattr(student.user, 'email', '') if student and student.user else '')
+            email = str(email).strip()
+
+            from apps.communication.models import TelegramAccountLink
+            has_tg = TelegramAccountLink.objects.filter(user=parent.user, is_verified=True).exists() if (parent and parent.user) else False
+
             recipients.append({
                 'enrollment_id': enr.id,
                 'student_id': student_id_str,
@@ -1029,6 +1049,10 @@ class ReportCardSMSService:
                 'parent_relationship': parent.relationship if parent else 'Guardian',
                 'parent_phone': phone,
                 'has_phone': bool(phone),
+                'parent_email': email,
+                'has_email': bool(email),
+                'has_telegram': has_tg,
+                'can_dispatch': bool(phone or email or has_tg),
                 'preferred_lang': lang,
                 'rendered_sms_en': rendered_en,
                 'rendered_sms_am': rendered_am,

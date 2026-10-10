@@ -1035,6 +1035,7 @@ BULK_IMPORT_COLUMNS = [
     {'name': 'grade_level',      'description': 'Grade number (9, 10, 11, 12)',    'required': False, 'example': '9'},
     {'name': 'section_name',     'description': 'Section name (e.g. A, B)',        'required': False, 'example': 'A'},
     {'name': 'amharic_name',     'description': 'Full name in Amharic (Geez)',     'required': False, 'example': 'አበበ ጊርማ'},
+    {'name': 'parent_email',     'description': 'Parent/guardian email address',   'required': False, 'example': 'parent@gmail.com'},
 ]
 
 CSV_TEMPLATE_HEADER = ','.join(col['name'] for col in BULK_IMPORT_COLUMNS)
@@ -1048,8 +1049,7 @@ def bulk_import_template(request):
     # BOM for Excel compatibility
     response.write('\ufeff')
     response.write(CSV_TEMPLATE_HEADER + '\n')
-    # Example row
-    example = 'Abebe,Girma,Tadesse,M,2007-03-15,+251911234567,Addis Ababa,Bole,07,,ADM-2017-001,9,A,አበበ ጊርማ'
+    example = 'Abebe,Girma,Tadesse,M,2007-03-15,+251911234567,Addis Ababa,Bole,07,,ADM-2017-001,9,A,አበበ ጊርማ,parent@example.com'
     response.write(example + '\n')
     return response
 
@@ -1231,6 +1231,23 @@ def bulk_import_students(request):
                     amharic_name=(row.get('amharic_name', '') or '').strip() or None,
                     status='ACTIVE',
                 )
+
+                # Auto-link parent profile if phone or parent email provided
+                phone_clean = (row.get('phone', '') or '').strip()
+                parent_email_val = (row.get('parent_email', '') or row.get('guardian_email', '') or '').strip()
+                if phone_clean or parent_email_val:
+                    from apps.parents.models import ParentProfile
+                    p_name = f"{middle_name} {last_name}".strip() or f"Parent of {first_name}"
+                    p_prof = ParentProfile.link_student_by_phone(
+                        school=school,
+                        student_profile=student,
+                        phone=phone_clean or '+251911000000',
+                        parent_name=p_name,
+                        relationship="Father"
+                    )
+                    if parent_email_val and p_prof and p_prof.user:
+                        p_prof.user.email = parent_email_val
+                        p_prof.user.save(update_fields=['email'])
 
                 # Auto-enroll if grade and section provided
                 if grade and section:

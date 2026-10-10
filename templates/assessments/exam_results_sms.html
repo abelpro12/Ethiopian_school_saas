@@ -418,15 +418,29 @@
                             <div class="text-[10px] text-slate-400">{{ r.parent_relationship }}</div>
                         </td>
                         <td class="px-4 py-3">
-                            {% if r.has_phone %}
-                            <span class="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                {{ r.parent_phone }}
-                            </span>
-                            {% else %}
-                            <span class="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded">
-                                <i class="fa-solid fa-triangle-exclamation"></i> No Phone
-                            </span>
-                            {% endif %}
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                {% if r.has_phone %}
+                                <span class="font-mono text-[10.5px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" title="SMS Enabled">
+                                    <i class="fa-solid fa-phone text-[9px]"></i> {{ r.parent_phone }}
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded" title="No SMS phone">
+                                    <i class="fa-solid fa-phone-slash text-[9px]"></i> No SMS
+                                </span>
+                                {% endif %}
+
+                                {% if r.has_email %}
+                                <span class="inline-flex items-center gap-1 font-mono text-indigo-700 font-semibold bg-indigo-50 px-1.5 py-0.5 rounded text-[10.5px] border border-indigo-200" title="Email: {{ r.parent_email }}">
+                                    <i class="fa-solid fa-envelope text-[9px]"></i> {{ r.parent_email }}
+                                </span>
+                                {% endif %}
+
+                                {% if r.has_telegram %}
+                                <span class="inline-flex items-center gap-1 text-cyan-700 font-bold bg-cyan-50 px-1.5 py-0.5 rounded text-[10px] border border-cyan-200" title="Telegram Bot Connected">
+                                    <i class="fa-brands fa-telegram text-[9px]"></i> Bot Linked
+                                </span>
+                                {% endif %}
+                            </div>
                         </td>
                         <td class="px-4 py-3 text-center" id="status-cell-{{ r.student_id }}">
                             {% if r.already_sent %}
@@ -435,8 +449,8 @@
                             </span>
                             {% elif not r.has_mark %}
                             <span class="text-[10px] text-slate-400 font-medium">Pending Mark</span>
-                            {% elif not r.has_phone %}
-                            <span class="text-[10px] text-rose-500 font-medium">Missing Phone</span>
+                            {% elif not r.can_dispatch %}
+                            <span class="text-[10px] text-rose-500 font-medium">No Contact Channels</span>
                             {% else %}
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 Ready
@@ -448,7 +462,7 @@
                                 <button type="button" onclick="previewSingleStudentSMS('{{ r.student_name|escapejs }}', '{{ r.score }}', '{{ r.max_score }}', '{{ r.percentage }}', '{{ r.letter_grade }}', '{{ r.parent_phone|escapejs }}')" class="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-100 transition" title="Preview Message">
                                     <i class="fa-solid fa-eye text-xs"></i>
                                 </button>
-                                <button type="button" onclick="dispatchSingleStudentSMS('{{ r.student_id }}')" {% if not r.has_mark or not r.has_phone %}disabled{% endif %} class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 {% if r.has_mark and r.has_phone %}bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200{% else %}bg-slate-100 text-slate-400 cursor-not-allowed{% endif %}">
+                                <button type="button" onclick="dispatchSingleStudentSMS('{{ r.student_id }}')" {% if not r.has_mark or not r.can_dispatch %}disabled{% endif %} class="px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 {% if r.has_mark and r.can_dispatch %}bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200{% else %}bg-slate-100 text-slate-400 cursor-not-allowed{% endif %}">
                                     <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
                                 </button>
                             </div>
