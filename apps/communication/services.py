@@ -649,7 +649,8 @@ class ExamResultSMSService:
                 channel=NotificationChannel.EMAIL,
                 message=email_body,
                 subject=email_subj,
-                category='announcement'
+                category='announcement',
+                email_address=email_addr
             )
 
         any_sent = sms_sent or telegram_sent or email_sent
@@ -1240,7 +1241,8 @@ class ReportCardSMSService:
                 channel=NotificationChannel.EMAIL,
                 message=email_body,
                 subject=email_subj,
-                category='announcement'
+                category='announcement',
+                email_address=email_addr
             )
 
         any_sent = sms_sent or telegram_sent or email_sent

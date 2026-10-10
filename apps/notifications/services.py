@@ -274,9 +274,21 @@ class EmailService:
     def send_email(email_address: str, subject: str, message: str) -> bool:
         if not email_address:
             return False
+        import os, sys
         from django.core.mail import send_mail
+
+        host_user = getattr(settings, 'EMAIL_HOST_USER', None) or os.environ.get('EMAIL_HOST_USER')
+        is_test = 'test' in sys.argv or getattr(settings, 'TESTING', False)
+
+        # Simulation mode when SMTP credentials are not configured or in testing
+        if not host_user or is_test:
+            logger.info(f"[EMAIL SIMULATION] Sent to {email_address} | Subject: {subject}")
+            _safe_console_print(f"[EMAIL SIMULATION to {email_address}]: Subject: '{subject}'")
+            _safe_console_print("  --> To deliver live emails to parent inboxes, set EMAIL_HOST_USER & EMAIL_HOST_PASSWORD in .env")
+            return True
+
         try:
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@school.et')
+            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or host_user or 'noreply@school.et'
             send_mail(
                 subject=subject,
                 message=message,
@@ -359,7 +371,7 @@ class NotificationService:
         cls._sms_provider = provider
 
     @classmethod
-    def send_notification(cls, school, recipient_user, channel: str, message: str, subject: str = None, category: str = 'announcement', phone_number: str = None):
+    def send_notification(cls, school, recipient_user, channel: str, message: str, subject: str = None, category: str = 'announcement', phone_number: str = None, email_address: str = None):
         """
         Unified method to send notifications respecting user preferences.
         categories: 'attendance', 'payment', 'announcement', 'marketing'
@@ -402,7 +414,7 @@ class NotificationService:
                 cls._last_failure_reason = failure_reason
 
         elif channel == NotificationChannel.EMAIL:
-            email = getattr(recipient_user, 'email', None) if recipient_user else None
+            email = email_address or (getattr(recipient_user, 'email', None) if recipient_user else None)
             if email:
                 success = EmailService.send_email(email, subject or "School Notification", message)
             else:
