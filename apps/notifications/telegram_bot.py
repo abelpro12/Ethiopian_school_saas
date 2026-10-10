@@ -181,13 +181,22 @@ class TelegramBotHandler:
 
         clean_id = identifier.strip()
         phone_variations = normalize_phone(clean_id)
+        digits = "".join(ch for ch in str(identifier) if ch.isdigit())
+        base_9 = digits[-9:] if len(digits) >= 9 else None
 
         # 1. Search in ParentProfile by phone
         parent = None
         if phone_variations:
             parent = ParentProfile.objects.filter(
                 Q(phone__in=phone_variations) |
-                Q(user__phone_number__in=phone_variations)
+                Q(user__phone__in=phone_variations)
+            ).select_related('user', 'school').first()
+
+        # Fallback by 9-digit suffix
+        if not parent and base_9:
+            parent = ParentProfile.objects.filter(
+                Q(phone__icontains=base_9) |
+                Q(user__phone__icontains=base_9)
             ).select_related('user', 'school').first()
 
         # 2. If not found by phone, search by Student ID or Student Roll
