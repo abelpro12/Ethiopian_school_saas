@@ -247,36 +247,15 @@ class SMSEthiopiaProvider(SMSProviderBase):
                     self.last_details = {'simulated': True, 'reason': 'BUSINESS_SENDERID_PENDING_SIMULATED', 'msisdn': msisdn}
                     return True
 
-            # 4. In DEBUG mode on live server: deliver a real live test SMS copy to the developer's verified phone!
-            if (is_unwhitelisted or is_sender_id_pending) and getattr(settings, 'DEBUG', False) and not is_test_run:
-                if msisdn != norm_dev_phone and self.starter_key:
-                    dev_payload = {
-                        'msisdn': norm_dev_phone,
-                        'text': f"📱 [FOR PARENT {msisdn}]:\n{message}"
-                    }
-                    dev_res = requests.post(
-                        "https://smsethiopia.com/api/sms/send",
-                        json=dev_payload,
-                        headers={'KEY': self.starter_key, 'Content-Type': 'application/json'},
-                        timeout=12
-                    )
-                    if dev_res.status_code in (200, 201):
-                        notice = (
-                            f"[SMSEthiopia LIVE DEV COPY]: Real test SMS for parent {msisdn} routed to verified phone {norm_dev_phone}."
-                        )
-                        logger.info(notice)
-                        _safe_console_print(notice)
-                        self.last_details = {'routed_to_dev_phone': True, 'target_msisdn': msisdn, 'dev_phone': norm_dev_phone}
-                        return True
-
-                if simulate_unwhitelisted:
-                    notice = (
-                        f"[SMSEthiopia DEV NOTICE]: Recipient {msisdn} delivered via simulation for local testing."
-                    )
-                    logger.warning(notice)
-                    _safe_console_print(notice)
-                    self.last_details = {'simulated': True, 'reason': 'DEV_SIMULATED', 'msisdn': msisdn}
-                    return True
+            # 4. In DEBUG mode or simulation mode: fulfill unwhitelisted numbers via local simulation without cross-parent rerouting
+            if (is_unwhitelisted or is_sender_id_pending) and (getattr(settings, 'DEBUG', False) or simulate_unwhitelisted):
+                notice = (
+                    f"[SMSEthiopia DEV NOTICE]: Recipient {msisdn} simulated locally for development testing (unwhitelisted on Starter campaign)."
+                )
+                logger.info(notice)
+                _safe_console_print(notice)
+                self.last_details = {'simulated': True, 'reason': 'DEV_SIMULATED', 'msisdn': msisdn}
+                return True
 
             if is_sender_id_pending:
                 self.last_error = (
@@ -321,28 +300,9 @@ class TelegramService:
         if link and link.telegram_chat_id:
             return TelegramNotificationChannel.send_telegram(link.telegram_chat_id, message)
 
-        # In DEBUG mode, if this parent hasn't linked the bot yet, route a copy to the developer's
-        # verified Telegram chat (e.g. chat ID 8520255687) so real live push is delivered on mobile!
-        if getattr(settings, 'DEBUG', False):
-            dev_chat_id = os.environ.get('TELEGRAM_DEV_CHAT_ID')
-            if not dev_chat_id:
-                sample_link = TelegramAccountLink.objects.filter(is_verified=True).exclude(telegram_chat_id__isnull=True).exclude(telegram_chat_id='').first()
-                if sample_link:
-                    dev_chat_id = sample_link.telegram_chat_id
-
-            if dev_chat_id:
-                dev_msg = f"🔔 <b>[TEST SIMULATION for @{user.username}]</b>\n\n" + message
-                sent_dev = TelegramNotificationChannel.send_telegram(dev_chat_id, dev_msg)
-                if sent_dev:
-                    logger.info(f"[TELEGRAM DEV LIVE DELIVERY] Delivered to test chat {dev_chat_id} for @{user.username}")
-                    _safe_console_print(f"[TELEGRAM LIVE DEV PUSH to {dev_chat_id} for @{user.username}]")
-                    return True
-
-            logger.info(f"[TELEGRAM SIMULATION] User: {user.username} | Message: {message}")
-            _safe_console_print(f"[TELEGRAM SIMULATION to @{user.username}]: {message}")
-            _safe_console_print("  --> Note: Parent hasn't linked @Seattle_Academy_Bot yet. Start bot in Telegram to receive live push.")
-            return True
-
+        # STRICT PRIVACY: If this parent has not linked Telegram, DO NOT send to any other parent's chat!
+        logger.info(f"[TELEGRAM NOT LINKED] Parent user @{user.username} has not linked @Seattle_Academy_Bot.")
+        _safe_console_print(f"[TELEGRAM NOT LINKED] Parent @{user.username} has no active Telegram bot connection.")
         return False
 
 
@@ -364,8 +324,7 @@ class EmailService:
             _safe_console_print("  --> To deliver live emails to parent inboxes, set EMAIL_HOST_USER & EMAIL_HOST_PASSWORD in .env")
             return True
 
-        # In DEBUG / local dev, if recipient is a dummy non-resolving domain (e.g. @student.seattleacademyethiopia.com),
-        # route directly to host_user to avoid Gmail 35s DNS MX resolution timeouts and deliver to real developer inbox!
+        # In DEBUG / local dev, if recipient is a dummy domain, simulate locally to avoid leaking across parents
         target_email = email_address
         is_dummy_domain = any(str(email_address).lower().endswith(d) for d in [
             '@student.seattleacademyethiopia.com',
@@ -375,9 +334,10 @@ class EmailService:
             '@test.com',
             '@localhost'
         ])
-        if is_dummy_domain and getattr(settings, 'DEBUG', False) and host_user:
-            target_email = host_user
-            subject = f"[Dev Rerouted: {email_address}] " + subject
+        if is_dummy_domain and getattr(settings, 'DEBUG', False):
+            logger.info(f"[EMAIL DEV SIMULATION to {email_address}]: Subject: '{subject}'")
+            _safe_console_print(f"[EMAIL DEV SIMULATION to {email_address}]: Subject: '{subject}'")
+            return True
 
         try:
             from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or host_user or 'noreply@school.et'

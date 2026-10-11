@@ -589,9 +589,6 @@ class ExamResultSMSService:
             or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
             or (getattr(student.user, 'email', None) if student and student.user else None)
         )
-        if not email_addr and getattr(settings, 'DEBUG', False):
-            email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
-
         email_subj = f"[{school_name}] Exam Result: {student.full_name} - {subject_name} ({test_name})"
         email_body = (
             f"Dear Parent/Guardian,\n\n"
@@ -655,13 +652,16 @@ class ExamResultSMSService:
             return sent
 
         # Dispatch selected channels
-        if 'SMS' in active_channels:
+        from apps.communication.models import TelegramAccountLink
+        has_telegram = TelegramAccountLink.objects.filter(user=recipient_user, is_verified=True).exists() if recipient_user else False
+
+        if 'SMS' in active_channels and phone:
             if _send_sms_task():
                 delivered_channels.append('SMS')
-        if 'TELEGRAM' in active_channels:
+        if 'TELEGRAM' in active_channels and has_telegram:
             if _send_telegram_task():
                 delivered_channels.append('Telegram Bot')
-        if 'EMAIL' in active_channels:
+        if 'EMAIL' in active_channels and email_addr:
             if _send_email_task():
                 delivered_channels.append('Email')
 
@@ -1202,9 +1202,6 @@ class ReportCardSMSService:
             or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
             or (getattr(student.user, 'email', None) if student and student.user else None)
         )
-        if not email_addr and getattr(settings, 'DEBUG', False):
-            email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
-
         email_subj = f"[{school_name}] Official Report Card: {student.full_name} ({period_name})"
         email_body = (
             f"Dear Parent/Guardian,\n\n"
@@ -1273,13 +1270,16 @@ class ReportCardSMSService:
             return sent
 
         # Dispatch selected channels
-        if 'SMS' in active_channels:
+        from apps.communication.models import TelegramAccountLink
+        has_telegram = TelegramAccountLink.objects.filter(user=recipient_user, is_verified=True).exists() if recipient_user else False
+
+        if 'SMS' in active_channels and phone:
             if _send_rc_sms():
                 delivered_channels.append('SMS')
-        if 'TELEGRAM' in active_channels:
+        if 'TELEGRAM' in active_channels and has_telegram:
             if _send_rc_telegram():
                 delivered_channels.append('Telegram Bot')
-        if 'EMAIL' in active_channels:
+        if 'EMAIL' in active_channels and email_addr:
             if _send_rc_email():
                 delivered_channels.append('Email')
 
@@ -1553,7 +1553,7 @@ class TestAllSubjectsSMSService:
             has_telegram = TelegramAccountLink.objects.filter(user=parent_tg_user, is_verified=True).exists() if parent_tg_user else False
 
             has_phone = bool(phone)
-            has_email = bool(email_addr) or bool(getattr(settings, 'DEBUG', False))
+            has_email = bool(email_addr)
             can_dispatch = has_phone or has_telegram or has_email
 
             student_marks = marks_by_enr.get(enr.id, [])
@@ -1703,9 +1703,6 @@ class TestAllSubjectsSMSService:
             or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
             or (getattr(student.user, 'email', None) if student and student.user else None)
         )
-        if not email_addr and getattr(settings, 'DEBUG', False):
-            email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
-
         email_subj = f"[{school_name}] {clean_test_name} Results: {student.full_name} (All Subjects)"
         email_body = (
             f"Dear Parent/Guardian,\n\n"
@@ -1769,13 +1766,16 @@ class TestAllSubjectsSMSService:
             email_sent = sent
             return sent
 
-        if 'SMS' in active_channels:
+        from apps.communication.models import TelegramAccountLink
+        has_telegram = TelegramAccountLink.objects.filter(user=recipient_user, is_verified=True).exists() if recipient_user else False
+
+        if 'SMS' in active_channels and phone:
             if _send_sms_task():
                 delivered_channels.append('SMS')
-        if 'TELEGRAM' in active_channels:
+        if 'TELEGRAM' in active_channels and has_telegram:
             if _send_telegram_task():
                 delivered_channels.append('Telegram Bot')
-        if 'EMAIL' in active_channels:
+        if 'EMAIL' in active_channels and email_addr:
             if _send_email_task():
                 delivered_channels.append('Email')
 

@@ -218,3 +218,103 @@ class TestAllSubjectsSMSTestCase(TestCase):
         data = resp.json()
         self.assertTrue(data['success'])
         self.assertEqual(data['dispatched'], 1)
+
+    def test_privacy_no_cross_parent_delivery(self):
+        """
+        Verify that when multiple students are dispatched:
+        1. A parent only receives notifications for their own student.
+        2. Parents without Telegram bot links do NOT trigger simulated cross-parent push to another parent's chat.
+        3. No student marks are ever leaked to another parent's phone or Telegram.
+        """
+        from apps.communication.models import TelegramAccountLink
+
+        # Parent 1 (Haile) links Telegram with Chat ID 8520255687
+        TelegramAccountLink.objects.create(
+            school=self.school,
+            user=self.parent_user,
+            telegram_chat_id="8520255687",
+            is_verified=True
+        )
+
+        # Create Student 2 (Marta) with Parent 2 (Getachew - NO TELEGRAM LINK)
+        student2_user = User.objects.create_user(
+            username="stu_marta_test",
+            email="marta@test.com",
+            role=UserRole.STUDENT,
+            school=self.school,
+            first_name="Marta",
+            last_name="Getachew"
+        )
+        student2 = StudentProfile.objects.create(
+            school=self.school,
+            user=student2_user,
+            student_id="AFA-9A-002",
+            first_name="Marta",
+            last_name="Getachew",
+            gender="F",
+            phone="0911000002"
+        )
+        enrollment2 = StudentEnrollment.objects.create(
+            school=self.school,
+            student=student2,
+            grade=self.grade,
+            stream=self.stream,
+            section=self.section,
+            academic_year=self.academic_year,
+            status=EnrollmentStatus.ACTIVE
+        )
+        parent2_user = User.objects.create_user(
+            username="parent_getachew_test",
+            email="getachew@test.com",
+            phone="0911200028",
+            role=UserRole.PARENT,
+            school=self.school
+        )
+        parent2 = ParentProfile.objects.create(
+            school=self.school,
+            user=parent2_user,
+            phone="0911200028",
+            relationship="Father"
+        )
+        GuardianRelationship.objects.create(
+            school=self.school,
+            parent=parent2,
+            student=student2,
+            is_primary=True
+        )
+        StudentMark.objects.create(
+            school=self.school,
+            enrollment=enrollment2,
+            assessment_component=self.comp_math_test1,
+            mark_value=Decimal('15.0'),
+            status=MarkStatus.PUBLISHED
+        )
+        StudentMark.objects.create(
+            school=self.school,
+            enrollment=enrollment2,
+            assessment_component=self.comp_eng_test1,
+            mark_value=Decimal('16.0'),
+            status=MarkStatus.PUBLISHED
+        )
+
+        summary = TestAllSubjectsSMSService.bulk_dispatch_test_all_subjects(
+            school=self.school,
+            section=self.section,
+            test_name="Test 1",
+            channels=['SMS', 'TELEGRAM', 'EMAIL']
+        )
+
+        self.assertEqual(summary['total_students'], 2)
+        # Only Dawit's parent has Telegram, so exactly 1 telegram message is dispatched
+        self.assertEqual(summary['telegram_dispatched'], 1)
+
+        # Check logs for both students
+        log_dawit = ExamResultSMSLog.objects.filter(school=self.school, student=self.student).order_by('-sent_at').first()
+        log_marta = ExamResultSMSLog.objects.filter(school=self.school, student=student2).order_by('-sent_at').first()
+
+        self.assertIn("Telegram Bot", log_dawit.message)
+        self.assertNotIn("Telegram Bot", log_marta.message)
+        # Marta's log recipient must be Marta's parent's phone, not Dawit's parent's phone
+        self.assertEqual(log_marta.recipient_phone, "0911200028")
+        self.assertEqual(log_dawit.recipient_phone, "0911445566")
+

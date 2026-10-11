@@ -683,6 +683,13 @@ class ReportCardSMSTests(TestCase):
         Verify multi-channel dispatch across SMS, free Telegram Bot, and free Email.
         """
         from apps.communication.services import ReportCardSMSService, ExamResultSMSService
+        from apps.communication.models import TelegramAccountLink
+
+        TelegramAccountLink.objects.get_or_create(
+            school=self.school,
+            user=self.parent1_user,
+            defaults={'telegram_chat_id': '123456789', 'is_verified': True}
+        )
 
         # 1. Test Report Card dispatch with all 3 channels
         summary_all = ReportCardSMSService.bulk_dispatch_report_cards(
