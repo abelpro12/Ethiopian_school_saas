@@ -11,7 +11,12 @@ except Exception:
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ethiopian-school-saas-dev-key')
 
-# SMS Gateways (SMSEthiopia / AfroMessage)
+# SMS Gateways (Hahu.io / SMSEthiopia / AfroMessage)
+HAHU_API_URL = os.environ.get('HAHU_API_URL', 'https://hahu.io/api/send/sms')
+HAHU_API_SECRET = os.environ.get('HAHU_API_SECRET', None)
+HAHU_DEVICE_ID = os.environ.get('HAHU_DEVICE_ID', None)
+HAHU_SIM_SLOT = int(os.environ.get('HAHU_SIM_SLOT', 1))
+HAHU_PRIORITY = int(os.environ.get('HAHU_PRIORITY', 1))
 SMSETHIOPIA_API_KEY = os.environ.get('SMSETHIOPIA_API_KEY', None)
 SMSETHIOPIA_STARTER_KEY = os.environ.get('SMSETHIOPIA_STARTER_KEY', None)
 SMS_DEV_PHONE = os.environ.get('SMS_DEV_PHONE', None)

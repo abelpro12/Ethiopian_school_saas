@@ -42,6 +42,120 @@ class MockSMSProvider(SMSProviderBase):
         return True
 
 
+class HahuSMSProvider(SMSProviderBase):
+    """
+    Production SMS provider for Ethiopia using Hahu.io Android SMS Gateway.
+    Sends SMS directly via connected Android device SIM card (Ethio Telecom / Safaricom).
+    Endpoint: https://hahu.io/api/send/sms
+    Required query parameters:
+      - secret: API Secret Key
+      - mode: 'devices'
+      - device: Android Device ID
+      - sim: SIM Slot (1 or 2)
+      - priority: 1
+      - phone: Recipient phone number (+251... or 09...)
+      - message: Text message
+    """
+    is_live_gateway = True
+
+    def __init__(
+        self,
+        api_url: str = None,
+        api_secret: str = None,
+        device_id: str = None,
+        sim_slot: int = 1,
+        priority: int = 1
+    ):
+        import os
+        self.api_url = (
+            api_url
+            if api_url is not None
+            else (getattr(settings, 'HAHU_API_URL', None) or os.environ.get('HAHU_API_URL') or "https://hahu.io/api/send/sms")
+        )
+        self.api_secret = (
+            api_secret
+            if api_secret is not None
+            else (getattr(settings, 'HAHU_API_SECRET', None) or os.environ.get('HAHU_API_SECRET'))
+        )
+        self.device_id = (
+            device_id
+            if device_id is not None
+            else (getattr(settings, 'HAHU_DEVICE_ID', None) or os.environ.get('HAHU_DEVICE_ID'))
+        )
+        self.sim_slot = sim_slot if sim_slot is not None else getattr(settings, 'HAHU_SIM_SLOT', 1)
+        self.priority = priority if priority is not None else getattr(settings, 'HAHU_PRIORITY', 1)
+
+    def normalize_phone(self, phone: str) -> str:
+        cleaned = "".join(ch for ch in str(phone).strip() if ch.isdigit() or ch == '+')
+        if cleaned.startswith("+251"):
+            return cleaned
+        if cleaned.startswith("251"):
+            return "+" + cleaned
+        if cleaned.startswith("09") or cleaned.startswith("07"):
+            return "+251" + cleaned[1:]
+        if cleaned.startswith("9") or cleaned.startswith("7"):
+            return "+251" + cleaned
+        return cleaned
+
+    def send_sms(self, phone_number: str, message: str) -> bool:
+        import os, sys, requests
+        self.last_error = None
+        self.last_details = {}
+
+        if not self.api_secret or not self.device_id or self.api_secret in ('test_key', 'your_key_here'):
+            logger.warning("[HahuSMS] No live API secret or Device ID configured. Simulating dispatch.")
+            _safe_console_print(f"[HahuSMS SIMULATION to {phone_number}]: {message}")
+            self.last_details = {'simulated': True}
+            return True
+
+        is_test_run = 'test' in sys.argv or getattr(settings, 'TESTING', False)
+        force_simulation = os.environ.get('SMS_SIMULATION_MODE', 'False').lower() in ('true', '1', 'yes')
+        if force_simulation:
+            logger.info(f"[HahuSMS FORCED SIMULATION to {phone_number}]: {message}")
+            _safe_console_print(f"[HahuSMS SIMULATION to {phone_number}]: {message}")
+            self.last_details = {'simulated': True}
+            return True
+
+        phone = self.normalize_phone(phone_number)
+        payload = {
+            'secret': self.api_secret,
+            'mode': 'devices',
+            'device': self.device_id,
+            'sim': self.sim_slot,
+            'priority': self.priority,
+            'phone': phone,
+            'message': message,
+        }
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+        }
+
+        try:
+            res = requests.post(self.api_url, params=payload, headers=headers, timeout=15)
+            try:
+                data = res.json()
+            except Exception:
+                data = {}
+
+            if res.status_code == 200 and data.get('status') == 200:
+                logger.info(f"[HahuSMS SUCCESS] To: {phone} | Queued on device {self.device_id} | Msg: {data.get('message')}")
+                _safe_console_print(f"[HahuSMS SUCCESS] Queued to {phone} (Device: {self.device_id}): {data.get('message')}")
+                self.last_details = {'status': 200, 'device': self.device_id, 'phone': phone}
+                return True
+            else:
+                err_msg = data.get('message') or res.text or f"HTTP {res.status_code}"
+                self.last_error = f"Hahu.io Error: {err_msg}"
+                logger.error(f"[HahuSMS FAILED] To: {phone} | HTTP {res.status_code} | {err_msg}")
+                _safe_console_print(f"[HahuSMS FAILED] {self.last_error}")
+                return False
+        except Exception as e:
+            self.last_error = f"Hahu.io Exception: {str(e)}"
+            logger.error(f"[HahuSMS EXCEPTION] {e}")
+            _safe_console_print(f"[HahuSMS EXCEPTION] {e}")
+            return False
+
+
 class AfroMessageSMSProvider(SMSProviderBase):
     """
     Production SMS provider for Ethiopia using the AfroMessage API.
@@ -427,7 +541,12 @@ class NotificationService:
         display_name = "Mock / Simulation Provider"
         is_starter = False
         is_business = False
-        if isinstance(provider, SMSEthiopiaProvider):
+        is_hahu = False
+        if isinstance(provider, HahuSMSProvider):
+            display_name = "Hahu.io Android SMS Gateway"
+            is_business = True
+            is_hahu = True
+        elif isinstance(provider, SMSEthiopiaProvider):
             display_name = "SMSEthiopia Business Gateway"
             is_business = True
         elif isinstance(provider, AfroMessageSMSProvider):
@@ -439,6 +558,7 @@ class NotificationService:
             'is_live': is_live,
             'is_starter_campaign': is_starter,
             'is_business_campaign': is_business,
+            'is_hahu_gateway': is_hahu,
         }
 
     @classmethod
@@ -449,7 +569,26 @@ class NotificationService:
         import sys
         if getattr(settings, 'TESTING', False) or 'test' in sys.argv or 'pytest' in sys.modules:
             return MockSMSProvider()
-        # 1. Check SMSEthiopia API key
+
+        # 1. Check Hahu.io SMS API secret and device ID (primary gateway)
+        hahu_secret = (
+            getattr(settings, 'HAHU_API_SECRET', None)
+            or os.environ.get('HAHU_API_SECRET')
+        )
+        hahu_device = (
+            getattr(settings, 'HAHU_DEVICE_ID', None)
+            or os.environ.get('HAHU_DEVICE_ID')
+        )
+        if hahu_secret and hahu_device and hahu_secret not in ('test_key', 'your_key_here'):
+            return HahuSMSProvider(
+                api_url=getattr(settings, 'HAHU_API_URL', 'https://hahu.io/api/send/sms'),
+                api_secret=hahu_secret,
+                device_id=hahu_device,
+                sim_slot=getattr(settings, 'HAHU_SIM_SLOT', 1),
+                priority=getattr(settings, 'HAHU_PRIORITY', 1),
+            )
+
+        # 2. Check SMSEthiopia API key
         smsethiopia_key = (
             getattr(settings, 'SMSETHIOPIA_API_KEY', None)
             or os.environ.get('SMSETHIOPIA_API_KEY')
@@ -457,7 +596,7 @@ class NotificationService:
         if smsethiopia_key and smsethiopia_key not in ('test_key', 'your_key_here'):
             return SMSEthiopiaProvider(api_key=smsethiopia_key)
 
-        # 2. Check AfroMessage API key
+        # 3. Check AfroMessage API key
         afromessage_key = (
             getattr(settings, 'AFROMESSAGE_API_KEY', None)
             or os.environ.get('AFROMESSAGE_API_KEY')
@@ -465,7 +604,7 @@ class NotificationService:
         if afromessage_key and afromessage_key not in ('test_key', 'your_key_here'):
             return AfroMessageSMSProvider(api_key=afromessage_key)
 
-        # 3. Check generic SMS_API_KEY
+        # 4. Check generic SMS_API_KEY
         generic_key = os.environ.get('SMS_API_KEY')
         if generic_key and generic_key not in ('test_key', 'your_key_here'):
             return SMSEthiopiaProvider(api_key=generic_key)
