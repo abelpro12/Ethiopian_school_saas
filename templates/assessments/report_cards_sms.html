@@ -331,9 +331,9 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 font-medium">
                     {% for r in recipients %}
-                    <tr class="hover:bg-indigo-50/30 transition-colors student-row {% if not r.has_phone %}bg-amber-50/20{% endif %}" id="row_{{ r.student_id }}">
+                    <tr class="hover:bg-indigo-50/30 transition-colors student-row {% if not r.can_dispatch %}bg-amber-50/20{% endif %}" id="row_{{ r.student_id }}">
                         <td class="py-3 px-3 text-center">
-                            <input type="checkbox" name="student_ids" value="{{ r.student_id }}" {% if r.has_phone %}checked{% endif %} onchange="updateSelectedCount()" class="student-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                            <input type="checkbox" name="student_ids" value="{{ r.student_id }}" {% if r.can_dispatch %}checked{% endif %} onchange="updateSelectedCount()" class="student-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
                         </td>
                         <td class="py-3 px-3">
                             <div class="flex items-center gap-2">
@@ -436,7 +436,7 @@
                             {% endif %}
                         </td>
                         <td class="py-3 px-3 text-center">
-                            <button type="button" onclick="dispatchSingleStudent('{{ r.student_id }}', '{{ r.student_name|escapejs }}', '{{ r.parent_phone }}')" {% if not r.can_dispatch %}disabled title="No phone, email, or Telegram linked"{% endif %} class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold {% if r.can_dispatch %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer{% else %}bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed{% endif %} transition">
+                            <button type="button" id="btn-rc-single-{{ r.student_id }}" onclick="dispatchSingleStudent('{{ r.student_id }}', '{{ r.student_name|escapejs }}', '{{ r.parent_phone }}', this)" {% if not r.can_dispatch %}disabled title="No phone, email, or Telegram linked"{% endif %} class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold {% if r.can_dispatch %}bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 cursor-pointer{% else %}bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed{% endif %} transition">
                                 <i class="fa-solid fa-paper-plane text-[10px]"></i> Send
                             </button>
                         </td>
@@ -616,7 +616,7 @@ function syncTelegramBot(event) {
 }
 
 function dispatchSelectedReportCards() {
-    const selectedCbs = Array.from(document.querySelectorAll('.student-cb:checked'));
+    const selectedCbs = Array.from(document.querySelectorAll('.student-checkbox:checked, .student-cb:checked'));
     if (selectedCbs.length === 0) {
         alert("Please select at least one student to dispatch report card notifications.");
         return;
@@ -699,10 +699,10 @@ function dispatchSelectedReportCards() {
     });
 }
 
-function dispatchSingleStudent(studentId, studentName, phone) {
+function dispatchSingleStudent(studentId, studentName, phone, btnEl) {
     const channels = getSelectedChannels();
     if (!phone && channels.includes('SMS') && channels.length === 1) {
-        alert("Cannot send SMS: No registered phone number for parent.");
+        alert("Cannot send SMS: No registered phone number for parent. Select Telegram Bot or Email to reach this parent.");
         return;
     }
 
@@ -717,6 +717,13 @@ function dispatchSingleStudent(studentId, studentName, phone) {
     if (!sectionId) {
         alert("Please select a valid section first.");
         return;
+    }
+
+    const triggerBtn = btnEl;
+    const originalText = triggerBtn ? triggerBtn.innerHTML : '';
+    if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i>';
     }
 
     fetch("{% url 'assessments:report_cards_sms_send' %}", {
@@ -748,16 +755,25 @@ function dispatchSingleStudent(studentId, studentName, phone) {
         return data;
     })
     .then(data => {
+        if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerHTML = originalText;
+        }
+
         if (data.success && data.dispatched > 0) {
-            showToast("Report Card SMS Sent!", `Successfully sent to ${phone}`);
+            showToast("Report Card Sent!", `Successfully dispatched to parent via ${channels.join(', ')}.`);
             setTimeout(() => {
                 window.location.reload();
             }, 1500);
         } else {
-            showToast("Dispatch Failed", data.error || "Unable to send SMS.", false);
+            showToast("Dispatch Failed", data.error || "Unable to send notification.", false);
         }
     })
     .catch(err => {
+        if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerHTML = originalText;
+        }
         showToast("Network Error", err.message || err.toString(), false);
     });
 }

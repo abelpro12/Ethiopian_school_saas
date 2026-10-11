@@ -255,7 +255,10 @@ def exam_results_sms_send_api(request):
     if 'EMAIL' in channels: channel_names.append('Email')
     channel_display = ', '.join(channel_names) or 'selected channels'
 
-    msg = f"Successfully dispatched exam results to {summary['dispatched']} parent{'s' if summary['dispatched'] != 1 else ''} for '{component.name}' via {channel_display}{channel_info_str}."
+    if channels == ['SMS']:
+        msg = f"Dispatched {summary['dispatched']} SMS alert{'s' if summary['dispatched'] != 1 else ''} to parents for '{component.name}'."
+    else:
+        msg = f"Successfully dispatched exam results to {summary['dispatched']} parent{'s' if summary['dispatched'] != 1 else ''} for '{component.name}' via {channel_display}{channel_info_str}."
 
     if summary['skipped_no_phone'] > 0 and channels == ['SMS']:
         msg += f" ({summary['skipped_no_phone']} skipped due to missing parent phone number)."

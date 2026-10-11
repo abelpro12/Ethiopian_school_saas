@@ -1,5 +1,7 @@
 import logging
 import datetime
+import html
+import concurrent.futures
 from decimal import Decimal
 from django.utils import timezone
 from apps.communication.models import (
@@ -565,37 +567,67 @@ class ExamResultSMSService:
         log = None
         delivered_channels = []
 
-        # 1. SMS Dispatch
-        if 'SMS' in active_channels:
+        # Prepare channel-specific payloads
+        esc_student_name = html.escape(str(student.full_name))
+        esc_subject_name = html.escape(str(subject_name))
+        esc_test_name = html.escape(str(test_name))
+        esc_school_name = html.escape(str(school_name))
+
+        tg_body = (
+            f"📊 <b>{esc_school_name} — Exam Result Alert</b>\n\n"
+            f"👤 <b>Student:</b> {esc_student_name}\n"
+            f"📚 <b>Subject:</b> {esc_subject_name}\n"
+            f"📝 <b>Assessment:</b> {esc_test_name}\n"
+            f"🎯 <b>Score:</b> {score_val:g} / {max_score:g} ({percentage:.1f}%)\n"
+            f"🏆 <b>Grade:</b> {letter_grade}\n\n"
+            f"<i>Thank you, {esc_school_name}</i>"
+        )
+
+        email_addr = (
+            getattr(parent, 'email', None)
+            or (getattr(parent.user, 'email', None) if parent and parent.user else None)
+            or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
+            or (getattr(student.user, 'email', None) if student and student.user else None)
+        )
+        if not email_addr and getattr(settings, 'DEBUG', False):
+            email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+
+        email_subj = f"[{school_name}] Exam Result: {student.full_name} - {subject_name} ({test_name})"
+        email_body = (
+            f"Dear Parent/Guardian,\n\n"
+            f"Here is the assessment result for {student.full_name} at {school_name}:\n\n"
+            f"  • Student: {student.full_name}\n"
+            f"  • Subject: {subject_name}\n"
+            f"  • Assessment: {test_name}\n"
+            f"  • Score: {score_val:g} / {max_score:g} ({percentage:.1f}%)\n"
+            f"  • Grade: {letter_grade}\n\n"
+            f"Best regards,\n"
+            f"{school_name}\n"
+        )
+
+        # Worker functions for concurrent channel dispatch
+        def _send_sms_task():
+            nonlocal sms_sent, failure_reason
             if not phone:
                 failure_reason = "No registered parent phone number"
-            else:
-                sms_sent = NotificationService.send_notification(
-                    school=school,
-                    recipient_user=recipient_user,
-                    channel=NotificationChannel.SMS,
-                    message=body,
-                    subject=f"EXAM_RESULT:{component.id}:{student.id}",
-                    category='announcement',
-                    phone_number=phone
-                )
-                if sms_sent:
-                    delivered_channels.append('SMS')
-                else:
-                    failure_reason = NotificationService.get_last_failure_reason()
-
-        # 2. Telegram Bot Dispatch (100% Free)
-        if 'TELEGRAM' in active_channels:
-            tg_body = (
-                f"📊 <b>{school_name} — Exam Result Alert</b>\n\n"
-                f"👤 <b>Student:</b> {student.full_name}\n"
-                f"📚 <b>Subject:</b> {subject_name}\n"
-                f"📝 <b>Assessment:</b> {test_name}\n"
-                f"🎯 <b>Score:</b> {score_val:g} / {max_score:g} ({percentage:.1f}%)\n"
-                f"🏆 <b>Grade:</b> {letter_grade}\n\n"
-                f"<i>Thank you, {school_name}</i>"
+                return False
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.SMS,
+                message=body,
+                subject=f"EXAM_RESULT:{component.id}:{student.id}",
+                category='announcement',
+                phone_number=phone
             )
-            telegram_sent = NotificationService.send_notification(
+            sms_sent = sent
+            if not sent:
+                failure_reason = NotificationService.get_last_failure_reason()
+            return sent
+
+        def _send_telegram_task():
+            nonlocal telegram_sent
+            sent = NotificationService.send_notification(
                 school=school,
                 recipient_user=recipient_user,
                 channel=NotificationChannel.TELEGRAM,
@@ -603,51 +635,46 @@ class ExamResultSMSService:
                 subject=f"EXAM_RESULT_TG:{component.id}:{student.id}",
                 category='announcement'
             )
-            if telegram_sent:
-                delivered_channels.append('Telegram Bot')
+            telegram_sent = sent
+            return sent
 
-        # 3. Email Dispatch (100% Free)
-        if 'EMAIL' in active_channels:
-            email_addr = (
-                getattr(parent, 'email', None)
-                or (getattr(parent.user, 'email', None) if parent and parent.user else None)
-                or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
-                or (getattr(student.user, 'email', None) if student and student.user else None)
+        def _send_email_task():
+            nonlocal email_sent
+            if not email_addr:
+                return False
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.EMAIL,
+                message=email_body,
+                subject=email_subj,
+                category='announcement',
+                email_address=email_addr
             )
-            if not email_addr and getattr(settings, 'DEBUG', False):
-                email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+            email_sent = sent
+            return sent
 
-            if email_addr:
-                email_subj = f"[{school_name}] Exam Result: {student.full_name} - {subject_name} ({test_name})"
-                email_body = (
-                    f"Dear Parent/Guardian,\n\n"
-                    f"Here is the assessment result for {student.full_name} at {school_name}:\n\n"
-                    f"  • Student: {student.full_name}\n"
-                    f"  • Subject: {subject_name}\n"
-                    f"  • Assessment: {test_name}\n"
-                    f"  • Score: {score_val:g} / {max_score:g} ({percentage:.1f}%)\n"
-                    f"  • Grade: {letter_grade}\n\n"
-                    f"Best regards,\n"
-                    f"{school_name}\n"
-                )
-                email_sent = NotificationService.send_notification(
-                    school=school,
-                    recipient_user=recipient_user,
-                    channel=NotificationChannel.EMAIL,
-                    message=email_body,
-                    subject=email_subj,
-                    category='announcement',
-                    email_address=email_addr
-                )
-                if email_sent:
-                    delivered_channels.append('Email')
+        # Dispatch selected channels
+        if 'SMS' in active_channels:
+            if _send_sms_task():
+                delivered_channels.append('SMS')
+        if 'TELEGRAM' in active_channels:
+            if _send_telegram_task():
+                delivered_channels.append('Telegram Bot')
+        if 'EMAIL' in active_channels:
+            if _send_email_task():
+                delivered_channels.append('Email')
 
         any_sent = sms_sent or telegram_sent or email_sent
         overall_status = 'SENT' if any_sent else ('NO_PHONE' if ('SMS' in active_channels and not phone and not any_sent) else 'FAILED')
 
         # Always record ExamResultSMSLog for tracking and dashboard status badges
-        channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
-        log_message = f"{channel_tag} {body}"
+        if not phone and not any_sent:
+            log_message = f"SKIPPED: No registered parent phone number | {body}"
+        else:
+            channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
+            log_message = f"{channel_tag} {body}"
+
         log = ExamResultSMSLog.objects.create(
             school=school,
             assessment_component=component,
@@ -704,11 +731,10 @@ class ExamResultSMSService:
             'details': []
         }
 
-        for r in recipients:
-            if not r['has_mark']:
-                summary['skipped_no_mark'] += 1
-                continue
+        eligible_recipients = [r for r in recipients if r['has_mark']]
+        summary['skipped_no_mark'] = len(recipients) - len(eligible_recipients)
 
+        for r in eligible_recipients:
             student = StudentProfile.objects.filter(id=r['student_id'], school=school).first()
             if not student:
                 continue
@@ -1149,43 +1175,77 @@ class ReportCardSMSService:
         log = None
         delivered_channels = []
 
-        # 1. SMS Dispatch
-        if 'SMS' in active_channels:
+        # 1. Prepare channel-specific payloads
+        esc_student_name = html.escape(str(student.full_name))
+        esc_school_name = html.escape(str(school_name))
+        esc_period_name = html.escape(str(period_name))
+        esc_subjs_str = html.escape(str(subjs_str))
+
+        tg_body = (
+            f"📊 <b>{esc_school_name} — {esc_period_name} Report Card</b>\n\n"
+            f"👤 <b>Student:</b> {esc_student_name}\n"
+            f"📅 <b>Academic Year:</b> {academic_year.name if academic_year else ''}\n\n"
+            f"📚 <b>Subjects:</b>\n{esc_subjs_str}\n\n"
+            f"📈 <b>Summary:</b>\n"
+            f" • Total: <b>{tot_f:.1f}</b>\n"
+            f" • Average: <b>{avg_f:.1f}%</b>\n"
+            f" • Class Rank: <b>{rank_val}</b>\n"
+            f" • Grade: <b>{overall_grade}</b>\n"
+            f" • Conduct: <b>{conduct_val}</b>\n"
+            f" • Status: <b>{status_am if lang == 'am' else status_val}</b>\n\n"
+            f"<i>Thank you, {esc_school_name}</i>"
+        )
+
+        email_addr = (
+            getattr(parent, 'email', None)
+            or (getattr(parent.user, 'email', None) if parent and parent.user else None)
+            or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
+            or (getattr(student.user, 'email', None) if student and student.user else None)
+        )
+        if not email_addr and getattr(settings, 'DEBUG', False):
+            email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+
+        email_subj = f"[{school_name}] Official Report Card: {student.full_name} ({period_name})"
+        email_body = (
+            f"Dear Parent/Guardian,\n\n"
+            f"Please find below the {period_name} report card summary for {student.full_name} at {school_name}:\n\n"
+            f"Student Name: {student.full_name}\n"
+            f"Academic Year / Period: {academic_year.name if academic_year else ''} - {period_name}\n\n"
+            f"Subject Breakdown:\n{subjs_str}\n\n"
+            f"Performance Summary:\n"
+            f"  • Total Score: {tot_f:.1f}\n"
+            f"  • Average: {avg_f:.1f}%\n"
+            f"  • Section Rank: {rank_val}\n"
+            f"  • Overall Grade: {overall_grade}\n"
+            f"  • Conduct: {conduct_val}\n"
+            f"  • Promotion Status: {status_am if lang == 'am' else status_val}\n\n"
+            f"Best regards,\n"
+            f"{school_name}\n"
+        )
+
+        # Worker functions for concurrent channel dispatch
+        def _send_rc_sms():
+            nonlocal sms_sent, failure_reason
             if not phone:
                 failure_reason = "No registered parent phone number"
-            else:
-                sent = NotificationService.send_notification(
-                    school=school,
-                    recipient_user=recipient_user,
-                    channel=NotificationChannel.SMS,
-                    message=body,
-                    subject=f"REPORT_CARD:{period.id if period else 'ANNUAL'}:{student.id}",
-                    category='announcement',
-                    phone_number=phone
-                )
-                sms_sent = sent
-                if sent:
-                    delivered_channels.append('SMS')
-                else:
-                    failure_reason = NotificationService.get_last_failure_reason()
-
-        # 2. Telegram Bot Dispatch (100% Free)
-        if 'TELEGRAM' in active_channels:
-            tg_body = (
-                f"📊 <b>{school_name} — {period_name} Report Card</b>\n\n"
-                f"👤 <b>Student:</b> {student.full_name}\n"
-                f"📅 <b>Academic Year:</b> {academic_year.name if academic_year else ''}\n\n"
-                f"📚 <b>Subjects:</b>\n{subjs_str}\n\n"
-                f"📈 <b>Summary:</b>\n"
-                f" • Total: <b>{tot_f:.1f}</b>\n"
-                f" • Average: <b>{avg_f:.1f}%</b>\n"
-                f" • Class Rank: <b>{rank_val}</b>\n"
-                f" • Grade: <b>{overall_grade}</b>\n"
-                f" • Conduct: <b>{conduct_val}</b>\n"
-                f" • Status: <b>{status_am if lang == 'am' else status_val}</b>\n\n"
-                f"<i>Thank you, {school_name}</i>"
+                return False
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.SMS,
+                message=body,
+                subject=f"REPORT_CARD:{period.id if period else 'ANNUAL'}:{student.id}",
+                category='announcement',
+                phone_number=phone
             )
-            telegram_sent = NotificationService.send_notification(
+            sms_sent = sent
+            if not sent:
+                failure_reason = NotificationService.get_last_failure_reason()
+            return sent
+
+        def _send_rc_telegram():
+            nonlocal telegram_sent
+            sent = NotificationService.send_notification(
                 school=school,
                 recipient_user=recipient_user,
                 channel=NotificationChannel.TELEGRAM,
@@ -1193,56 +1253,46 @@ class ReportCardSMSService:
                 subject=f"REPORT_CARD_TG:{period.id if period else 'ANNUAL'}:{student.id}",
                 category='announcement'
             )
-            if telegram_sent:
-                delivered_channels.append('Telegram Bot')
+            telegram_sent = sent
+            return sent
 
-        # 3. Email Dispatch (100% Free)
-        if 'EMAIL' in active_channels:
-            email_addr = (
-                getattr(parent, 'email', None)
-                or (getattr(parent.user, 'email', None) if parent and parent.user else None)
-                or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
-                or (getattr(student.user, 'email', None) if student and student.user else None)
+        def _send_rc_email():
+            nonlocal email_sent
+            if not email_addr:
+                return False
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.EMAIL,
+                message=email_body,
+                subject=email_subj,
+                category='announcement',
+                email_address=email_addr
             )
-            if not email_addr and getattr(settings, 'DEBUG', False):
-                email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+            email_sent = sent
+            return sent
 
-            if email_addr:
-                email_subj = f"[{school_name}] Official Report Card: {student.full_name} ({period_name})"
-                email_body = (
-                    f"Dear Parent/Guardian,\n\n"
-                    f"Please find below the {period_name} report card summary for {student.full_name} at {school_name}:\n\n"
-                    f"Student Name: {student.full_name}\n"
-                    f"Academic Year / Period: {academic_year.name if academic_year else ''} - {period_name}\n\n"
-                    f"Subject Breakdown:\n{subjs_str}\n\n"
-                    f"Performance Summary:\n"
-                    f"  • Total Score: {tot_f:.1f}\n"
-                    f"  • Average: {avg_f:.1f}%\n"
-                    f"  • Section Rank: {rank_val}\n"
-                    f"  • Overall Grade: {overall_grade}\n"
-                    f"  • Conduct: {conduct_val}\n"
-                    f"  • Promotion Status: {status_am if lang == 'am' else status_val}\n\n"
-                    f"Best regards,\n"
-                    f"{school_name}\n"
-                )
-                email_sent = NotificationService.send_notification(
-                    school=school,
-                    recipient_user=recipient_user,
-                    channel=NotificationChannel.EMAIL,
-                    message=email_body,
-                    subject=email_subj,
-                    category='announcement',
-                    email_address=email_addr
-                )
-                if email_sent:
-                    delivered_channels.append('Email')
+        # Dispatch selected channels
+        if 'SMS' in active_channels:
+            if _send_rc_sms():
+                delivered_channels.append('SMS')
+        if 'TELEGRAM' in active_channels:
+            if _send_rc_telegram():
+                delivered_channels.append('Telegram Bot')
+        if 'EMAIL' in active_channels:
+            if _send_rc_email():
+                delivered_channels.append('Email')
 
         any_sent = sms_sent or telegram_sent or email_sent
         overall_status = 'SENT' if any_sent else ('NO_PHONE' if ('SMS' in active_channels and not phone and not any_sent) else 'FAILED')
 
         # Always record ReportCardSMSLog for tracking and dashboard status badges
-        channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
-        log_message = f"{channel_tag} {body}"
+        if not phone and not any_sent:
+            log_message = f"SKIPPED: No registered parent phone number | {body}"
+        else:
+            channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
+            log_message = f"{channel_tag} {body}"
+
         log = ReportCardSMSLog.objects.create(
             school=school,
             academic_year=academic_year,
@@ -1300,6 +1350,7 @@ class ReportCardSMSService:
         }
 
         from apps.students.models import StudentProfile
+
         for r in recipients:
             student = StudentProfile.objects.filter(id=r['student_id'], school=school).first()
             if not student:
