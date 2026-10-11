@@ -421,8 +421,8 @@
 
 <script>
     let currentFilter = 'all';
-    const belowThresholdPct = {{ below_thresh|default:60 }} / 100.0;
-    const highThresholdPct = {{ high_thresh|default:90 }} / 100.0;
+    const belowThresholdPct = parseFloat("{{ below_thresh|default:60 }}") / 100.0;
+    const highThresholdPct = parseFloat("{{ high_thresh|default:90 }}") / 100.0;
 
     function setPerformanceFilter(filterType) {
         currentFilter = filterType;
