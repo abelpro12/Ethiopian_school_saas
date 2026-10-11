@@ -6,7 +6,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
 from apps.parents.models import GuardianRelationship
 from apps.communication.models import TelegramAccountLink
-from apps.notifications.telegram_bot import TelegramBotHandler
+from apps.notifications.telegram_bot import TelegramBotHandler, normalize_phone
 from apps.notifications.channels.sms import SMSNotificationChannel
 from apps.discipline.models import (
     HairCheckRecord, HairCheckStatus, DisciplinaryIncident, DisciplinaryAction,
@@ -46,10 +46,19 @@ class HairNotificationService:
             phone = getattr(parent, 'phone', '') or getattr(parent, 'phone_number', '') or getattr(user, 'phone', '') or getattr(user, 'phone_number', '') or ''
             email = getattr(user, 'email', '') or getattr(parent, 'email', '') or ''
 
-            # Check Telegram Link
+            # Check Telegram Link (by user or by phone variations)
             tg_link = None
             if user:
-                tg_link = TelegramAccountLink.objects.filter(user=user, is_verified=True).first()
+                tg_link = TelegramAccountLink.objects.filter(
+                    user=user,
+                    telegram_chat_id__isnull=False
+                ).exclude(telegram_chat_id='').first()
+            if not tg_link and phone:
+                phone_vars = normalize_phone(phone)
+                tg_link = TelegramAccountLink.objects.filter(
+                    user__phone__in=phone_vars,
+                    telegram_chat_id__isnull=False
+                ).exclude(telegram_chat_id='').first()
 
             recipients.append({
                 'guardian': g,
@@ -149,40 +158,52 @@ class HairNotificationService:
 
         # Build Messages
         if is_prohibited:
-            # 1. Telegram Caption for PROHIBITED (HTML)
-            tg_caption = (
+            # 1. Telegram Photo Caption for PROHIBITED (HTML) - Strictly < 850 chars for Telegram sendPhoto limit
+            tg_photo_caption = (
                 f"🚨 <b>የፀጉር አቆራረጥ ማስጠንቀቂያ | Hair Grooming Policy Notice</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"👨‍🎓 <b>ተማሪ / Student:</b> {student.full_name}\n"
                 f"🏫 <b>ክፍል / Class:</b> {grade_sec_title}\n"
                 f"📅 <b>ቀን / Date:</b> {today_str}\n\n"
-                f"📋 <b>ግልጽ ምክንያትና ማብራሪያ / Persuasive Reason:</b>\n"
-                f"{reason_am}\n\n"
-                f"<i>{reason_en}</i>\n\n"
                 f"⚠️ <b>የተገኘው ግድፈት / Issue(s) Detected:</b>\n"
                 f"{violations_list_text}\n\n"
                 f"✂️ <b>ለፀጉር አስተካካይ የሚሰጥ መመሪያ / Action for Barber:</b>\n"
                 f"{recommendation_text}\n\n"
                 f"⏳ <b>የማስተካከያ የመጨረሻ ቀን / Rectification Deadline:</b>\n"
                 f"<b>{deadline_str}</b>\n\n"
-            )
-            if custom_note:
-                tg_caption += f"📝 <b>ተጨማሪ ማስታወሻ / Note:</b> {custom_note}\n\n"
-
-            tg_caption += (
-                f"<i>የትምህርት ቤታችን ወጥ የፀጉር አቆራረጥ ደንብ በተማሪዎች መካከል እኩልነትን፣ ዲሲፕሊንን እና የትምህርት ትኩረትን "
-                f"ለማስፈን ያለመ ነው። ስለ ትብብርዎ ከልብ እናመሰግናለን።</i>\n"
                 f"— <b>{school.name}</b>"
             )
 
-            # 2. SMS for PROHIBITED (Clear, persuasive, within reasonable GSM length)
+            # 2. Telegram Companion Educational Rationale Letter
+            tg_detail_message = (
+                f"📋 <b>ግልጽ ምክንያትና ማብራሪያ | Policy Rationale & Details</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<b>ተማሪ / Student:</b> {student.full_name}\n\n"
+                f"<b>በአማርኛ / Amharic:</b>\n"
+                f"{reason_am}\n\n"
+                f"<b>In English:</b>\n"
+                f"<i>{reason_en}</i>\n\n"
+            )
+            if custom_note:
+                tg_detail_message += f"📝 <b>ተጨማሪ ማስታወሻ / Note:</b> {custom_note}\n\n"
+
+            tg_detail_message += (
+                f"<i>የትምህርት ቤታችን ወጥ የፀጉር አቆራረጥ ደንብ በተማሪዎች መካከል እኩልነትን፣ ዲሲፕሊንን እና የትምህርት ትኩረትን "
+                f"ለማስፈን ያለመ ነው። ስለ ትብብርዎ ከልብ እናመሰግናለን።</i>\n\n"
+                f"— <b>{school.name} Administration</b>"
+            )
+
+            # Combined caption for fallback/display
+            tg_caption = f"{tg_photo_caption}\n\n{tg_detail_message}"
+
+            # 3. SMS for PROHIBITED (Clear, persuasive, within reasonable GSM length)
             sms_body = (
                 f"Notice from {school.name}: {student.first_name}'s haircut violates school code ({violations_summary}). "
                 f"Our policy requires an even, uniform cut to ensure equality & focus. "
                 f"Please have a barber trim it evenly (Grade 1/2) by {deadline_str}. Thank you!"
             )
 
-            # 3. Email Subject & HTML for PROHIBITED
+            # 4. Email Subject & HTML for PROHIBITED
             email_subject = f"[{school.name}] Hair Grooming Policy Notice: {student.full_name}"
             email_html = (
                 f"<div style='font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;line-height:1.6;color:#1e293b;max-width:620px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;'>"
@@ -214,22 +235,30 @@ class HairNotificationService:
             )
 
         else:
-            # 1. Telegram Caption for ALLOWED (Commendation)
-            tg_caption = (
+            # 1. Telegram Photo Caption for ALLOWED (Commendation)
+            tg_photo_caption = (
                 f"🌟 <b>የፀጉር አቆራረጥ ምርመራ ውጤት | Grooming Inspection Passed</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"👨‍🎓 <b>ተማሪ / Student:</b> {student.full_name}\n"
                 f"🏫 <b>ክፍል / Class:</b> {grade_sec_title}\n"
                 f"📅 <b>ቀን / Date:</b> {today_str}\n\n"
                 f"✅ <b>ውሳኔ / Status:</b> <b>ተፈቅዷል / Compliant (Approved)</b>\n\n"
-                f"📋 <b>ምክንያትና ማብራሪያ / Evaluation Reason:</b>\n"
-                f"{reason_am}\n\n"
-                f"<i>{reason_en}</i>\n\n"
                 f"👏 <b>ምስጋና / Commendation:</b>\n"
                 f"<i>ልጅዎ የትምህርት ቤቱን የፀጉር አቆራረጥ እና የስነ-ምግባር ደንብ አክብሮ እንዲቀርብ ስላደረጉ ከልብ እናመሰግናለን! "
-                f"ይህ መልካም አርአያነት በትምህርታቸውም ላይ እንዲቀጥል እናበረታታለን።</i>\n"
+                f"ይህ መልካም አርአያነት በትምህርታቸውም ላይ እንዲቀጥል እናበረታታለን።</i>\n\n"
                 f"— <b>{school.name}</b>"
             )
+
+            tg_detail_message = (
+                f"📋 <b>የምርመራ ማጠቃለያ | Evaluation Finding:</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<b>ተማሪ / Student:</b> {student.full_name}\n\n"
+                f"{reason_am}\n\n"
+                f"<i>{reason_en}</i>\n\n"
+                f"— <b>{school.name} Administration</b>"
+            )
+
+            tg_caption = f"{tg_photo_caption}\n\n{tg_detail_message}"
 
             # 2. SMS for ALLOWED
             sms_body = (
@@ -274,16 +303,25 @@ class HairNotificationService:
                         tg_ok = TelegramBotHandler.send_photo(
                             chat_id=r['telegram_chat_id'],
                             photo=photo_path,
-                            caption=tg_caption
+                            caption=tg_photo_caption
                         )
+                        if tg_ok and (reason_am or reason_en):
+                            # Companion educational policy message
+                            TelegramBotHandler.send_message(
+                                chat_id=r['telegram_chat_id'],
+                                text=tg_detail_message
+                            )
                     if not tg_ok:
+                        full_msg = f"{tg_photo_caption}\n\n{tg_detail_message}"
                         tg_ok = TelegramBotHandler.send_message(
                             chat_id=r['telegram_chat_id'],
-                            text=tg_caption
+                            text=full_msg
                         )
                     if tg_ok:
                         results['telegram_sent'] += 1
                         channels_sent_set.add('TELEGRAM')
+                    else:
+                        results['errors'].append(f"Telegram bot failed to deliver to {r['name']} ({r.get('telegram_chat_id')})")
                 except Exception as e:
                     logger.error(f"[HairNotice Telegram Error] {e}")
                     results['errors'].append(f"Telegram error for {r['name']}: {str(e)}")

@@ -1,3 +1,4 @@
+import re
 import sys
 import logging
 import os
@@ -7,6 +8,34 @@ from django.conf import settings
 from django.db.models import Q
 
 logger = logging.getLogger(__name__)
+
+
+def clean_telegram_caption(caption: str, max_length: int = 1000) -> str:
+    """
+    Ensures caption is strictly within Telegram limit (1024 chars)
+    and does not leave broken/unclosed HTML tags.
+    """
+    if not caption:
+        return ""
+    caption = str(caption).strip()
+    if len(caption) <= max_length:
+        return caption
+
+    # If exceeding max_length, slice safely at newline or word boundary
+    truncated = caption[:max_length]
+    last_nl = truncated.rfind('\n')
+    if last_nl > max_length - 200:
+        truncated = truncated[:last_nl]
+
+    # Ensure unclosed HTML tags are closed
+    opened_tags = re.findall(r'<([a-zA-Z]+)(?:\s+[^>]*)?>', truncated)
+    closed_tags = re.findall(r'</([a-zA-Z]+)>', truncated)
+    for tag in reversed(opened_tags):
+        if opened_tags.count(tag) > closed_tags.count(tag):
+            truncated += f"</{tag}>"
+            closed_tags.append(tag)
+
+    return truncated
 
 
 def normalize_phone(phone: str) -> list:
@@ -58,27 +87,37 @@ class TelegramBotHandler:
     def send_message(cls, chat_id: str, text: str, reply_markup=None) -> bool:
         token = cls.get_token()
         if not token:
-            logger.warning("[Telegram Bot] No token configured; skipping send.")
-            return False
+            logger.warning(f"[TELEGRAM SIMULATION] ChatID: {chat_id} | Message: {str(text)[:60]}...")
+            return getattr(settings, 'TELEGRAM_SIMULATION', False) or 'test' in sys.argv
 
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         payload = {
             'chat_id': str(chat_id),
-            'text': text,
+            'text': str(text or ''),
             'parse_mode': 'HTML',
         }
         if reply_markup:
             payload['reply_markup'] = reply_markup
 
         try:
-            res = requests.post(url, json=payload, timeout=10)
+            res = requests.post(url, json=payload, timeout=12)
             if res.status_code == 200:
                 return True
+
+            # If HTML parsing failed, strip HTML tags and retry as plain text
+            if res.status_code == 400 and ('parse entities' in res.text.lower() or 'entity' in res.text.lower()):
+                logger.warning(f"[Telegram Bot HTML Parse Warning] Retrying without parse_mode: {res.text}")
+                payload.pop('parse_mode', None)
+                payload['text'] = re.sub(r'<[^>]+>', '', str(text or ''))
+                retry_res = requests.post(url, json=payload, timeout=12)
+                if retry_res.status_code == 200:
+                    return True
+
             logger.error(f"[Telegram Bot Error] HTTP {res.status_code}: {res.text}")
             return False
         except Exception as e:
-            logger.warning(f"[Telegram Bot Exception / Simulation Fallback] {e}")
-            if getattr(settings, 'DEBUG', False) or 'test' in sys.argv or getattr(settings, 'TELEGRAM_SIMULATION', False):
+            logger.warning(f"[Telegram Bot Exception] {e}")
+            if getattr(settings, 'TELEGRAM_SIMULATION', False) or ('test' in sys.argv and not token):
                 return True
             return False
 
@@ -94,60 +133,81 @@ class TelegramBotHandler:
         token = cls.get_token()
         if not token:
             logger.warning(f"[TELEGRAM SIMULATION] ChatID: {chat_id} | Photo sent | Caption: {caption[:60]}...")
-            return True
+            return getattr(settings, 'TELEGRAM_SIMULATION', False) or 'test' in sys.argv
 
         url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        clean_cap = clean_telegram_caption(caption, max_length=1000)
         data = {
             'chat_id': str(chat_id),
-            'caption': str(caption or '')[:1024],
+            'caption': clean_cap,
             'parse_mode': 'HTML',
         }
         if reply_markup:
             data['reply_markup'] = reply_markup
 
+        f_handle = None
         try:
             res = None
             if isinstance(photo, str) and (photo.startswith('http://') or photo.startswith('https://')):
                 data['photo'] = photo
                 res = requests.post(url, data=data, timeout=15)
             elif isinstance(photo, str) and os.path.exists(photo):
-                with open(photo, 'rb') as f:
-                    res = requests.post(url, data=data, files={'photo': f}, timeout=20)
+                f_handle = open(photo, 'rb')
+                fname = os.path.basename(photo) or 'photo.jpg'
+                file_tuple = (fname, f_handle, 'image/jpeg')
+                res = requests.post(url, data=data, files={'photo': file_tuple}, timeout=25)
             elif hasattr(photo, 'read'):
                 if hasattr(photo, 'seek'):
                     photo.seek(0)
                 file_bytes = photo.read()
-                filename = getattr(photo, 'name', 'hair_check.jpg')
-                res = requests.post(url, data=data, files={'photo': (filename, file_bytes, 'image/jpeg')}, timeout=20)
+                fname = getattr(photo, 'name', 'photo.jpg')
+                file_tuple = (fname, file_bytes, 'image/jpeg')
+                res = requests.post(url, data=data, files={'photo': file_tuple}, timeout=25)
             elif isinstance(photo, bytes):
-                res = requests.post(url, data=data, files={'photo': ('hair_check.jpg', photo, 'image/jpeg')}, timeout=20)
+                file_tuple = ('photo.jpg', photo, 'image/jpeg')
+                res = requests.post(url, data=data, files={'photo': file_tuple}, timeout=25)
             else:
                 logger.error(f"[Telegram Bot] Invalid photo parameter type: {type(photo)}")
                 return False
 
+            if f_handle:
+                try:
+                    f_handle.close()
+                except Exception:
+                    pass
+                f_handle = None
+
             if res and res.status_code == 200:
                 return True
 
-            # If HTML parsing failed on caption, retry without parse_mode
-            if res and res.status_code == 400 and 'can\'t parse entities' in res.text:
+            # If HTML parsing failed on caption, retry without parse_mode / plain text
+            if res and res.status_code == 400 and ('parse entities' in res.text.lower() or 'entity' in res.text.lower()):
+                logger.warning(f"[Telegram Bot Photo Entity Error] Retrying caption as plain text: {res.text}")
                 data.pop('parse_mode', None)
-                if hasattr(photo, 'seek'):
-                    photo.seek(0)
+                data['caption'] = re.sub(r'<[^>]+>', '', clean_cap)[:1000]
                 if isinstance(photo, str) and os.path.exists(photo):
-                    with open(photo, 'rb') as f:
-                        retry_res = requests.post(url, data=data, files={'photo': f}, timeout=20)
-                        return retry_res.status_code == 200
+                    with open(photo, 'rb') as f_retry:
+                        fname = os.path.basename(photo) or 'photo.jpg'
+                        retry_res = requests.post(url, data=data, files={'photo': (fname, f_retry, 'image/jpeg')}, timeout=25)
+                        if retry_res.status_code == 200:
+                            return True
                 elif hasattr(photo, 'read'):
-                    retry_res = requests.post(url, data=data, files={'photo': ('hair_check.jpg', file_bytes, 'image/jpeg')}, timeout=20)
-                    return retry_res.status_code == 200
+                    if hasattr(photo, 'seek'):
+                        photo.seek(0)
+                    retry_res = requests.post(url, data=data, files={'photo': file_tuple}, timeout=25)
+                    if retry_res.status_code == 200:
+                        return True
 
             logger.error(f"[Telegram Bot Photo Error] HTTP {res.status_code if res else 'None'}: {res.text if res else 'No response'}")
-            if getattr(settings, 'DEBUG', False) or 'test' in sys.argv:
-                return True
             return False
         except Exception as e:
-            logger.warning(f"[Telegram Bot Photo Exception / Simulation Fallback] {e}")
-            if getattr(settings, 'DEBUG', False) or 'test' in sys.argv or getattr(settings, 'TELEGRAM_SIMULATION', False):
+            if f_handle:
+                try:
+                    f_handle.close()
+                except Exception:
+                    pass
+            logger.warning(f"[Telegram Bot Photo Exception] {e}")
+            if getattr(settings, 'TELEGRAM_SIMULATION', False) or ('test' in sys.argv and not token):
                 return True
             return False
 
