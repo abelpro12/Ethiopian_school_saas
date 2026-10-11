@@ -357,6 +357,9 @@
         <a href="{% url 'discipline:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-gavel text-red-400"></i><span>Discipline Incidents</span>
         </a>
+        <a href="{% url 'discipline:hair_check_scanner' %}" class="nav-link {% if request.resolver_match.url_name == 'hair_check_scanner' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-scissors text-amber-400"></i><span>AI Hair Scanner</span>
+        </a>
         <a href="{% url 'attendance:reports' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-clipboard-user text-teal-400"></i><span>Attendance Reports</span>
         </a>
@@ -504,6 +507,9 @@
         </a>
         <a href="{% url 'discipline:list' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-triangle-exclamation text-red-400"></i><span>Discipline</span>
+        </a>
+        <a href="{% url 'discipline:hair_check_scanner' %}" class="nav-link {% if request.resolver_match.url_name == 'hair_check_scanner' %}nav-active{% endif %}" onclick="closeSidebarOnMobile()">
+            <i class="fa-solid fa-scissors text-amber-400"></i><span>AI Hair Scanner</span>
         </a>
         <a href="{% url 'attendance:reports' %}" class="nav-link" onclick="closeSidebarOnMobile()">
             <i class="fa-solid fa-clipboard-user text-teal-400"></i><span>Attendance Reports</span>

@@ -14,10 +14,16 @@
         <p class="text-sm text-slate-500">{{ current_ay.name|default:"Track student discipline records & actions" }}</p>
       </div>
     </div>
-    <a href="{% url 'discipline:log' %}" class="flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-sm px-4 py-3 rounded-xl shadow-lg shadow-red-500/25 transition sm:whitespace-nowrap">
-      <i class="fa-solid fa-plus text-xs"></i> Log Incident
-    </a>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'discipline:hair_check_scanner' %}" class="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-sm px-4 py-3 rounded-xl shadow-lg shadow-indigo-600/25 transition sm:whitespace-nowrap">
+        <i class="fa-solid fa-scissors text-xs"></i> AI Hair Scanner
+      </a>
+      <a href="{% url 'discipline:log' %}" class="flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-sm px-4 py-3 rounded-xl shadow-lg shadow-red-500/25 transition sm:whitespace-nowrap">
+        <i class="fa-solid fa-plus text-xs"></i> Log Incident
+      </a>
+    </div>
   </div>
+
 
   <!-- Filter Bar -->
   <form method="get" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">

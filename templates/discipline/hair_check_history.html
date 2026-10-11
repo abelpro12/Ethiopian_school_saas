@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Hair Grooming Inspection History & Audit | Seattle Academy{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6 pb-12">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center shadow-lg shadow-rose-500/25 flex-shrink-0 text-white text-lg">
+        <i class="fa-solid fa-scissors"></i>
+      </div>
+      <div>
+        <h1 class="font-heading text-2xl font-bold text-slate-800">Hair Grooming Inspection Logs</h1>
+        <p class="text-sm text-slate-500">Historical records of AI haircut checks and parent notifications</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2.5">
+      <a href="{% url 'discipline:hair_check_scanner' %}" class="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/25 transition">
+        <i class="fa-solid fa-camera"></i> <span>Open AI Scanner</span>
+      </a>
+      <a href="{% url 'discipline:list' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-2.5 rounded-xl transition">
+        Incident Log
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <form method="get" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+    <div class="flex-1 min-w-[180px]">
+      <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
+      <select name="status" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">All Statuses</option>
+        {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex-1 min-w-[180px]">
+      <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Inspection Date</label>
+      <input type="date" name="date" value="{{ request.GET.date }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    </div>
+
+    <div class="flex gap-2">
+      <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs px-4 py-2 rounded-xl shadow transition">Filter</button>
+      <a href="{% url 'discipline:hair_check_history' %}" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs px-3 py-2 rounded-xl transition">Clear</a>
+    </div>
+  </form>
+
+  <!-- Records Table -->
+  <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+          <tr>
+            <th class="px-5 py-3.5">Photo</th>
+            <th class="px-4 py-3.5">Student</th>
+            <th class="px-4 py-3.5">Verdict</th>
+            <th class="px-4 py-3.5">Detected Issues</th>
+            <th class="px-4 py-3.5">Deadline</th>
+            <th class="px-4 py-3.5">Parent Notice</th>
+            <th class="px-4 py-3.5">Inspected By</th>
+            <th class="px-5 py-3.5 text-right">Date & Time</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 font-medium">
+          {% for r in records %}
+          <tr class="hover:bg-slate-50/70 transition">
+            <!-- Photo thumbnail -->
+            <td class="px-5 py-3.5">
+              {% if r.photo %}
+                <a href="{{ r.photo.url }}" target="_blank" class="block w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shadow-sm hover:scale-105 transition">
+                  <img src="{{ r.photo.url }}" class="w-full h-full object-cover" alt="Haircut photo" />
+                </a>
+              {% else %}
+                <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-camera"></i>
+                </div>
+              {% endif %}
+            </td>
+
+            <!-- Student Name -->
+            <td class="px-4 py-3.5">
+              <div class="font-bold text-slate-900">{{ r.student.full_name }}</div>
+              <div class="text-[11px] text-slate-400">ID: {{ r.student.student_id|default:r.student.user.username }}</div>
+            </td>
+
+            <!-- Verdict -->
+            <td class="px-4 py-3.5">
+              {% if r.status == 'PROHIBITED' %}
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700">
+                  <i class="fa-solid fa-circle-xmark"></i> Prohibited
+                </span>
+              {% else %}
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700">
+                  <i class="fa-solid fa-circle-check"></i> Allowed
+                </span>
+              {% endif %}
+              <div class="text-[10px] text-slate-400 mt-0.5">{{ r.confidence }}% conf</div>
+            </td>
+
+            <!-- Violations -->
+            <td class="px-4 py-3.5 max-w-xs">
+              {% if r.violations %}
+                <ul class="space-y-0.5 text-[11px] text-slate-600">
+                  {% for v in r.violations %}
+                    <li class="truncate">&bull; {{ v }}</li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <span class="text-slate-400 text-[11px] italic">Compliant / None</span>
+              {% endif %}
+            </td>
+
+            <!-- Deadline -->
+            <td class="px-4 py-3.5">
+              {% if r.deadline_date %}
+                <span class="font-bold text-slate-700">{{ r.deadline_date|date:"M d, Y" }}</span>
+              {% else %}
+                <span class="text-slate-400">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Parent Notice -->
+            <td class="px-4 py-3.5">
+              {% if r.parent_notified %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-700">
+                  <i class="fa-solid fa-check"></i> Notified ({{ r.notification_channels }})
+                </span>
+              {% else %}
+                <span class="text-slate-400 text-[11px]">Not Sent</span>
+              {% endif %}
+            </td>
+
+            <!-- Inspected by -->
+            <td class="px-4 py-3.5 text-slate-500 text-[11px]">
+              {{ r.checked_by.get_full_name|default:r.checked_by.username|default:"Staff" }}
+            </td>
+
+            <!-- Date -->
+            <td class="px-5 py-3.5 text-right text-slate-500 text-[11px]">
+              {{ r.created_at|date:"M d, Y H:i" }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-12 text-slate-400">
+              <i class="fa-solid fa-scissors text-3xl mb-2 text-slate-300 block"></i>
+              No hair inspection records found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

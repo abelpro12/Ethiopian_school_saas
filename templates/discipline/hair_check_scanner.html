@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+{% block title %}AI Hair Grooming Scanner & Parent Alert | Seattle Academy{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6 pb-12">
+
+  <!-- Header Section -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-indigo-950/20 border border-indigo-900/40 relative overflow-hidden">
+    <!-- Subtle Background Glows -->
+    <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -left-10 -top-10 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="flex items-center gap-4 relative z-10">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center shadow-lg shadow-rose-500/30 flex-shrink-0 text-white text-2xl animate-pulse">
+        <i class="fa-solid fa-scissors"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-heading text-2xl md:text-3xl font-extrabold tracking-tight">AI Hair Grooming Scanner</h1>
+          <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+            <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Vision AI
+          </span>
+        </div>
+        <p class="text-xs md:text-sm text-slate-300 mt-1">
+          Capture student haircut &bull; AI detects fade/length &bull; 1-click notice to parent with photo via Telegram & SMS
+        </p>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2.5 relative z-10">
+      <a href="{% url 'discipline:hair_check_history' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition border border-white/10 backdrop-blur-sm">
+        <i class="fa-solid fa-clock-rotate-left"></i> Inspection Logs
+      </a>
+      <a href="{% url 'discipline:list' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition border border-slate-700">
+        <i class="fa-solid fa-shield-halved"></i> Discipline Office
+      </a>
+    </div>
+  </div>
+
+  <!-- Realtime Summary Stat Cards -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+        <i class="fa-solid fa-camera"></i>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Today's Scans</div>
+        <div class="text-xl font-extrabold text-slate-800" id="statTodayTotal">{{ total_today }}</div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Prohibited Cuts</div>
+        <div class="text-xl font-extrabold text-rose-600" id="statTodayProhibited">{{ prohibited_today }}</div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Compliant / Allowed</div>
+        <div class="text-xl font-extrabold text-emerald-600" id="statTodayAllowed">{{ allowed_today }}</div>
+      </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-lg">
+        <i class="fa-paper-plane fa-solid"></i>
+      </div>
+      <div>
+        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notices Dispatched</div>
+        <div class="text-xl font-extrabold text-sky-600" id="statTodayNotified">{{ notified_today }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Scanner Layout: 2 Columns on desktop -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+    <!-- Left Column: Camera / Capture & Student Picker (7 Cols) -->
+    <div class="lg:col-span-7 space-y-6">
+
+      <!-- Step 1: Select Student Card -->
+      <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+            <h2 class="text-sm font-bold text-slate-800">Select Student</h2>
+          </div>
+          <span class="text-[11px] text-slate-400">{{ students_count }} Enrolled</span>
+        </div>
+
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input
+            type="text"
+            id="studentSearchInput"
+            placeholder="Type student name, ID or class..."
+            autocomplete="off"
+            class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+          />
+          <button id="clearStudentBtn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+            <i class="fa-solid fa-circle-xmark"></i>
+          </button>
+
+          <!-- Autocomplete Dropdown List -->
+          <div id="studentDropdownList" class="hidden absolute z-30 left-0 right-0 mt-1 max-h-60 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl divide-y divide-slate-100">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Selected Student Badge Card -->
+        <div id="selectedStudentCard" class="hidden p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white font-bold flex items-center justify-center text-sm shadow">
+              <span id="selectedStudentInitials">ST</span>
+            </div>
+            <div>
+              <div class="font-bold text-xs text-slate-900" id="selectedStudentName">Student Name</div>
+              <div class="text-[11px] text-slate-500 flex items-center gap-2">
+                <span id="selectedStudentClass">Grade 9</span> &bull;
+                <span id="selectedStudentID">ID: 001</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5" id="parentChannelPills">
+            <!-- Channels loaded dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Camera & Photo Capture Card -->
+      <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <span class="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+            <h2 class="text-sm font-bold text-slate-800">Capture Student Hair Photo</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="toggleCameraBtn" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition flex items-center gap-1.5">
+              <i class="fa-solid fa-video text-xs"></i> <span>Open Camera</span>
+            </button>
+            <label for="uploadPhotoInput" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold transition cursor-pointer flex items-center gap-1.5">
+              <i class="fa-solid fa-upload text-xs"></i> <span>Upload File</span>
+            </label>
+            <input type="file" id="uploadPhotoInput" accept="image/*" capture="environment" class="hidden" />
+          </div>
+        </div>
+
+        <!-- Camera Viewport & Capture Area -->
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center group">
+          <!-- Video Stream -->
+          <video id="cameraVideo" autoplay playsinline muted class="hidden w-full h-full object-cover"></video>
+
+          <!-- Canvas (Used to capture frame) -->
+          <canvas id="captureCanvas" class="hidden"></canvas>
+
+          <!-- Captured / Preview Image -->
+          <img id="photoPreview" class="hidden w-full h-full object-cover" alt="Haircut preview" />
+
+          <!-- Placeholder when idle -->
+          <div id="cameraPlaceholder" class="text-center p-6 space-y-3">
+            <div class="w-16 h-16 rounded-full bg-slate-800/80 text-slate-400 mx-auto flex items-center justify-center text-2xl border border-slate-700">
+              <i class="fa-solid fa-camera"></i>
+            </div>
+            <p class="text-xs text-slate-400 max-w-xs mx-auto">
+              Click <b>Open Camera</b> to snap with web/mobile camera, or <b>Upload File</b> to pick an image of the student's head and hairline.
+            </p>
+          </div>
+
+          <!-- Scanner Laser Effect Overlay (Visible during AI scan) -->
+          <div id="scannerLaserOverlay" class="hidden absolute inset-0 bg-indigo-950/40 backdrop-blur-[1px] flex flex-col items-center justify-center z-20">
+            <div class="w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent absolute top-0 animate-bounce shadow-lg shadow-cyan-400/50"></div>
+            <div class="bg-slate-900/90 border border-cyan-400/30 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+              <i class="fa-solid fa-microchip text-cyan-400 text-lg animate-spin"></i>
+              <div class="text-left">
+                <div class="text-xs font-bold text-white">AI Vision Analyzing Haircut...</div>
+                <div class="text-[10px] text-cyan-300">Evaluating fade, volume & Ethiopian school rules</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Camera Controls Bar Overlay -->
+          <div id="cameraControlsOverlay" class="hidden absolute bottom-3 inset-x-3 flex items-center justify-center gap-3 z-10">
+            <button id="snapPhotoBtn" class="w-14 h-14 rounded-full bg-white text-slate-900 shadow-2xl flex items-center justify-center text-xl hover:scale-105 active:scale-95 transition border-4 border-indigo-600">
+              <i class="fa-solid fa-camera"></i>
+            </button>
+            <button id="switchCameraBtn" title="Switch Camera" class="w-10 h-10 rounded-full bg-slate-900/80 backdrop-blur text-white flex items-center justify-center text-xs hover:bg-slate-900 border border-slate-700">
+              <i class="fa-solid fa-repeat"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Bar: Retake & Analyze -->
+        <div class="flex items-center justify-between gap-3 pt-1">
+          <button id="retakeBtn" class="hidden text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-arrows-rotate"></i> Retake / Reset Photo
+          </button>
+          <div class="ml-auto">
+            <button id="runAiScanBtn" disabled class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold shadow-lg shadow-indigo-600/30 transition flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> <span>Run AI Hair Inspection</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right Column: AI Analysis Result & 1-Click Parent Dispatch Card (5 Cols) -->
+    <div class="lg:col-span-5 space-y-6">
+
+      <!-- Result Card Container -->
+      <div id="aiResultCard" class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-5 transition-all">
+
+        <!-- Initial Placeholder State -->
+        <div id="resultPlaceholder" class="text-center py-12 space-y-3">
+          <div class="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 mx-auto flex items-center justify-center text-slate-300 text-2xl">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+          <div>
+            <h3 class="text-xs font-bold text-slate-700">Awaiting Inspection</h3>
+            <p class="text-[11px] text-slate-400 max-w-xs mx-auto mt-1">
+              Select a student and capture a photo to evaluate haircut compliance.
+            </p>
+          </div>
+        </div>
+
+        <!-- Filled Result Content -->
+        <div id="resultContent" class="hidden space-y-5">
+
+          <!-- Status Banner -->
+          <div id="verdictBanner" class="p-4 rounded-2xl border flex items-start gap-3.5">
+            <div id="verdictIconBox" class="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
+              <i id="verdictIcon" class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <span id="verdictBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase">
+                  PROHIBITED
+                </span>
+                <span class="text-[11px] font-bold text-slate-500" id="confidenceScore">
+                  92% Confidence
+                </span>
+              </div>
+              <h3 id="verdictTitle" class="text-sm font-bold text-slate-900 mt-1">
+                Haircut Violates Grooming Policy
+              </h3>
+              <p id="verdictAmharic" class="text-[11px] text-slate-500 font-medium">
+                የፀጉር አቆራረጡ የትምህርት ቤቱን ደንብ አይፈቅድም
+              </p>
+            </div>
+          </div>
+
+          <!-- Detected Violations Chips -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Detected Violations</label>
+              <span class="text-[10px] text-slate-400">Click to toggle / edit</span>
+            </div>
+            <div id="violationsChipContainer" class="flex flex-wrap gap-1.5">
+              <!-- Dynamically populated chips -->
+            </div>
+          </div>
+
+          <!-- Corrective Recommendation -->
+          <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
+            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-info text-indigo-500"></i> Required Action for Parent & Barber
+            </div>
+            <p id="recommendationText" class="text-xs text-slate-700 leading-relaxed font-medium">
+              Trim sides and top evenly to standard school cut (Grade 1 or 2).
+            </p>
+          </div>
+
+          <!-- Notification Delivery Settings Form -->
+          <div id="dispatchSettingsForm" class="space-y-3.5 pt-2 border-t border-slate-100">
+            <div class="flex items-center justify-between">
+              <label class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Send Notice to Parent
+              </label>
+              <div class="flex items-center gap-1 text-[11px] text-slate-500">
+                <span>Deadline:</span>
+                <select id="deadlineSelect" class="bg-slate-100 font-bold text-slate-800 rounded-lg px-2 py-0.5 text-xs focus:ring-1 focus:ring-indigo-500 border-none">
+                  <option value="1">1 Day</option>
+                  <option value="2" selected>2 Days (Standard)</option>
+                  <option value="3">3 Days</option>
+                  <option value="5">5 Days</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Channel Selector Checkboxes -->
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-center transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50/50">
+                <input type="checkbox" id="chanTelegram" checked class="rounded text-indigo-600 focus:ring-indigo-500 mb-1" />
+                <span class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                  <i class="fa-brands fa-telegram text-sky-500"></i> Telegram
+                </span>
+                <span class="text-[9px] text-emerald-600 font-semibold mt-0.5">📸 With Photo (Free)</span>
+              </label>
+
+              <label class="flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-center transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50/50">
+                <input type="checkbox" id="chanSms" checked class="rounded text-indigo-600 focus:ring-indigo-500 mb-1" />
+                <span class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                  <i class="fa-solid fa-comment-sms text-emerald-500"></i> SMS
+                </span>
+                <span class="text-[9px] text-slate-500 font-medium mt-0.5">GSM / Hahu</span>
+              </label>
+
+              <label class="flex flex-col items-center justify-center p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-center transition has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50/50">
+                <input type="checkbox" id="chanEmail" checked class="rounded text-indigo-600 focus:ring-indigo-500 mb-1" />
+                <span class="text-xs font-bold text-slate-800 flex items-center gap-1">
+                  <i class="fa-solid fa-envelope text-indigo-500"></i> Email
+                </span>
+                <span class="text-[9px] text-emerald-600 font-semibold mt-0.5">100% Free</span>
+              </label>
+            </div>
+
+            <!-- Optional Note -->
+            <div>
+              <input
+                type="text"
+                id="customNoticeNote"
+                placeholder="Optional custom note to parent (e.g. 2nd reminder)..."
+                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <!-- Dispatch Button -->
+            <button
+              id="dispatchNoticeBtn"
+              class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-extrabold text-xs shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2"
+            >
+              <i class="fa-solid fa-paper-plane"></i>
+              <span>Send Grooming Notice to Parent (1-Click)</span>
+            </button>
+
+            <!-- Save as Approved Button (Visible if allowed) -->
+            <button
+              id="saveApprovedBtn"
+              class="hidden w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2"
+            >
+              <i class="fa-solid fa-check"></i>
+              <span>Log Inspection as Approved (No Parent Alert Needed)</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Quick Ethiopian School Grooming Rules Guide Card -->
+      <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-xs text-slate-600 space-y-2">
+        <div class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-book-open text-indigo-600"></i> Ethiopian School Grooming Standards
+        </div>
+        <ul class="list-disc pl-4 space-y-1 text-[11px] text-slate-500">
+          <li><b>No Skin Fades / Tapers:</b> Sides must not be shaved bald while leaving long crown.</li>
+          <li><b>Even Trim:</b> Grade 1 or 2 all around (uniform length under 2.5 cm).</li>
+          <li><b>No Carved Art:</b> Razor cuts, lines, or zig-zag patterns strictly forbidden.</li>
+          <li><b>Natural Color:</b> No bleaching, dyeing, or artificial coloring.</li>
+        </ul>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Injected Student Data JSON -->
+<script id="studentsDataJson" type="application/json">
+  {{ students_json|safe }}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const allStudents = JSON.parse(document.getElementById('studentsDataJson').textContent || '[]');
+
+  // DOM Elements
+  const searchInput = document.getElementById('studentSearchInput');
+  const dropdownList = document.getElementById('studentDropdownList');
+  const clearStudentBtn = document.getElementById('clearStudentBtn');
+  const selectedStudentCard = document.getElementById('selectedStudentCard');
+  const selectedStudentInitials = document.getElementById('selectedStudentInitials');
+  const selectedStudentName = document.getElementById('selectedStudentName');
+  const selectedStudentClass = document.getElementById('selectedStudentClass');
+  const selectedStudentID = document.getElementById('selectedStudentID');
+  const parentChannelPills = document.getElementById('parentChannelPills');
+
+  // Camera elements
+  const toggleCameraBtn = document.getElementById('toggleCameraBtn');
+  const cameraVideo = document.getElementById('cameraVideo');
+  const captureCanvas = document.getElementById('captureCanvas');
+  const photoPreview = document.getElementById('photoPreview');
+  const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+  const cameraControlsOverlay = document.getElementById('cameraControlsOverlay');
+  const snapPhotoBtn = document.getElementById('snapPhotoBtn');
+  const switchCameraBtn = document.getElementById('switchCameraBtn');
+  const uploadPhotoInput = document.getElementById('uploadPhotoInput');
+  const retakeBtn = document.getElementById('retakeBtn');
+  const runAiScanBtn = document.getElementById('runAiScanBtn');
+  const scannerLaserOverlay = document.getElementById('scannerLaserOverlay');
+
+  // Results elements
+  const resultPlaceholder = document.getElementById('resultPlaceholder');
+  const resultContent = document.getElementById('resultContent');
+  const verdictBanner = document.getElementById('verdictBanner');
+  const verdictIconBox = document.getElementById('verdictIconBox');
+  const verdictIcon = document.getElementById('verdictIcon');
+  const verdictBadge = document.getElementById('verdictBadge');
+  const confidenceScore = document.getElementById('confidenceScore');
+  const verdictTitle = document.getElementById('verdictTitle');
+  const verdictAmharic = document.getElementById('verdictAmharic');
+  const violationsChipContainer = document.getElementById('violationsChipContainer');
+  const recommendationText = document.getElementById('recommendationText');
+  const dispatchSettingsForm = document.getElementById('dispatchSettingsForm');
+  const dispatchNoticeBtn = document.getElementById('dispatchNoticeBtn');
+  const saveApprovedBtn = document.getElementById('saveApprovedBtn');
+  const deadlineSelect = document.getElementById('deadlineSelect');
+  const chanTelegram = document.getElementById('chanTelegram');
+  const chanSms = document.getElementById('chanSms');
+  const chanEmail = document.getElementById('chanEmail');
+  const customNoticeNote = document.getElementById('customNoticeNote');
+
+  // State
+  let selectedStudent = null;
+  let capturedBlob = null;
+  let videoStream = null;
+  let useFacingMode = 'environment'; // default rear camera on mobile
+  let currentAnalysis = null;
+
+  // ==========================================
+  // 1. Student Autocomplete
+  // ==========================================
+  searchInput.addEventListener('input', function() {
+    const query = this.value.trim().toLowerCase();
+    if (!query) {
+      dropdownList.classList.add('hidden');
+      dropdownList.innerHTML = '';
+      return;
+    }
+
+    const matches = allStudents.filter(s =>
+      s.full_name.toLowerCase().includes(query) ||
+      s.student_id.toLowerCase().includes(query) ||
+      s.class_str.toLowerCase().includes(query)
+    ).slice(0, 15);
+
+    if (matches.length === 0) {
+      dropdownList.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">No students matching "${query}"</div>`;
+      dropdownList.classList.remove('hidden');
+      return;
+    }
+
+    dropdownList.innerHTML = matches.map(s => `
+      <div class="p-3 hover:bg-slate-50 cursor-pointer flex items-center justify-between text-xs transition" data-id="${s.id}">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[11px]">
+            ${s.full_name.slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <div class="font-bold text-slate-800">${s.full_name}</div>
+            <div class="text-[10px] text-slate-500">${s.class_str} &bull; ID: ${s.student_id}</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 text-[11px]">
+          ${s.has_telegram ? '<span class="text-sky-500" title="Telegram linked"><i class="fa-brands fa-telegram"></i></span>' : ''}
+          ${s.has_phone ? '<span class="text-emerald-500" title="Phone registered"><i class="fa-solid fa-phone"></i></span>' : ''}
+          ${s.has_email ? '<span class="text-indigo-500" title="Email registered"><i class="fa-solid fa-envelope"></i></span>' : ''}
+        </div>
+      </div>
+    `).join('');
+
+    dropdownList.classList.remove('hidden');
+  });
+
+  dropdownList.addEventListener('click', function(e) {
+    const item = e.target.closest('[data-id]');
+    if (!item) return;
+    const id = item.getAttribute('data-id');
+    const s = allStudents.find(x => x.id === id);
+    if (s) {
+      selectStudent(s);
+    }
+  });
+
+  function selectStudent(student) {
+    selectedStudent = student;
+    searchInput.value = '';
+    dropdownList.classList.add('hidden');
+    clearStudentBtn.classList.remove('hidden');
+
+    selectedStudentInitials.textContent = student.full_name.slice(0, 2).toUpperCase();
+    selectedStudentName.textContent = student.full_name;
+    selectedStudentClass.textContent = student.class_str;
+    selectedStudentID.textContent = 'ID: ' + student.student_id;
+
+    // Badges
+    parentChannelPills.innerHTML = `
+      ${student.has_telegram ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-700 flex items-center gap-1"><i class="fa-brands fa-telegram"></i> TG Bot</span>' : ''}
+      ${student.has_phone ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1"><i class="fa-solid fa-phone"></i> SMS</span>' : ''}
+      ${student.has_email ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-700 flex items-center gap-1"><i class="fa-solid fa-envelope"></i> Email</span>' : ''}
+    `;
+
+    selectedStudentCard.classList.remove('hidden');
+    checkCanScan();
+  }
+
+  clearStudentBtn.addEventListener('click', function() {
+    selectedStudent = null;
+    selectedStudentCard.classList.add('hidden');
+    clearStudentBtn.classList.add('hidden');
+    searchInput.value = '';
+    checkCanScan();
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !dropdownList.contains(e.target)) {
+      dropdownList.classList.add('hidden');
+    }
+  });
+
+  // ==========================================
+  // 2. Camera & Photo Controls
+  // ==========================================
+  toggleCameraBtn.addEventListener('click', async function() {
+    if (videoStream) {
+      stopCamera();
+    } else {
+      await startCamera();
+    }
+  });
+
+  async function startCamera() {
+    try {
+      const constraints = {
+        video: {
+          facingMode: useFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+      videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+      cameraVideo.srcObject = videoStream;
+      cameraVideo.classList.remove('hidden');
+      cameraPlaceholder.classList.add('hidden');
+      photoPreview.classList.add('hidden');
+      cameraControlsOverlay.classList.remove('hidden');
+      toggleCameraBtn.innerHTML = '<i class="fa-solid fa-video-slash"></i> <span>Stop Camera</span>';
+      retakeBtn.classList.add('hidden');
+    } catch (err) {
+      alert("Unable to access camera: " + err.message + "\nYou can use 'Upload File' instead.");
+    }
+  }
+
+  function stopCamera() {
+    if (videoStream) {
+      videoStream.getTracks().forEach(t => t.stop());
+      videoStream = null;
+    }
+    cameraVideo.classList.add('hidden');
+    cameraControlsOverlay.classList.add('hidden');
+    toggleCameraBtn.innerHTML = '<i class="fa-solid fa-video"></i> <span>Open Camera</span>';
+  }
+
+  switchCameraBtn.addEventListener('click', async function() {
+    useFacingMode = (useFacingMode === 'environment') ? 'user' : 'environment';
+    stopCamera();
+    await startCamera();
+  });
+
+  snapPhotoBtn.addEventListener('click', function() {
+    if (!videoStream) return;
+    captureCanvas.width = cameraVideo.videoWidth || 640;
+    captureCanvas.height = cameraVideo.videoHeight || 480;
+    const ctx = captureCanvas.getContext('2d');
+    ctx.drawImage(cameraVideo, 0, 0, captureCanvas.width, captureCanvas.height);
+
+    captureCanvas.toBlob(function(blob) {
+      capturedBlob = blob;
+      photoPreview.src = URL.createObjectURL(blob);
+      photoPreview.classList.remove('hidden');
+      stopCamera();
+      retakeBtn.classList.remove('hidden');
+      checkCanScan();
+    }, 'image/jpeg', 0.92);
+  });
+
+  uploadPhotoInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    capturedBlob = file;
+    photoPreview.src = URL.createObjectURL(file);
+    photoPreview.classList.remove('hidden');
+    cameraPlaceholder.classList.add('hidden');
+    stopCamera();
+    retakeBtn.classList.remove('hidden');
+    checkCanScan();
+  });
+
+  retakeBtn.addEventListener('click', function() {
+    capturedBlob = null;
+    photoPreview.classList.add('hidden');
+    cameraPlaceholder.classList.remove('hidden');
+    retakeBtn.classList.add('hidden');
+    resetAnalysis();
+    checkCanScan();
+  });
+
+  function checkCanScan() {
+    runAiScanBtn.disabled = !capturedBlob;
+  }
+
+  function resetAnalysis() {
+    currentAnalysis = null;
+    resultContent.classList.add('hidden');
+    resultPlaceholder.classList.remove('hidden');
+  }
+
+  // ==========================================
+  // 3. AI Scan Analysis
+  // ==========================================
+  runAiScanBtn.addEventListener('click', async function() {
+    if (!capturedBlob) return;
+
+    scannerLaserOverlay.classList.remove('hidden');
+    runAiScanBtn.disabled = true;
+
+    const formData = new FormData();
+    formData.append('photo', capturedBlob, 'haircut.jpg');
+    if (selectedStudent) {
+      formData.append('student_id', selectedStudent.id);
+    }
+
+    try {
+      const res = await fetch("{% url 'discipline:hair_check_analyze_api' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      scannerLaserOverlay.classList.add('hidden');
+      runAiScanBtn.disabled = false;
+
+      if (!data.success) {
+        alert("Analysis failed: " + (data.error || "Unknown error"));
+        return;
+      }
+
+      currentAnalysis = data.analysis;
+      renderAnalysis(data.analysis);
+    } catch (err) {
+      scannerLaserOverlay.classList.add('hidden');
+      runAiScanBtn.disabled = false;
+      alert("Error contacting AI server: " + err.message);
+    }
+  });
+
+  function renderAnalysis(an) {
+    resultPlaceholder.classList.add('hidden');
+    resultContent.classList.remove('hidden');
+
+    const isProhibited = an.status === 'PROHIBITED';
+
+    if (isProhibited) {
+      verdictBanner.className = 'p-4 rounded-2xl border flex items-start gap-3.5 bg-rose-50/70 border-rose-200';
+      verdictIconBox.className = 'w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-rose-500 text-white shadow-md shadow-rose-500/20';
+      verdictIcon.className = 'fa-solid fa-triangle-exclamation';
+      verdictBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase bg-rose-200 text-rose-800';
+      verdictBadge.textContent = 'PROHIBITED / የተከለከለ';
+      verdictTitle.textContent = 'Haircut Violates Grooming Policy';
+      verdictAmharic.textContent = 'የፀጉር አቆራረጡ የትምህርት ቤቱን ደንብ አይፈቅድም';
+
+      dispatchNoticeBtn.classList.remove('hidden');
+      saveApprovedBtn.classList.add('hidden');
+    } else {
+      verdictBanner.className = 'p-4 rounded-2xl border flex items-start gap-3.5 bg-emerald-50/70 border-emerald-200';
+      verdictIconBox.className = 'w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-emerald-500 text-white shadow-md shadow-emerald-500/20';
+      verdictIcon.className = 'fa-solid fa-circle-check';
+      verdictBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase bg-emerald-200 text-emerald-800';
+      verdictBadge.textContent = 'ALLOWED / ተፈቅዷል';
+      verdictTitle.textContent = 'Complies with School Grooming Code';
+      verdictAmharic.textContent = 'የፀጉር አቆራረጡ የትምህርት ቤቱን ደንብ የጠበቀ ነው';
+
+      dispatchNoticeBtn.classList.add('hidden');
+      saveApprovedBtn.classList.remove('hidden');
+    }
+
+    confidenceScore.textContent = `${an.confidence}% Confidence`;
+    recommendationText.textContent = an.recommendation || (isProhibited ? "Trim sides and crown evenly to standard school cut." : "No action required.");
+
+    // Render violation chips
+    const violations = an.violations || [];
+    if (violations.length === 0 && !isProhibited) {
+      violationsChipContainer.innerHTML = `
+        <span class="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 text-[11px] font-semibold flex items-center gap-1.5">
+          <i class="fa-solid fa-check text-[10px]"></i> Standard Even Length (Compliant)
+        </span>
+      `;
+    } else {
+      violationsChipContainer.innerHTML = violations.map((v, i) => `
+        <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-[11px] font-bold cursor-pointer hover:bg-rose-100 transition">
+          <input type="checkbox" checked class="violation-check rounded text-rose-600 focus:ring-rose-500 w-3 h-3" value="${v}">
+          <span>${v}</span>
+        </label>
+      `).join('');
+    }
+  }
+
+  // ==========================================
+  // 4. One-Click Parent Dispatch
+  // ==========================================
+  dispatchNoticeBtn.addEventListener('click', async function() {
+    if (!selectedStudent) {
+      alert("Please select a student first (Step 1).");
+      searchInput.focus();
+      return;
+    }
+    if (!capturedBlob || !currentAnalysis) {
+      alert("Please capture a photo and run AI inspection first.");
+      return;
+    }
+
+    // Collect active violation chips
+    const checkedViolations = Array.from(document.querySelectorAll('.violation-check:checked')).map(cb => cb.value);
+    if (checkedViolations.length === 0) {
+      checkedViolations.push("Grooming code non-compliance");
+    }
+
+    // Collect channels
+    const channels = [];
+    if (chanTelegram.checked) channels.push('TELEGRAM');
+    if (chanSms.checked) channels.push('SMS');
+    if (chanEmail.checked) channels.push('EMAIL');
+
+    if (channels.length === 0) {
+      alert("Please select at least one delivery channel (Telegram, SMS, or Email).");
+      return;
+    }
+
+    const originalBtnHtml = dispatchNoticeBtn.innerHTML;
+    dispatchNoticeBtn.disabled = true;
+    dispatchNoticeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Sending Photo Notice to Parent...</span>';
+
+    const formData = new FormData();
+    formData.append('student_id', selectedStudent.id);
+    formData.append('photo', capturedBlob, 'haircut.jpg');
+    formData.append('status', 'PROHIBITED');
+    formData.append('confidence', currentAnalysis.confidence || 90);
+    formData.append('violations', JSON.stringify(checkedViolations));
+    formData.append('recommendation', recommendationText.textContent);
+    formData.append('summary', currentAnalysis.summary || '');
+    formData.append('ai_engine', currentAnalysis.ai_engine || 'Gemini Vision');
+    formData.append('channels', channels.join(','));
+    formData.append('deadline_days', deadlineSelect.value);
+    formData.append('custom_note', customNoticeNote.value.trim());
+
+    try {
+      const res = await fetch("{% url 'discipline:hair_check_dispatch_api' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+      });
+      const data = await res.json();
+      dispatchNoticeBtn.disabled = false;
+      dispatchNoticeBtn.innerHTML = originalBtnHtml;
+
+      if (!data.success) {
+        alert("Failed to dispatch: " + (data.error || "Unknown error"));
+        return;
+      }
+
+      // Success feedback
+      alert("✅ " + data.message);
+      
+      // Update counters
+      const statTotal = document.getElementById('statTodayTotal');
+      const statProh = document.getElementById('statTodayProhibited');
+      const statNotif = document.getElementById('statTodayNotified');
+      if (statTotal) statTotal.textContent = parseInt(statTotal.textContent || 0) + 1;
+      if (statProh) statProh.textContent = parseInt(statProh.textContent || 0) + 1;
+      if (statNotif) statNotif.textContent = parseInt(statNotif.textContent || 0) + 1;
+
+      // Reset for next student
+      retakeBtn.click();
+      clearStudentBtn.click();
+    } catch (err) {
+      dispatchNoticeBtn.disabled = false;
+      dispatchNoticeBtn.innerHTML = originalBtnHtml;
+      alert("Error sending notice: " + err.message);
+    }
+  });
+
+  // Save approved button
+  saveApprovedBtn.addEventListener('click', async function() {
+    if (!selectedStudent || !capturedBlob) return;
+
+    const originalBtnHtml = saveApprovedBtn.innerHTML;
+    saveApprovedBtn.disabled = true;
+    saveApprovedBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Saving Approval...</span>';
+
+    const formData = new FormData();
+    formData.append('student_id', selectedStudent.id);
+    formData.append('photo', capturedBlob, 'haircut.jpg');
+    formData.append('status', 'ALLOWED');
+    formData.append('confidence', currentAnalysis ? currentAnalysis.confidence : 95);
+    formData.append('violations', JSON.stringify([]));
+    formData.append('recommendation', 'Compliant with school code.');
+    formData.append('ai_engine', currentAnalysis ? currentAnalysis.ai_engine : 'Gemini Vision');
+
+    try {
+      const res = await fetch("{% url 'discipline:hair_check_dispatch_api' %}", {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+      });
+      const data = await res.json();
+      saveApprovedBtn.disabled = false;
+      saveApprovedBtn.innerHTML = originalBtnHtml;
+
+      alert("✅ Inspection logged as Compliant.");
+      
+      // Update counters
+      const statTotal = document.getElementById('statTodayTotal');
+      const statAllow = document.getElementById('statTodayAllowed');
+      if (statTotal) statTotal.textContent = parseInt(statTotal.textContent || 0) + 1;
+      if (statAllow) statAllow.textContent = parseInt(statAllow.textContent || 0) + 1;
+
+      retakeBtn.click();
+      clearStudentBtn.click();
+    } catch (err) {
+      saveApprovedBtn.disabled = false;
+      saveApprovedBtn.innerHTML = originalBtnHtml;
+      alert("Error saving: " + err.message);
+    }
+  });
+
+});
+</script>
+{% endblock %}

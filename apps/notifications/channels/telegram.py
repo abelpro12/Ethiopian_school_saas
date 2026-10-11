@@ -40,3 +40,12 @@ class TelegramNotificationChannel:
         except Exception as e:
             print(f"Telegram Dispatch Error: {e}")
             return False
+
+    @staticmethod
+    def send_photo(chat_id: str, photo, caption: str = '') -> bool:
+        """
+        Dispatches a photo directly to Telegram chat with HTML formatted caption.
+        """
+        from apps.notifications.telegram_bot import TelegramBotHandler
+        return TelegramBotHandler.send_photo(chat_id, photo, caption=caption)
+

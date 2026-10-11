@@ -81,3 +81,44 @@ class DisciplinaryAction(TenantAwareModel):
 
     def __str__(self):
         return f"{self.get_action_type_display()} for {self.student.full_name} (Incident: {self.incident.title})"
+
+
+class HairCheckStatus(models.TextChoices):
+    ALLOWED = 'ALLOWED', 'Allowed / ተፈቅዷል (Compliant)'
+    PROHIBITED = 'PROHIBITED', 'Prohibited / የተከለከለ (Non-Compliant)'
+
+
+class HairCheckRecord(TenantAwareModel):
+    """
+    Records an AI-assisted or manual hair / grooming inspection of a student.
+    Captures photo, AI evaluation, specific violations, deadline, and parent notification status.
+    """
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='hair_check_records')
+    academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='hair_check_records')
+    checked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='conducted_hair_checks')
+    photo = models.ImageField(upload_to='discipline/hair_checks/%Y/%m/', blank=True, null=True)
+    status = models.CharField(max_length=20, choices=HairCheckStatus.choices, default=HairCheckStatus.ALLOWED)
+    confidence = models.IntegerField(default=90, help_text="AI Confidence score (0-100)")
+    violations = models.JSONField(default=list, blank=True, help_text="List of detected violations")
+    recommendation = models.TextField(blank=True, help_text="Recommended corrective action")
+    summary = models.TextField(blank=True, help_text="Summary description of the haircut")
+    ai_engine = models.CharField(max_length=100, default='Gemini Vision / Smart Heuristics')
+    deadline_date = models.DateField(null=True, blank=True, help_text="Deadline for student to rectify haircut")
+    
+    parent_notified = models.BooleanField(default=False)
+    notification_channels = models.CharField(max_length=100, blank=True, default='')
+    parent_notification_date = models.DateTimeField(null=True, blank=True)
+    notification_details = models.JSONField(default=dict, blank=True)
+
+    linked_incident = models.ForeignKey(
+        DisciplinaryIncident, on_delete=models.SET_NULL, null=True, blank=True, related_name='hair_checks'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Hair Check: {self.student.full_name} - {self.get_status_display()} ({self.created_at.strftime('%Y-%m-%d')})"
+
