@@ -22,6 +22,8 @@ urlpatterns = [
     path('sms-results/', views_sms.exam_results_sms_dashboard, name='exam_results_sms'),
     path('sms-results/send/', views_sms.exam_results_sms_send_api, name='exam_results_sms_send'),
     path('sms-results/preview-api/<int:component_id>/<int:section_id>/', views_sms.exam_results_sms_preview_modal_api, name='exam_results_sms_preview_modal'),
+    path('sms-results/test-all-subjects-preview-api/<int:section_id>/', views_sms.test_all_subjects_sms_preview_modal_api, name='test_all_subjects_sms_preview_modal'),
+    path('sms-results/test-all-subjects-send/', views_sms.test_all_subjects_sms_send_api, name='test_all_subjects_sms_send'),
     path('sms-results/history/', views_sms.exam_results_sms_history, name='exam_results_sms_history'),
 
     # Report Card SMS Dispatcher Routes

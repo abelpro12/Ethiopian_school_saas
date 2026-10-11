@@ -20,6 +20,7 @@ from apps.communication.models import SMSTemplate, SMSTemplateType, ExamResultSM
 from apps.communication.services import (
     ExamResultSMSService,
     ReportCardSMSService,
+    TestAllSubjectsSMSService,
     ensure_default_sms_templates,
 )
 from apps.teachers.models import TeacherAssignment
@@ -327,6 +328,104 @@ def exam_results_sms_preview_modal_api(request, component_id, section_id):
 
 
 @login_required
+def test_all_subjects_sms_preview_modal_api(request, section_id):
+    """
+    JSON API for the Quick Test All-Subjects Modal inside the Mark Entry Grid.
+    Returns aggregated marks for a given test (e.g. 'Test 1' or 'Continuous Assessment')
+    across ALL subjects enrolled by students in the section.
+    """
+    school = get_school(request)
+    if not school:
+        return JsonResponse({'success': False, 'error': 'School context missing.'}, status=400)
+
+    section = get_object_or_404(Section, id=section_id, school=school)
+    if not check_can_dispatch_sms(request.user, section=section, school=school):
+        return JsonResponse({'success': False, 'error': 'Unauthorized.'}, status=403)
+
+    available_tests = TestAllSubjectsSMSService.get_available_tests_for_section(school, section)
+    test_name = request.GET.get('test_name', '').strip()
+    if not test_name and available_tests:
+        test_name = available_tests[0]
+
+    recipients = TestAllSubjectsSMSService.get_test_all_subjects_results_for_dispatch(
+        school=school,
+        section=section,
+        test_name=test_name
+    )
+
+    stats = {
+        'total': len(recipients),
+        'with_marks': sum(1 for r in recipients if r['has_marks']),
+        'with_phone': sum(1 for r in recipients if r['has_phone']),
+        'can_dispatch': sum(1 for r in recipients if r.get('can_dispatch')),
+        'already_sent': sum(1 for r in recipients if r['already_sent']),
+    }
+
+    template_body_en = "Dear Parent, {student_name}'s {test_name} Results across all subjects at {school_name}:\n{subjects_summary}\nTotal: {total_score}/{total_max} ({percentage}%) | Grade: {grade}. Thank you."
+    template_body_am = "ክቡር ወላጅ፣ የ{student_name} የ{test_name} ውጤት በሁሉም የትምህርት አይነቶች በ{school_name}፦\n{subjects_summary}\nድምር፦ {total_score}/{total_max} ({percentage}%) | ደረጃ፦ {grade}። እናመሰግናለን።"
+
+    return JsonResponse({
+        'success': True,
+        'test_name': test_name,
+        'available_tests': available_tests,
+        'section_info': {
+            'id': section.id,
+            'name': section.name,
+            'grade_name': section.grade.name if section.grade else '',
+        },
+        'stats': stats,
+        'template_body_en': template_body_en,
+        'template_body_am': template_body_am,
+        'recipients': recipients
+    })
+
+
+@login_required
+@require_POST
+def test_all_subjects_sms_send_api(request):
+    """
+    JSON endpoint to dispatch a single test across all subjects in one message.
+    """
+    school = get_school(request)
+    if not school:
+        return JsonResponse({'success': False, 'error': 'School context missing.'}, status=400)
+
+    try:
+        body = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON body.'}, status=400)
+
+    section_id = body.get('section_id')
+    test_name = (body.get('test_name') or '').strip()
+    student_ids = body.get('student_ids', [])
+    lang = body.get('lang', 'pref')
+    channels = body.get('channels', ['SMS'])
+    custom_msg = body.get('custom_message', '')
+
+    if not section_id or not test_name:
+        return JsonResponse({'success': False, 'error': 'section_id and test_name are required.'}, status=400)
+
+    section = get_object_or_404(Section, id=section_id, school=school)
+    if not check_can_dispatch_sms(request.user, section=section, school=school):
+        return JsonResponse({'success': False, 'error': 'Unauthorized.'}, status=403)
+
+    summary = TestAllSubjectsSMSService.bulk_dispatch_test_all_subjects(
+        school=school,
+        section=section,
+        test_name=test_name,
+        student_ids=student_ids,
+        custom_message=custom_msg,
+        lang_override=lang,
+        sender_user=request.user,
+        channels=channels
+    )
+
+    return JsonResponse({
+        'success': True,
+        'message': f"Dispatched '{test_name}' across all subjects to {summary['dispatched']} parents.",
+        'summary': summary,
+        'dispatched': summary['dispatched']
+    })
 def exam_results_sms_history(request):
     """
     Audit and history view of all exam result SMS dispatches across the school.

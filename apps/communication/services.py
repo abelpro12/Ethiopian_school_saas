@@ -1427,3 +1427,492 @@ class ReportCardSMSService:
         )
 
         return summary
+
+
+class TestAllSubjectsSMSService:
+    """
+    Dedicated Service for Dispatching Single-Test Results Across ALL Enrolled Subjects to Parents in ONE message.
+    E.g., "Continuous Assessment (All Subjects)" or "Midterm Exam (All Subjects)" or "Test 1 (All Subjects)".
+    
+    Features:
+    - Discovers all assessment components matching test_name across the section's curriculum.
+    - Aggregates each student's subject scores into a single concise breakdown (e.g. "Math: 28/30, English: 25/30, Physics: 27/30").
+    - Computes Total Score, Total Maximum, Overall Percentage, and Letter Grade.
+    - Renders unified bilingual SMS, rich Telegram Bot HTML card, and branded Email message.
+    - 3-Way Omni-Channel delivery concurrently (SMS, Telegram, Email).
+    - Complete audit trail in ExamResultSMSLog and AuditService.
+    """
+
+    @classmethod
+    def get_available_tests_for_section(cls, school, section, period=None):
+        from apps.assessments.models import AssessmentComponent
+        qs = AssessmentComponent.objects.filter(
+            school=school,
+            subject__grade=section.grade
+        )
+        if period:
+            qs = qs.filter(period=period)
+        raw_names = list(qs.values_list('name', flat=True).distinct())
+        order_priority = ['continuous assessment', 'test 1', 'test 2', 'quiz', 'midterm', 'final']
+        def sort_key(name):
+            n_lower = name.lower()
+            for idx, p in enumerate(order_priority):
+                if p in n_lower:
+                    return (0, idx, name)
+            return (1, 0, name)
+        names = sorted(list(set(n for n in raw_names if n)), key=sort_key)
+        return names
+
+    @classmethod
+    def get_test_all_subjects_results_for_dispatch(cls, school, section, test_name, period=None, student_ids=None):
+        from apps.assessments.models import AssessmentComponent, StudentMark, MarkStatus
+        from apps.enrollment.models import StudentEnrollment, EnrollmentStatus
+        from apps.assessments.grading_service import GradingService
+        from django.conf import settings
+
+        school_name = getattr(school, 'name', 'School')
+        clean_test_name = (test_name or '').strip()
+
+        # Find matching components across subjects for section grade
+        comp_qs = AssessmentComponent.objects.filter(
+            school=school,
+            subject__grade=section.grade,
+            name__iexact=clean_test_name
+        ).select_related('subject')
+        if period:
+            comp_qs = comp_qs.filter(period=period)
+
+        comps = list(comp_qs)
+        comp_ids = [c.id for c in comps]
+
+        # Get active enrollments
+        enr_qs = StudentEnrollment.objects.filter(
+            school=school,
+            section=section,
+            status=EnrollmentStatus.ACTIVE
+        ).select_related('student', 'student__user', 'grade').order_by('student__first_name', 'student__last_name')
+
+        if student_ids:
+            enr_qs = enr_qs.filter(student_id__in=student_ids)
+
+        enrollments = list(enr_qs)
+        enr_ids = [e.id for e in enrollments]
+
+        # Fetch marks
+        marks_qs = StudentMark.objects.filter(
+            school=school,
+            enrollment_id__in=enr_ids,
+            assessment_component_id__in=comp_ids
+        ).select_related('assessment_component__subject', 'enrollment')
+
+        marks_by_enr = {}
+        for m in marks_qs:
+            marks_by_enr.setdefault(m.enrollment_id, []).append(m)
+
+        # Guardians
+        stu_ids = [e.student.id for e in enrollments]
+        guardianships = GuardianRelationship.objects.filter(
+            school=school,
+            student_id__in=stu_ids
+        ).select_related('parent__user').order_by('-is_primary')
+
+        guardian_map = {}
+        for g in guardianships:
+            if g.student_id not in guardian_map or g.is_primary:
+                guardian_map[g.student_id] = g.parent
+
+        # Check already sent logs
+        from apps.communication.models import ExamResultSMSLog
+        recent_sent = set()
+        logs = ExamResultSMSLog.objects.filter(
+            school=school,
+            student_id__in=stu_ids,
+            status='SENT',
+            message__icontains=f"[{clean_test_name} - All Subjects]"
+        ).values('student_id')
+        for l in logs:
+            recent_sent.add(l['student_id'])
+
+        recipients = []
+        for enr in enrollments:
+            student = enr.student
+            parent = guardian_map.get(student.id)
+
+            phone = parent.phone or (getattr(parent.user, 'phone', '') if parent and parent.user else '') or student.phone or student.emergency_contact or ''
+            phone = str(phone).strip()
+
+            email_addr = (
+                getattr(parent, 'email', None)
+                or (getattr(parent.user, 'email', None) if parent and parent.user else None)
+                or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
+                or (getattr(student.user, 'email', None) if student and student.user else None)
+            )
+
+            parent_tg_user = (parent.user if parent else None) or getattr(student, 'user', None)
+            from apps.communication.models import TelegramAccountLink
+            has_telegram = TelegramAccountLink.objects.filter(user=parent_tg_user, is_verified=True).exists() if parent_tg_user else False
+
+            has_phone = bool(phone)
+            has_email = bool(email_addr) or bool(getattr(settings, 'DEBUG', False))
+            can_dispatch = has_phone or has_telegram or has_email
+
+            student_marks = marks_by_enr.get(enr.id, [])
+            has_marks = len(student_marks) > 0
+
+            # Build subject breakdown
+            subj_scores = []
+            for sm in student_marks:
+                s_name = sm.assessment_component.subject.name
+                s_disp = str(s_name).title() if str(s_name).isupper() else str(s_name)
+                abbrev = s_disp.replace('Language', '').replace('Education', '').strip()
+                if abbrev == 'Mathematics': abbrev = 'Math'
+                val = float(sm.mark_value or 0.0)
+                max_v = float(sm.assessment_component.max_marks or 100.0)
+                subj_scores.append({
+                    'subject': s_disp,
+                    'abbrev': abbrev,
+                    'score': val,
+                    'max_score': max_v
+                })
+
+            subj_scores.sort(key=lambda x: x['subject'])
+            subj_summary_items = [f"{x['abbrev']}: {x['score']:g}/{x['max_score']:g}" for x in subj_scores]
+            subj_summary = ", ".join(subj_summary_items) if subj_summary_items else "No scores recorded"
+
+            tot_score = sum(x['score'] for x in subj_scores)
+            tot_max = sum(x['max_score'] for x in subj_scores)
+            pct = round((tot_score / tot_max * 100), 1) if tot_max > 0 else 0.0
+
+            grade_eval = GradingService.evaluate_mark(school, pct, max_marks=100.0, grade=enr.grade)
+            letter_grade = grade_eval.get('letter', 'A' if pct >= 80 else ('B' if pct >= 70 else ('C' if pct >= 60 else ('D' if pct >= 50 else 'F'))))
+
+            preview_en = (
+                f"Dear Parent, {student.full_name}'s {clean_test_name} Results across all subjects at {school_name}:\n"
+                f"{subj_summary}\n"
+                f"Total: {tot_score:g}/{tot_max:g} ({pct:.1f}%) | Grade: {letter_grade}. Thank you."
+            )
+            preview_am = (
+                f"ክቡር ወላጅ፣ የ{student.full_name} የ{clean_test_name} ውጤት በሁሉም የትምህርት አይነቶች በ{school_name}፦\n"
+                f"{subj_summary}\n"
+                f"ድምር፦ {tot_score:g}/{tot_max:g} ({pct:.1f}%) | ደረጃ፦ {letter_grade}። እናመሰግናለን።"
+            )
+
+            recipients.append({
+                'enrollment_id': enr.id,
+                'student_id': student.id,
+                'student_name': student.full_name,
+                'student_code': student.student_id,
+                'parent_name': parent.user.get_full_name() if parent and parent.user else '',
+                'parent_phone': phone,
+                'parent_email': email_addr or '',
+                'has_phone': has_phone,
+                'has_telegram': has_telegram,
+                'has_email': has_email,
+                'can_dispatch': can_dispatch,
+                'has_marks': has_marks,
+                'subjects_count': len(subj_scores),
+                'subjects_summary': subj_summary,
+                'subject_scores': subj_scores,
+                'total_score': tot_score,
+                'total_max': tot_max,
+                'percentage': pct,
+                'letter_grade': letter_grade,
+                'already_sent': student.id in recent_sent,
+                'preview_en': preview_en,
+                'preview_am': preview_am,
+                'preferred_lang': getattr(parent, 'preferred_language', 'am') or 'am'
+            })
+
+        return recipients
+
+    @classmethod
+    def dispatch_single_test_all_subjects(cls, school, section, student, test_name, subject_scores, total_score, total_max, percentage, letter_grade, parent=None, parent_phone=None, custom_message=None, lang_override=None, sender_user=None, channels=None):
+        from apps.communication.models import ExamResultSMSLog
+        from django.conf import settings
+        from decimal import Decimal
+
+        school_name = getattr(school, 'name', 'School')
+        phone = parent_phone or (parent.phone if parent else '') or (getattr(parent.user, 'phone', '') if parent and parent.user else '') or student.phone or student.emergency_contact or ''
+        phone = str(phone).strip()
+
+        active_channels = [str(c).upper().strip() for c in (channels or ['SMS']) if str(c).strip()]
+        if not active_channels:
+            active_channels = ['SMS']
+
+        clean_test_name = (test_name or 'Test').strip()
+        lang = lang_override or getattr(parent, 'preferred_language', 'am') or 'am'
+
+        subj_items = [f"{x['abbrev']}: {x['score']:g}/{x['max_score']:g}" for x in (subject_scores or [])]
+        subj_summary = ", ".join(subj_items) if subj_items else "All completed"
+
+        if custom_message and str(custom_message).strip():
+            context = {
+                'student_name': student.full_name,
+                'test_name': clean_test_name,
+                'subjects_summary': subj_summary,
+                'total_score': f"{total_score:g}",
+                'total_max': f"{total_max:g}",
+                'percentage': f"{percentage:.1f}",
+                'grade_letter': letter_grade,
+                'school_name': school_name,
+            }
+            body = str(custom_message)
+            for k, v in context.items():
+                body = body.replace(f"{{{k}}}", str(v))
+        else:
+            if lang == 'am':
+                body = (
+                    f"ክቡር ወላጅ፣ የ{student.full_name} የ{clean_test_name} ውጤት በሁሉም የትምህርት አይነቶች በ{school_name}፦\n"
+                    f"{subj_summary}\n"
+                    f"ድምር፦ {total_score:g}/{total_max:g} ({percentage:.1f}%) | ደረጃ፦ {letter_grade}። እናመሰግናለን።"
+                )
+            else:
+                body = (
+                    f"Dear Parent, {student.full_name}'s {clean_test_name} Results across all subjects at {school_name}:\n"
+                    f"{subj_summary}\n"
+                    f"Total: {total_score:g}/{total_max:g} ({percentage:.1f}%) | Grade: {letter_grade}. Thank you."
+                )
+
+        recipient_user = parent.user if parent else getattr(student, 'user', None)
+
+        sms_sent = False
+        telegram_sent = False
+        email_sent = False
+        failure_reason = None
+        delivered_channels = []
+
+        # Telegram formatting
+        esc_student_name = html.escape(str(student.full_name))
+        esc_test_name = html.escape(str(clean_test_name))
+        esc_school_name = html.escape(str(school_name))
+        
+        tg_subj_lines = "\n".join([f" • {html.escape(x['subject'])}: <b>{x['score']:g} / {x['max_score']:g}</b>" for x in (subject_scores or [])])
+        tg_body = (
+            f"📊 <b>{esc_school_name} — {esc_test_name} (All Subjects)</b>\n\n"
+            f"👤 <b>Student:</b> {esc_student_name}\n"
+            f"📝 <b>Assessment:</b> {esc_test_name}\n\n"
+            f"📚 <b>Subject Scores:</b>\n{tg_subj_lines}\n\n"
+            f"🎯 <b>Total:</b> <b>{total_score:g} / {total_max:g} ({percentage:.1f}%)</b>\n"
+            f"🏆 <b>Grade:</b> <b>{letter_grade}</b>\n\n"
+            f"<i>Thank you, {esc_school_name}</i>"
+        )
+
+        email_addr = (
+            getattr(parent, 'email', None)
+            or (getattr(parent.user, 'email', None) if parent and parent.user else None)
+            or (getattr(student, 'email', None) if hasattr(student, 'email') else None)
+            or (getattr(student.user, 'email', None) if student and student.user else None)
+        )
+        if not email_addr and getattr(settings, 'DEBUG', False):
+            email_addr = getattr(settings, 'EMAIL_HOST_USER', None) or f"{student.student_id.lower()}@student.seattleacademyethiopia.com"
+
+        email_subj = f"[{school_name}] {clean_test_name} Results: {student.full_name} (All Subjects)"
+        email_body = (
+            f"Dear Parent/Guardian,\n\n"
+            f"Here are the {clean_test_name} assessment results for {student.full_name} across all subjects at {school_name}:\n\n"
+            f"  • Student: {student.full_name}\n"
+            f"  • Assessment: {clean_test_name}\n\n"
+            f"Subjects:\n"
+            + "\n".join([f"  - {x['subject']}: {x['score']:g} / {x['max_score']:g}" for x in (subject_scores or [])])
+            + f"\n\nSummary:\n"
+            f"  • Total: {total_score:g} / {total_max:g}\n"
+            f"  • Percentage: {percentage:.1f}%\n"
+            f"  • Grade: {letter_grade}\n\n"
+            f"Thank you,\n{school_name}\n"
+        )
+
+        def _send_sms_task():
+            nonlocal sms_sent, failure_reason
+            if not phone:
+                failure_reason = "Missing recipient phone number."
+                return False
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.SMS,
+                message=body,
+                subject=f"TEST_ALL_SUBJ:{clean_test_name}:{student.id}",
+                category='announcement',
+                phone_number=phone
+            )
+            sms_sent = sent
+            if not sent:
+                failure_reason = NotificationService.get_last_failure_reason() if hasattr(NotificationService, 'get_last_failure_reason') else "SMS Gateway failed."
+            return sent
+
+        def _send_telegram_task():
+            nonlocal telegram_sent
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.TELEGRAM,
+                message=tg_body,
+                subject=f"TEST_ALL_SUBJ_TG:{clean_test_name}:{student.id}",
+                category='announcement'
+            )
+            telegram_sent = sent
+            return sent
+
+        def _send_email_task():
+            nonlocal email_sent
+            if not email_addr:
+                return False
+            sent = NotificationService.send_notification(
+                school=school,
+                recipient_user=recipient_user,
+                channel=NotificationChannel.EMAIL,
+                message=email_body,
+                subject=email_subj,
+                category='announcement',
+                email_address=email_addr
+            )
+            email_sent = sent
+            return sent
+
+        if 'SMS' in active_channels:
+            if _send_sms_task():
+                delivered_channels.append('SMS')
+        if 'TELEGRAM' in active_channels:
+            if _send_telegram_task():
+                delivered_channels.append('Telegram Bot')
+        if 'EMAIL' in active_channels:
+            if _send_email_task():
+                delivered_channels.append('Email')
+
+        any_sent = sms_sent or telegram_sent or email_sent
+        overall_status = 'SENT' if any_sent else ('NO_PHONE' if ('SMS' in active_channels and not phone and not any_sent) else 'FAILED')
+
+        channel_tag = f"[{', '.join(delivered_channels)}]" if delivered_channels else f"[{failure_reason or 'FAILED'}]"
+        log_message = f"[{clean_test_name} - All Subjects] {channel_tag} {body}"
+
+        log = ExamResultSMSLog.objects.create(
+            school=school,
+            student=student,
+            parent=parent,
+            recipient_phone=phone or 'N/A',
+            score=Decimal(str(round(total_score, 2))),
+            max_score=Decimal(str(round(total_max, 2))),
+            percentage=Decimal(str(round(percentage, 2))),
+            letter_grade=letter_grade,
+            message=log_message,
+            status=overall_status,
+            sent_by=sender_user
+        )
+
+        return {
+            'success': any_sent,
+            'status': overall_status,
+            'phone': phone,
+            'message': body,
+            'log_id': log.id if log else None,
+            'error': failure_reason,
+            'sms_sent': sms_sent,
+            'telegram_sent': telegram_sent,
+            'email_sent': email_sent,
+            'channels': active_channels
+        }
+
+    @classmethod
+    def bulk_dispatch_test_all_subjects(cls, school, section, test_name, period=None, student_ids=None, custom_message=None, lang_override=None, sender_user=None, channels=None):
+        recipients = cls.get_test_all_subjects_results_for_dispatch(
+            school=school,
+            section=section,
+            test_name=test_name,
+            period=period,
+            student_ids=student_ids
+        )
+
+        from apps.students.models import StudentProfile
+        from apps.parents.models import ParentProfile
+
+        summary = {
+            'total_students': len(recipients),
+            'dispatched': 0,
+            'sms_dispatched': 0,
+            'telegram_dispatched': 0,
+            'email_dispatched': 0,
+            'skipped_no_mark': 0,
+            'skipped_no_phone': 0,
+            'failed': 0,
+            'failure_reasons': [],
+            'details': []
+        }
+
+        eligible_recipients = [r for r in recipients if r['has_marks']]
+        summary['skipped_no_mark'] = len(recipients) - len(eligible_recipients)
+
+        for r in eligible_recipients:
+            student = StudentProfile.objects.filter(id=r['student_id'], school=school).first()
+            if not student:
+                continue
+
+            guardian_rel = GuardianRelationship.objects.filter(
+                school=school, student=student, is_primary=True
+            ).select_related('parent').first() or GuardianRelationship.objects.filter(
+                school=school, student=student
+            ).select_related('parent').first()
+            parent = guardian_rel.parent if guardian_rel else None
+
+            res = cls.dispatch_single_test_all_subjects(
+                school=school,
+                section=section,
+                student=student,
+                test_name=test_name,
+                subject_scores=r.get('subject_scores', []),
+                total_score=r['total_score'],
+                total_max=r['total_max'],
+                percentage=r['percentage'],
+                letter_grade=r['letter_grade'],
+                parent=parent,
+                parent_phone=r['parent_phone'],
+                custom_message=custom_message,
+                lang_override=lang_override if lang_override != 'pref' else r['preferred_lang'],
+                sender_user=sender_user,
+                channels=channels
+            )
+
+            if res.get('sms_sent'):
+                summary['sms_dispatched'] += 1
+            if res.get('telegram_sent'):
+                summary['telegram_dispatched'] += 1
+            if res.get('email_sent'):
+                summary['email_dispatched'] += 1
+
+            if res['status'] == 'SENT':
+                summary['dispatched'] += 1
+            elif res['status'] == 'NO_PHONE':
+                summary['skipped_no_phone'] += 1
+            else:
+                summary['failed'] += 1
+                if res.get('error') and res['error'] not in summary['failure_reasons']:
+                    summary['failure_reasons'].append(res['error'])
+
+            summary['details'].append({
+                'student_name': student.full_name,
+                'status': res['status'],
+                'phone': res.get('phone', ''),
+                'score': r['total_score'],
+                'error': res.get('error'),
+                'sms_sent': res.get('sms_sent', False),
+                'telegram_sent': res.get('telegram_sent', False),
+                'email_sent': res.get('email_sent', False)
+            })
+
+        from apps.audit.services import AuditService
+        AuditService.log_action(
+            school=school,
+            user=sender_user,
+            action='EXAM_RESULT_ALL_SUBJECTS_SMS_DISPATCH',
+            object_type='Section',
+            object_id=str(section.id),
+            details={
+                'test_name': test_name,
+                'section_name': section.name,
+                'total_students': summary['total_students'],
+                'dispatched': summary['dispatched'],
+                'skipped_no_phone': summary['skipped_no_phone'],
+                'failed': summary['failed']
+            }
+        )
+
+        return summary
