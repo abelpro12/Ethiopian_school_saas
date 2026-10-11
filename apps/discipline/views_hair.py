@@ -182,9 +182,12 @@ def hair_check_dispatch_api(request):
     status = request.POST.get('status', 'PROHIBITED')
     confidence = int(request.POST.get('confidence', 90))
     recommendation = request.POST.get('recommendation', '').strip()
+    reason = request.POST.get('reason', '').strip()
+    reason_am = request.POST.get('reason_am', '').strip()
     summary = request.POST.get('summary', '').strip()
     ai_engine = request.POST.get('ai_engine', 'Gemini Vision / Smart Heuristics')
     custom_note = request.POST.get('custom_note', '').strip()
+    notify_parent = request.POST.get('notify_parent', 'true' if status == 'PROHIBITED' else 'false').lower() in ['true', '1', 'yes']
 
     # Raw violations array
     violations_raw = request.POST.get('violations', '[]')
@@ -203,6 +206,24 @@ def hair_check_dispatch_api(request):
     deadline_days = int(request.POST.get('deadline_days', 2))
     deadline_date = timezone.now().date() + datetime.timedelta(days=deadline_days)
 
+    # Ensure persuasive reason is populated
+    if not reason:
+        reason = HairCheckAIService._build_persuasive_reason(
+            status=status,
+            is_fade=any('fade' in str(v).lower() for v in violations),
+            is_too_long=any('long' in str(v).lower() or 'bushy' in str(v).lower() for v in violations),
+            student_name=student.full_name,
+            lang='en'
+        )
+    if not reason_am:
+        reason_am = HairCheckAIService._build_persuasive_reason(
+            status=status,
+            is_fade=any('fade' in str(v).lower() for v in violations),
+            is_too_long=any('long' in str(v).lower() or 'bushy' in str(v).lower() for v in violations),
+            student_name=student.full_name,
+            lang='am'
+        )
+
     # Create HairCheckRecord
     hair_record = HairCheckRecord.objects.create(
         school=school,
@@ -214,13 +235,15 @@ def hair_check_dispatch_api(request):
         confidence=confidence,
         violations=violations,
         recommendation=recommendation,
+        reason=reason,
+        reason_am=reason_am,
         summary=summary,
         ai_engine=ai_engine,
         deadline_date=deadline_date,
     )
 
     dispatch_res = {}
-    if status == HairCheckStatus.PROHIBITED:
+    if notify_parent:
         dispatch_res = HairNotificationService.dispatch_hair_notice(
             hair_record=hair_record,
             channels=channels,
@@ -228,9 +251,17 @@ def hair_check_dispatch_api(request):
             operator_user=user
         )
     else:
-        # Allowed - no disciplinary notice sent to parent
         hair_record.parent_notified = False
         hair_record.save(update_fields=['parent_notified'])
+
+    if hair_record.parent_notified:
+        msg = (
+            f"Inspection saved. Grooming violation notice sent to {student.full_name}'s parents via {', '.join(channels)}!"
+            if status == HairCheckStatus.PROHIBITED else
+            f"Inspection saved. Commendation notice sent to {student.full_name}'s parents via {', '.join(channels)}!"
+        )
+    else:
+        msg = f"Inspection saved as Approved. No disciplinary action needed."
 
     return JsonResponse({
         'success': True,
@@ -238,11 +269,7 @@ def hair_check_dispatch_api(request):
         'status': hair_record.status,
         'parent_notified': hair_record.parent_notified,
         'dispatch_result': dispatch_res,
-        'message': (
-            f"Inspection saved. Notice sent to {student.full_name}'s parents via {', '.join(channels)}!"
-            if hair_record.parent_notified else
-            f"Inspection saved as Approved. No disciplinary action needed."
-        )
+        'message': msg
     })
 
 

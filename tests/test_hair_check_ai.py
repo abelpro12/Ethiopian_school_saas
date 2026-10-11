@@ -1,6 +1,7 @@
 import json
 import datetime
 from io import BytesIO
+from unittest.mock import patch, MagicMock
 from PIL import Image
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -161,7 +162,9 @@ class HairCheckAITestCase(TestCase):
         self.assertTrue(c['is_primary'])
 
 
-    def test_hair_notification_dispatch_and_incident_creation(self):
+    @patch('apps.discipline.hair_notification_service.TelegramBotHandler.send_message', return_value=True)
+    @patch('apps.discipline.hair_notification_service.TelegramBotHandler.send_photo', return_value=True)
+    def test_hair_notification_dispatch_and_incident_creation(self, mock_photo, mock_msg):
         """Verify dispatching a prohibited hair violation creates disciplinary incident and logs."""
         hair_record = HairCheckRecord.objects.create(
             school=self.school,
@@ -249,6 +252,58 @@ class HairCheckAITestCase(TestCase):
         self.assertEqual(record.status, HairCheckStatus.PROHIBITED)
         self.assertTrue(record.parent_notified)
         self.assertEqual(len(record.violations), 2)
+        self.assertTrue(len(record.reason) > 0)
+        self.assertTrue(len(record.reason_am) > 0)
+
+    def test_persuasive_reason_generation(self):
+        """Verify clear and persuasive reasons are generated for both prohibited and allowed statuses in EN and AM."""
+        # 1. Prohibited - Fade
+        reason_fade_en = HairCheckAIService._build_persuasive_reason('PROHIBITED', is_fade=True, is_too_long=False, student_name="Abebe Kebede", lang='en')
+        self.assertIn("shaved down close to the bare skin", reason_fade_en)
+        self.assertIn("equality", reason_fade_en.lower())
+
+        reason_fade_am = HairCheckAIService._build_persuasive_reason('PROHIBITED', is_fade=True, is_too_long=False, student_name="Abebe Kebede", lang='am')
+        self.assertIn("እኩልነትን", reason_fade_am)
+
+        # 2. Prohibited - Too long
+        reason_long_en = HairCheckAIService._build_persuasive_reason('PROHIBITED', is_fade=False, is_too_long=True, student_name="Abebe Kebede", lang='en')
+        self.assertIn("exceeds standard school limits", reason_long_en)
+
+        # 3. Allowed - Compliant
+        reason_ok_en = HairCheckAIService._build_persuasive_reason('ALLOWED', is_fade=False, is_too_long=False, student_name="Abebe Kebede", lang='en')
+        self.assertIn("grooming standards", reason_ok_en.lower())
+        self.assertIn("Visual Finding", reason_ok_en)
+
+        reason_ok_am = HairCheckAIService._build_persuasive_reason('ALLOWED', is_fade=False, is_too_long=False, student_name="Abebe Kebede", lang='am')
+        self.assertIn("ያሟላል", reason_ok_am)
+
+    def test_allowed_parent_commendation_dispatch(self):
+        """Verify staff can send a positive commendation notice to parents for compliant cuts."""
+        hair_record = HairCheckRecord.objects.create(
+            school=self.school,
+            academic_year=self.academic_year,
+            student=self.student,
+            checked_by=self.admin,
+            status=HairCheckStatus.ALLOWED,
+            confidence=96,
+            violations=[],
+            recommendation="Standard compliant length.",
+            reason="Abebe's haircut complies with school standards.",
+            reason_am="የአበበ ፀጉር አቆራረጥ የትምህርት ቤቱን ደንብ ያሟላል።"
+        )
+
+        dispatch_res = HairNotificationService.dispatch_hair_notice(
+            hair_record=hair_record,
+            channels=['TELEGRAM', 'SMS', 'EMAIL'],
+            custom_note="Thank you for keeping high grooming standards!",
+            operator_user=self.admin
+        )
+
+        self.assertTrue(dispatch_res['success'])
+        hair_record.refresh_from_db()
+        self.assertTrue(hair_record.parent_notified)
+        # Should NOT create a disciplinary incident for approved haircuts
+        self.assertIsNone(hair_record.linked_incident)
 
     def test_history_view(self):
         """Verify history view renders audit records."""
@@ -259,7 +314,9 @@ class HairCheckAITestCase(TestCase):
             checked_by=self.admin,
             status=HairCheckStatus.ALLOWED,
             confidence=95,
-            violations=[]
+            violations=[],
+            reason="Even standard length.",
+            reason_am="ወጥ የሆነ መደበኛ ቁመት።"
         )
         self.client.force_login(self.admin)
         url = reverse('discipline:hair_check_history')
@@ -267,3 +324,4 @@ class HairCheckAITestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Hair Grooming Inspection Logs")
         self.assertContains(response, "Abebe Kebede")
+        self.assertContains(response, "Reason:")

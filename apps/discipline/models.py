@@ -101,6 +101,8 @@ class HairCheckRecord(TenantAwareModel):
     confidence = models.IntegerField(default=90, help_text="AI Confidence score (0-100)")
     violations = models.JSONField(default=list, blank=True, help_text="List of detected violations")
     recommendation = models.TextField(blank=True, help_text="Recommended corrective action")
+    reason = models.TextField(blank=True, default='', help_text="Clear, persuasive explanation of why haircut was violated or accepted (English)")
+    reason_am = models.TextField(blank=True, default='', help_text="Clear, persuasive explanation of why haircut was violated or accepted (Amharic)")
     summary = models.TextField(blank=True, help_text="Summary description of the haircut")
     ai_engine = models.CharField(max_length=100, default='Gemini Vision / Smart Heuristics')
     deadline_date = models.DateField(null=True, blank=True, help_text="Deadline for student to rectify haircut")

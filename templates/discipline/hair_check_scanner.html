@@ -268,14 +268,71 @@
             </div>
           </div>
 
+          <!-- Clear & Persuasive Reason Section -->
+          <div id="persuasiveReasonCard" class="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="text-[11px] font-extrabold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-scale-balanced text-indigo-600"></i>
+                <span>Clear Reason & Educational Rationale / ዝርዝር ምክንያት</span>
+              </div>
+              <!-- Language Switcher Pills -->
+              <div class="flex items-center bg-white rounded-lg p-0.5 border border-indigo-200 text-[10px] font-bold">
+                <button type="button" id="reasonLangAm" class="px-2 py-0.5 rounded text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition">አማርኛ</button>
+                <button type="button" id="reasonLangEn" class="px-2 py-0.5 rounded text-slate-500 hover:text-slate-800 transition">EN</button>
+                <button type="button" id="reasonLangBoth" class="px-2 py-0.5 rounded text-slate-500 hover:text-slate-800 transition">Both</button>
+              </div>
+            </div>
+
+            <!-- Reason Content Display -->
+            <div id="reasonContentDisplay" class="text-xs text-slate-800 leading-relaxed font-medium bg-white p-3 rounded-xl border border-indigo-100 whitespace-pre-line shadow-xs">
+              <!-- Dynamically populated reason text -->
+            </div>
+
+            <!-- Policy Rationale Badge -->
+            <div id="policyRationaleBadge" class="text-[10px] text-indigo-900 bg-indigo-100/70 p-2.5 rounded-xl flex items-start gap-2 border border-indigo-200/60 leading-normal">
+              <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5 flex-shrink-0 text-xs"></i>
+              <span id="policyRationaleText">ወጥ የሆነ አቆራረጥ በተማሪዎች መካከል እኩልነትን ያሰፍናል፣ አላስፈላጊ የፋሽን ውድድርንና የጓደኛ ግፊትን ያስቀራል።</span>
+            </div>
+
+            <!-- Optional Custom Edit Reason Accordion -->
+            <div class="pt-0.5">
+              <button type="button" id="toggleEditReasonBtn" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition">
+                <i class="fa-solid fa-pen-to-square"></i> <span>Customize / Edit Reason Text</span>
+              </button>
+              <div id="editReasonBox" class="hidden mt-2 space-y-1.5">
+                <textarea id="editReasonInput" rows="3" class="w-full text-xs p-2.5 rounded-xl border border-indigo-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Customize clear reason text here..."></textarea>
+                <p class="text-[9px] text-slate-400">Edits here will be included in Telegram, SMS, Email and inspection logs.</p>
+              </div>
+            </div>
+          </div>
+
           <!-- Corrective Recommendation -->
           <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
             <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-              <i class="fa-solid fa-circle-info text-indigo-500"></i> Required Action for Parent & Barber
+              <i class="fa-solid fa-scissors text-indigo-500"></i> Required Action for Parent & Barber
             </div>
             <p id="recommendationText" class="text-xs text-slate-700 leading-relaxed font-medium">
               Trim sides and top evenly to standard school cut (Grade 1 or 2).
             </p>
+          </div>
+
+          <!-- Live Omni-Channel Message Previews Accordion -->
+          <div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-eye text-indigo-500"></i> Live Message Preview (What Parents Receive)
+              </span>
+              <!-- Preview Channel Tabs -->
+              <div class="flex items-center gap-1">
+                <button type="button" id="previewTabTg" class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800">Telegram</button>
+                <button type="button" id="previewTabSms" class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-200">SMS</button>
+                <button type="button" id="previewTabEmail" class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-200">Email</button>
+              </div>
+            </div>
+
+            <div id="previewCardBody" class="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap max-h-44 overflow-y-auto shadow-inner text-[11px] leading-relaxed font-sans">
+              <!-- Live preview text -->
+            </div>
           </div>
 
           <!-- Notification Delivery Settings Form -->
@@ -284,7 +341,7 @@
               <label class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                 Send Notice to Parent
               </label>
-              <div class="flex items-center gap-1 text-[11px] text-slate-500">
+              <div class="flex items-center gap-1 text-[11px] text-slate-500" id="deadlineContainer">
                 <span>Deadline:</span>
                 <select id="deadlineSelect" class="bg-slate-100 font-bold text-slate-800 rounded-lg px-2 py-0.5 text-xs focus:ring-1 focus:ring-indigo-500 border-none">
                   <option value="1">1 Day</option>
@@ -332,23 +389,32 @@
               />
             </div>
 
-            <!-- Dispatch Button -->
+            <!-- Dispatch Button for Prohibited -->
             <button
               id="dispatchNoticeBtn"
               class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-extrabold text-xs shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2"
             >
               <i class="fa-solid fa-paper-plane"></i>
-              <span>Send Grooming Notice to Parent (1-Click)</span>
+              <span>Send Grooming Violation Notice to Parent (1-Click)</span>
             </button>
 
-            <!-- Save as Approved Button (Visible if allowed) -->
-            <button
-              id="saveApprovedBtn"
-              class="hidden w-full py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 transition flex items-center justify-center gap-2"
-            >
-              <i class="fa-solid fa-check"></i>
-              <span>Log Inspection as Approved (No Parent Alert Needed)</span>
-            </button>
+            <!-- Actions for Approved status -->
+            <div id="approvedActionsContainer" class="hidden space-y-2">
+              <button
+                id="sendCommendationBtn"
+                class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-2"
+              >
+                <i class="fa-solid fa-award"></i>
+                <span>Send Commendation to Parent (Approved Cut)</span>
+              </button>
+              <button
+                id="saveApprovedBtn"
+                class="w-full py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center justify-center gap-2"
+              >
+                <i class="fa-solid fa-check"></i>
+                <span>Silent Log Only (No Parent Notification)</span>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -422,12 +488,29 @@ document.addEventListener('DOMContentLoaded', function() {
   const recommendationText = document.getElementById('recommendationText');
   const dispatchSettingsForm = document.getElementById('dispatchSettingsForm');
   const dispatchNoticeBtn = document.getElementById('dispatchNoticeBtn');
+  const approvedActionsContainer = document.getElementById('approvedActionsContainer');
+  const sendCommendationBtn = document.getElementById('sendCommendationBtn');
   const saveApprovedBtn = document.getElementById('saveApprovedBtn');
+  const deadlineContainer = document.getElementById('deadlineContainer');
   const deadlineSelect = document.getElementById('deadlineSelect');
   const chanTelegram = document.getElementById('chanTelegram');
   const chanSms = document.getElementById('chanSms');
   const chanEmail = document.getElementById('chanEmail');
   const customNoticeNote = document.getElementById('customNoticeNote');
+
+  // Reason & Preview elements
+  const reasonLangAm = document.getElementById('reasonLangAm');
+  const reasonLangEn = document.getElementById('reasonLangEn');
+  const reasonLangBoth = document.getElementById('reasonLangBoth');
+  const reasonContentDisplay = document.getElementById('reasonContentDisplay');
+  const policyRationaleText = document.getElementById('policyRationaleText');
+  const toggleEditReasonBtn = document.getElementById('toggleEditReasonBtn');
+  const editReasonBox = document.getElementById('editReasonBox');
+  const editReasonInput = document.getElementById('editReasonInput');
+  const previewTabTg = document.getElementById('previewTabTg');
+  const previewTabSms = document.getElementById('previewTabSms');
+  const previewTabEmail = document.getElementById('previewTabEmail');
+  const previewCardBody = document.getElementById('previewCardBody');
 
   // State
   let selectedStudent = null;
@@ -435,6 +518,8 @@ document.addEventListener('DOMContentLoaded', function() {
   let videoStream = null;
   let useFacingMode = 'environment'; // default rear camera on mobile
   let currentAnalysis = null;
+  let activeReasonLang = 'am'; // 'am', 'en', 'both'
+  let activePreviewTab = 'telegram'; // 'telegram', 'sms', 'email'
 
   // ==========================================
   // 1. Student Autocomplete
@@ -666,6 +751,146 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  function setReasonLang(lang) {
+    activeReasonLang = lang;
+    const btnAm = document.getElementById('reasonLangAm');
+    const btnEn = document.getElementById('reasonLangEn');
+    const btnBoth = document.getElementById('reasonLangBoth');
+
+    [btnAm, btnEn, btnBoth].forEach(b => {
+      b.className = 'px-2 py-0.5 rounded text-slate-500 hover:text-slate-800 transition';
+    });
+
+    if (lang === 'am') {
+      btnAm.className = 'px-2 py-0.5 rounded text-indigo-700 bg-indigo-100 font-bold';
+      reasonContentDisplay.textContent = currentAnalysis ? (currentAnalysis.reason_am || currentAnalysis.reason || '') : '';
+    } else if (lang === 'en') {
+      btnEn.className = 'px-2 py-0.5 rounded text-indigo-700 bg-indigo-100 font-bold';
+      reasonContentDisplay.textContent = currentAnalysis ? (currentAnalysis.reason || currentAnalysis.reason_am || '') : '';
+    } else {
+      btnBoth.className = 'px-2 py-0.5 rounded text-indigo-700 bg-indigo-100 font-bold';
+      reasonContentDisplay.textContent = currentAnalysis ? `${currentAnalysis.reason_am || ''}\n\n─── English ───\n${currentAnalysis.reason || ''}` : '';
+    }
+    updateLivePreview();
+  }
+
+  reasonLangAm.addEventListener('click', () => setReasonLang('am'));
+  reasonLangEn.addEventListener('click', () => setReasonLang('en'));
+  reasonLangBoth.addEventListener('click', () => setReasonLang('both'));
+
+  toggleEditReasonBtn.addEventListener('click', function() {
+    editReasonBox.classList.toggle('hidden');
+    if (!editReasonBox.classList.contains('hidden') && currentAnalysis) {
+      if (!editReasonInput.value.trim()) {
+        editReasonInput.value = (activeReasonLang === 'en') ? (currentAnalysis.reason || '') : (currentAnalysis.reason_am || currentAnalysis.reason || '');
+      }
+      editReasonInput.focus();
+    }
+  });
+
+  editReasonInput.addEventListener('input', updateLivePreview);
+  customNoticeNote.addEventListener('input', updateLivePreview);
+  deadlineSelect.addEventListener('change', updateLivePreview);
+
+  function setPreviewTab(tab) {
+    activePreviewTab = tab;
+    [previewTabTg, previewTabSms, previewTabEmail].forEach(t => {
+      t.className = 'px-2 py-0.5 rounded text-[10px] font-semibold text-slate-500 hover:bg-slate-200 transition';
+    });
+    if (tab === 'telegram') {
+      previewTabTg.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800';
+    } else if (tab === 'sms') {
+      previewTabSms.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800';
+    } else if (tab === 'email') {
+      previewTabEmail.className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800';
+    }
+    updateLivePreview();
+  }
+
+  previewTabTg.addEventListener('click', () => setPreviewTab('telegram'));
+  previewTabSms.addEventListener('click', () => setPreviewTab('sms'));
+  previewTabEmail.addEventListener('click', () => setPreviewTab('email'));
+
+  function updateLivePreview() {
+    if (!currentAnalysis) return;
+
+    const studentName = selectedStudent ? selectedStudent.full_name : 'Student Name';
+    const classStr = selectedStudent ? selectedStudent.class_str : 'Class Section';
+    const isProhibited = currentAnalysis.status === 'PROHIBITED';
+
+    const deadlineVal = parseInt(deadlineSelect.value || 2);
+    const d = new Date();
+    d.setDate(d.getDate() + deadlineVal);
+    const deadlineDateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const customNote = customNoticeNote.value.trim();
+    const customReason = editReasonInput.value.trim();
+    const effectiveReasonAm = customReason || currentAnalysis.reason_am || '';
+    const effectiveReasonEn = customReason || currentAnalysis.reason || '';
+
+    const violations = (currentAnalysis.violations && currentAnalysis.violations.length)
+      ? currentAnalysis.violations
+      : ["Grooming policy violation"];
+    const violationsText = violations.map(v => `• ${v}`).join('\n');
+    const recText = recommendationText.textContent.trim() || "Trim hair evenly to standard school cut.";
+
+    let output = '';
+
+    if (activePreviewTab === 'telegram') {
+      if (isProhibited) {
+        output = `🚨 [Telegram Bot] የፀጉር አቆራረጥ ማስጠንቀቂያ | Hair Grooming Policy Notice\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👨‍🎓 ተማሪ / Student: ${studentName}\n` +
+          `🏫 ክፍል / Class: ${classStr}\n` +
+          `📅 ቀን / Date: Today\n\n` +
+          `📋 ግልጽ ምክንያትና ማብራሪያ / Persuasive Reason:\n` +
+          `${effectiveReasonAm}\n\n` +
+          `⚠️ የተገኘው ግድፈት / Issue Detected:\n${violationsText}\n\n` +
+          `✂️ ለፀጉር አስተካካይ የሚሰጥ መመሪያ / Required Action:\n${recText}\n\n` +
+          `⏳ የማስተካከያ የመጨረሻ ቀን / Deadline: ${deadlineDateStr}\n` +
+          (customNote ? `\n📝 ተጨማሪ ማስታወሻ / Note: ${customNote}\n` : '') +
+          `\n— Seattle Academy Administration`;
+      } else {
+        output = `🌟 [Telegram Bot] የፀጉር አቆራረጥ ምርመራ ውጤት | Grooming Inspection Passed\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `👨‍🎓 ተማሪ / Student: ${studentName}\n` +
+          `🏫 ክፍል / Class: ${classStr}\n` +
+          `📅 ቀን / Date: Today\n\n` +
+          `✅ ውሳኔ: ተፈቅዷል / Compliant (Approved)\n\n` +
+          `📋 ምክንያትና ማብራሪያ / Evaluation Reason:\n${effectiveReasonAm}\n\n` +
+          `👏 ምስጋና / Appreciation:\nልጅዎ የትምህርት ቤቱን የፀጉር አቆራረጥ እና የስነ-ምግባር ደንብ አክብሮ እንዲቀርብ ስላደረጉ እናመሰግናለን!\n` +
+          `— Seattle Academy Administration`;
+      }
+    } else if (activePreviewTab === 'sms') {
+      if (isProhibited) {
+        output = `[SMS Text]\nNotice from Seattle Academy: ${studentName.split(' ')[0]}'s haircut violates school grooming code (${violations[0] || 'Unapproved cut'}). ` +
+          `Our policy requires an even, uniform cut to ensure equality & focus. Please have a barber trim it evenly (Grade 1/2) by ${deadlineDateStr}. Thank you!`;
+      } else {
+        output = `[SMS Text]\nSeattle Academy: ${studentName.split(' ')[0]}'s haircut was inspected today and complies with school grooming standards. Thank you for supporting our discipline and uniform guidelines!`;
+      }
+    } else {
+      if (isProhibited) {
+        output = `[Email Letter]\nSubject: [Seattle Academy] Hair Grooming Policy Notice: ${studentName}\n\n` +
+          `Dear Parent of ${studentName} (${classStr}),\n\n` +
+          `During routine grooming inspection, your child's haircut was evaluated as non-compliant with Ethiopian school dress code.\n\n` +
+          `Detected Violation(s):\n${violationsText}\n\n` +
+          `Why This Rule Matters:\n${effectiveReasonEn}\n\n` +
+          `Required Barber Action:\n${recText}\n` +
+          `Rectification Deadline: ${deadlineDateStr}\n\n` +
+          `— Seattle Academy Administration`;
+      } else {
+        output = `[Email Letter]\nSubject: [Seattle Academy] Grooming Inspection Passed: ${studentName}\n\n` +
+          `Dear Parent of ${studentName} (${classStr}),\n\n` +
+          `We are pleased to inform you that your child's haircut was inspected today and fully satisfies our school grooming standards.\n\n` +
+          `Evaluation Finding:\n${effectiveReasonEn}\n\n` +
+          `Thank you for partnering with us to maintain a disciplined and equal learning environment.\n` +
+          `— Seattle Academy Administration`;
+      }
+    }
+
+    previewCardBody.textContent = output;
+  }
+
   function renderAnalysis(an) {
     resultPlaceholder.classList.add('hidden');
     resultContent.classList.remove('hidden');
@@ -682,7 +907,8 @@ document.addEventListener('DOMContentLoaded', function() {
       verdictAmharic.textContent = 'የፀጉር አቆራረጡ የትምህርት ቤቱን ደንብ አይፈቅድም';
 
       dispatchNoticeBtn.classList.remove('hidden');
-      saveApprovedBtn.classList.add('hidden');
+      approvedActionsContainer.classList.add('hidden');
+      if (deadlineContainer) deadlineContainer.classList.remove('hidden');
     } else {
       verdictBanner.className = 'p-4 rounded-2xl border flex items-start gap-3.5 bg-emerald-50/70 border-emerald-200';
       verdictIconBox.className = 'w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-emerald-500 text-white shadow-md shadow-emerald-500/20';
@@ -693,11 +919,21 @@ document.addEventListener('DOMContentLoaded', function() {
       verdictAmharic.textContent = 'የፀጉር አቆራረጡ የትምህርት ቤቱን ደንብ የጠበቀ ነው';
 
       dispatchNoticeBtn.classList.add('hidden');
-      saveApprovedBtn.classList.remove('hidden');
+      approvedActionsContainer.classList.remove('hidden');
+      if (deadlineContainer) deadlineContainer.classList.add('hidden');
     }
 
     confidenceScore.textContent = `${an.confidence}% Confidence`;
     recommendationText.textContent = an.recommendation || (isProhibited ? "Trim sides and crown evenly to standard school cut." : "No action required.");
+
+    // Policy Rationale Text
+    if (policyRationaleText) {
+      policyRationaleText.textContent = an.policy_rationale_am || an.policy_rationale || "ወጥ የሆነ አቆራረጥ በተማሪዎች መካከል እኩልነትን ያሰፍናል፣ አላስፈላጊ የፋሽን ውድድርን ያስቀራል።";
+    }
+
+    // Set reason text
+    editReasonInput.value = (activeReasonLang === 'en') ? (an.reason || '') : (an.reason_am || an.reason || '');
+    setReasonLang(activeReasonLang);
 
     // Render violation chips
     const violations = an.violations || [];
@@ -715,12 +951,14 @@ document.addEventListener('DOMContentLoaded', function() {
         </label>
       `).join('');
     }
+
+    updateLivePreview();
   }
 
   // ==========================================
-  // 4. One-Click Parent Dispatch
+  // 4. Parent Dispatch Logic
   // ==========================================
-  dispatchNoticeBtn.addEventListener('click', async function() {
+  async function executeDispatch(status, notifyParent, btnElement, loadingText) {
     if (!selectedStudent) {
       alert("Please select a student first (Step 1).");
       searchInput.focus();
@@ -733,7 +971,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Collect active violation chips
     const checkedViolations = Array.from(document.querySelectorAll('.violation-check:checked')).map(cb => cb.value);
-    if (checkedViolations.length === 0) {
+    if (status === 'PROHIBITED' && checkedViolations.length === 0) {
       checkedViolations.push("Grooming code non-compliance");
     }
 
@@ -743,27 +981,30 @@ document.addEventListener('DOMContentLoaded', function() {
     if (chanSms.checked) channels.push('SMS');
     if (chanEmail.checked) channels.push('EMAIL');
 
-    if (channels.length === 0) {
+    if (notifyParent && channels.length === 0) {
       alert("Please select at least one delivery channel (Telegram, SMS, or Email).");
       return;
     }
 
-    const originalBtnHtml = dispatchNoticeBtn.innerHTML;
-    dispatchNoticeBtn.disabled = true;
-    dispatchNoticeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Sending Photo Notice to Parent...</span>';
+    const originalBtnHtml = btnElement.innerHTML;
+    btnElement.disabled = true;
+    btnElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>${loadingText}</span>`;
 
     const formData = new FormData();
     formData.append('student_id', selectedStudent.id);
     formData.append('photo', capturedBlob, 'haircut.jpg');
-    formData.append('status', 'PROHIBITED');
+    formData.append('status', status);
     formData.append('confidence', currentAnalysis.confidence || 90);
-    formData.append('violations', JSON.stringify(checkedViolations));
+    formData.append('violations', JSON.stringify(status === 'PROHIBITED' ? checkedViolations : []));
     formData.append('recommendation', recommendationText.textContent);
+    formData.append('reason', (editReasonInput.value.trim() && activeReasonLang === 'en') ? editReasonInput.value.trim() : (currentAnalysis.reason || ''));
+    formData.append('reason_am', (editReasonInput.value.trim() && activeReasonLang === 'am') ? editReasonInput.value.trim() : (currentAnalysis.reason_am || ''));
     formData.append('summary', currentAnalysis.summary || '');
     formData.append('ai_engine', currentAnalysis.ai_engine || 'Gemini Vision');
     formData.append('channels', channels.join(','));
     formData.append('deadline_days', deadlineSelect.value);
     formData.append('custom_note', customNoticeNote.value.trim());
+    formData.append('notify_parent', notifyParent ? 'true' : 'false');
 
     try {
       const res = await fetch("{% url 'discipline:hair_check_dispatch_api' %}", {
@@ -774,79 +1015,52 @@ document.addEventListener('DOMContentLoaded', function() {
         body: formData
       });
       const data = await res.json();
-      dispatchNoticeBtn.disabled = false;
-      dispatchNoticeBtn.innerHTML = originalBtnHtml;
+      btnElement.disabled = false;
+      btnElement.innerHTML = originalBtnHtml;
 
       if (!data.success) {
-        alert("Failed to dispatch: " + (data.error || "Unknown error"));
+        alert("Failed to save: " + (data.error || "Unknown error"));
         return;
       }
 
-      // Success feedback
       alert("✅ " + data.message);
-      
+
       // Update counters
       const statTotal = document.getElementById('statTodayTotal');
       const statProh = document.getElementById('statTodayProhibited');
+      const statAllow = document.getElementById('statTodayAllowed');
       const statNotif = document.getElementById('statTodayNotified');
+
       if (statTotal) statTotal.textContent = parseInt(statTotal.textContent || 0) + 1;
-      if (statProh) statProh.textContent = parseInt(statProh.textContent || 0) + 1;
-      if (statNotif) statNotif.textContent = parseInt(statNotif.textContent || 0) + 1;
+      if (status === 'PROHIBITED' && statProh) statProh.textContent = parseInt(statProh.textContent || 0) + 1;
+      if (status === 'ALLOWED' && statAllow) statAllow.textContent = parseInt(statAllow.textContent || 0) + 1;
+      if (data.parent_notified && statNotif) statNotif.textContent = parseInt(statNotif.textContent || 0) + 1;
 
       // Reset for next student
       retakeBtn.click();
       clearStudentBtn.click();
+      editReasonInput.value = '';
+      customNoticeNote.value = '';
     } catch (err) {
-      dispatchNoticeBtn.disabled = false;
-      dispatchNoticeBtn.innerHTML = originalBtnHtml;
-      alert("Error sending notice: " + err.message);
+      btnElement.disabled = false;
+      btnElement.innerHTML = originalBtnHtml;
+      alert("Error: " + err.message);
     }
+  }
+
+  // 1. Send Prohibited Violation Notice
+  dispatchNoticeBtn.addEventListener('click', function() {
+    executeDispatch('PROHIBITED', true, dispatchNoticeBtn, 'Sending Violation Notice to Parent...');
   });
 
-  // Save approved button
-  saveApprovedBtn.addEventListener('click', async function() {
-    if (!selectedStudent || !capturedBlob) return;
+  // 2. Send Approved Commendation Notice
+  sendCommendationBtn.addEventListener('click', function() {
+    executeDispatch('ALLOWED', true, sendCommendationBtn, 'Sending Commendation to Parent...');
+  });
 
-    const originalBtnHtml = saveApprovedBtn.innerHTML;
-    saveApprovedBtn.disabled = true;
-    saveApprovedBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Saving Approval...</span>';
-
-    const formData = new FormData();
-    formData.append('student_id', selectedStudent.id);
-    formData.append('photo', capturedBlob, 'haircut.jpg');
-    formData.append('status', 'ALLOWED');
-    formData.append('confidence', currentAnalysis ? currentAnalysis.confidence : 95);
-    formData.append('violations', JSON.stringify([]));
-    formData.append('recommendation', 'Compliant with school code.');
-    formData.append('ai_engine', currentAnalysis ? currentAnalysis.ai_engine : 'Gemini Vision');
-
-    try {
-      const res = await fetch("{% url 'discipline:hair_check_dispatch_api' %}", {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': '{{ csrf_token }}'
-        },
-        body: formData
-      });
-      const data = await res.json();
-      saveApprovedBtn.disabled = false;
-      saveApprovedBtn.innerHTML = originalBtnHtml;
-
-      alert("✅ Inspection logged as Compliant.");
-      
-      // Update counters
-      const statTotal = document.getElementById('statTodayTotal');
-      const statAllow = document.getElementById('statTodayAllowed');
-      if (statTotal) statTotal.textContent = parseInt(statTotal.textContent || 0) + 1;
-      if (statAllow) statAllow.textContent = parseInt(statAllow.textContent || 0) + 1;
-
-      retakeBtn.click();
-      clearStudentBtn.click();
-    } catch (err) {
-      saveApprovedBtn.disabled = false;
-      saveApprovedBtn.innerHTML = originalBtnHtml;
-      alert("Error saving: " + err.message);
-    }
+  // 3. Save Approved Silent Log
+  saveApprovedBtn.addEventListener('click', function() {
+    executeDispatch('ALLOWED', false, saveApprovedBtn, 'Saving Silent Approval...');
   });
 
 });
