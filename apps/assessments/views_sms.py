@@ -299,6 +299,7 @@ def exam_results_sms_preview_modal_api(request, component_id, section_id):
         'total': len(recipients),
         'with_marks': sum(1 for r in recipients if r['has_mark']),
         'with_phone': sum(1 for r in recipients if r['has_phone']),
+        'can_dispatch': sum(1 for r in recipients if r.get('can_dispatch')),
         'already_sent': sum(1 for r in recipients if r['already_sent']),
     }
 

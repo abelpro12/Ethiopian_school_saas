@@ -273,9 +273,9 @@
                                         {% endif %}
                                     </form>
 
-                                    <!-- Quick Send SMS Button for this component -->
-                                    <button type="button" onclick="openExamResultsSMSModal('{{ comp.id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300 transition shadow-2xs" title="Send {{ comp.name }} Results to Parents via SMS">
-                                        <i class="fa-solid fa-paper-plane text-[9px]"></i> SMS
+                                    <!-- Quick Send Notification Button for this component -->
+                                    <button type="button" onclick="openExamResultsSMSModal('{{ comp.id }}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300 transition shadow-2xs" title="Send {{ comp.name }} Results via SMS, Telegram & Email">
+                                        <i class="fa-solid fa-paper-plane text-[9px]"></i> Notify
                                     </button>
                                 </div>
                             </th>
@@ -633,13 +633,68 @@
         }
     }
 
+    function getModalSelectedChannels() {
+        const channels = [];
+        if (document.getElementById('modal_channel_sms')?.checked) channels.push('SMS');
+        if (document.getElementById('modal_channel_telegram')?.checked) channels.push('TELEGRAM');
+        if (document.getElementById('modal_channel_email')?.checked) channels.push('EMAIL');
+        return channels;
+    }
+
+    function setModalChannelsPreset(preset) {
+        const sms = document.getElementById('modal_channel_sms');
+        const tg = document.getElementById('modal_channel_telegram');
+        const em = document.getElementById('modal_channel_email');
+        if (!sms || !tg || !em) return;
+
+        if (preset === 'all') {
+            sms.checked = true;
+            tg.checked = true;
+            em.checked = true;
+        } else if (preset === 'free') {
+            sms.checked = false;
+            tg.checked = true;
+            em.checked = true;
+        } else if (preset === 'sms') {
+            sms.checked = true;
+            tg.checked = false;
+            em.checked = false;
+        }
+        updateModalDispatchButton();
+    }
+
+    function updateModalDispatchButton() {
+        const channels = getModalSelectedChannels();
+        const btn = document.getElementById('modalDispatchBtn');
+        const checkedCount = document.querySelectorAll('.modal-student-checkbox:checked').length;
+        
+        let channelLabel = "Results";
+        if (channels.length === 3) channelLabel = "All 3 Channels";
+        else if (channels.length === 2 && !channels.includes('SMS')) channelLabel = "Free (Bot + Email)";
+        else if (channels.length === 1 && channels.includes('SMS')) channelLabel = "SMS";
+        else if (channels.length === 1 && channels.includes('TELEGRAM')) channelLabel = "Telegram";
+        else if (channels.length === 1 && channels.includes('EMAIL')) channelLabel = "Email";
+        else if (channels.length > 0) channelLabel = channels.join(' + ');
+        else channelLabel = "No Channel";
+
+        if (btn) {
+            btn.innerHTML = `<i class="fa-solid fa-paper-plane mr-1"></i> Send via ${channelLabel} (${checkedCount})`;
+            btn.disabled = channels.length === 0 || checkedCount === 0;
+            if (channels.length === 0 || checkedCount === 0) {
+                btn.className = "px-4 py-2 rounded-xl text-xs font-bold bg-slate-300 text-slate-500 cursor-not-allowed transition";
+            } else {
+                btn.className = "px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm shadow-emerald-200 cursor-pointer";
+            }
+        }
+    }
+
     function renderGradebookSMSModal(data) {
         const titleEl = document.getElementById('modalCompName');
         const subTitleEl = document.getElementById('modalSubTitle');
         const previewEl = document.getElementById('modalPreviewText');
         const countTotal = document.getElementById('modalStatTotal');
         const countMarks = document.getElementById('modalStatMarks');
-        const countPhones = document.getElementById('modalStatPhones');
+        const countReady = document.getElementById('modalStatReady');
         const countSent = document.getElementById('modalStatSent');
         const listContainer = document.getElementById('modalRecipientsList');
 
@@ -649,17 +704,33 @@
 
         if (countTotal) countTotal.innerText = data.stats.total;
         if (countMarks) countMarks.innerText = data.stats.with_marks;
-        if (countPhones) countPhones.innerText = data.stats.with_phone;
+        if (countReady) countReady.innerText = (data.stats.can_dispatch !== undefined ? data.stats.can_dispatch : data.stats.with_phone);
         if (countSent) countSent.innerText = data.stats.already_sent;
 
         if (listContainer) {
             listContainer.innerHTML = data.recipients.map(r => {
-                const canSend = r.has_mark && r.has_phone;
+                const canSend = r.has_mark && (r.can_dispatch !== undefined ? r.can_dispatch : (r.has_phone || r.has_telegram || r.has_email));
+                
+                // Contact channel badges
+                const channelBadges = [];
+                if (r.has_phone) {
+                    channelBadges.push(`<span class="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200" title="SMS: ${r.parent_phone}"><i class="fa-solid fa-phone text-[8.5px]"></i> ${r.parent_phone}</span>`);
+                }
+                if (r.has_telegram) {
+                    channelBadges.push(`<span class="inline-flex items-center gap-1 text-[10px] font-bold text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded border border-cyan-200" title="Telegram Bot Connected"><i class="fa-brands fa-telegram text-[9.5px]"></i> Bot Linked</span>`);
+                }
+                if (r.has_email) {
+                    channelBadges.push(`<span class="inline-flex items-center gap-1 font-mono text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200" title="Email: ${r.parent_email}"><i class="fa-solid fa-envelope text-[8.5px]"></i> Email</span>`);
+                }
+                if (channelBadges.length === 0) {
+                    channelBadges.push(`<span class="inline-flex items-center gap-1 text-[10px] text-rose-500 font-medium"><i class="fa-solid fa-triangle-exclamation text-[8.5px]"></i> No Contact Info</span>`);
+                }
+
                 const statusBadge = r.already_sent 
                     ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">Sent (${r.last_sent_at || ''})</span>`
                     : (canSend 
                         ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">Ready</span>`
-                        : (!r.has_mark ? `<span class="text-[10px] text-slate-400 font-semibold">No Mark</span>` : `<span class="text-[10px] text-rose-500 font-semibold">No Phone</span>`));
+                        : (!r.has_mark ? `<span class="text-[10px] text-slate-400 font-semibold">No Mark</span>` : `<span class="text-[10px] text-rose-500 font-semibold">No Channels</span>`));
 
                 const scoreDisplay = r.has_mark 
                     ? `<span class="font-black text-slate-900">${r.score}</span> / <span class="text-slate-400">${r.max_score}</span> <span class="text-[10.5px] font-bold text-emerald-600">(${r.percentage}%)</span>` 
@@ -682,8 +753,8 @@
                         </div>
 
                         <div class="text-right shrink-0">
-                            <div class="font-mono text-[11px] font-semibold text-slate-700">${r.parent_phone || '<span class="text-rose-400">No Phone</span>'}</div>
-                            <div class="mt-0.5">${statusBadge}</div>
+                            <div class="flex items-center justify-end gap-1 flex-wrap">${channelBadges.join(' ')}</div>
+                            <div class="mt-1">${statusBadge}</div>
                         </div>
                     </div>
                 `;
@@ -696,6 +767,7 @@
         const checked = document.querySelectorAll('.modal-student-checkbox:checked').length;
         const countBadge = document.getElementById('modalSelectedCount');
         if (countBadge) countBadge.innerText = checked;
+        updateModalDispatchButton();
     }
 
     function toggleModalSelectAll(masterCb) {
@@ -708,6 +780,12 @@
     async function executeGradebookSMSDispatch(studentIds = null) {
         if (!activeSMSComponentId) return;
 
+        const channels = getModalSelectedChannels();
+        if (channels.length === 0) {
+            alert("Please select at least one dispatch channel (SMS, Telegram, or Email).");
+            return;
+        }
+
         let idsToSend = studentIds;
         if (!idsToSend) {
             idsToSend = Array.from(document.querySelectorAll('.modal-student-checkbox:checked')).map(cb => cb.value);
@@ -717,7 +795,13 @@
             }
         }
 
-        if (!confirm(`Confirm sending SMS results to ${idsToSend.length} parents?`)) {
+        const channelNames = [];
+        if (channels.includes('SMS')) channelNames.push('SMS');
+        if (channels.includes('TELEGRAM')) channelNames.push('Telegram Bot');
+        if (channels.includes('EMAIL')) channelNames.push('Email');
+        const channelStr = channelNames.join(', ');
+
+        if (!confirm(`Confirm dispatching exam results to ${idsToSend.length} parents via [${channelStr}]?`)) {
             return;
         }
 
@@ -738,7 +822,8 @@
                     component_id: activeSMSComponentId,
                     section_id: activeSMSSectionId,
                     student_ids: idsToSend,
-                    lang: modalLanguage
+                    lang: modalLanguage,
+                    channels: channels
                 })
             });
 
@@ -747,23 +832,19 @@
                 alert(data.message);
                 closeExamResultsSMSModal();
             } else {
-                alert("Error: " + (data.error || "Failed to dispatch SMS."));
+                alert("Error: " + (data.error || "Failed to dispatch results."));
             }
         } catch (e) {
             alert("Network error: " + e.message);
         } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = `<i class="fa-solid fa-paper-plane mr-1"></i> Send SMS (<span id="modalSelectedCount">0</span>)`;
-                updateModalSelectedCount();
-            }
+            updateModalDispatchButton();
         }
     }
 </script>
 
-<!-- GRADEBOOK QUICK SMS MODAL DIALOG -->
+<!-- GRADEBOOK QUICK NOTIFICATION MODAL DIALOG -->
 <div id="gradebookSMSModal" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] flex flex-col">
         <!-- Modal Header -->
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
             <div class="flex items-center gap-2.5">
@@ -771,7 +852,7 @@
                     <i class="fa-solid fa-paper-plane"></i>
                 </span>
                 <div>
-                    <h3 id="modalCompName" class="font-extrabold text-base text-slate-900 leading-tight">Send Results via SMS</h3>
+                    <h3 id="modalCompName" class="font-extrabold text-base text-slate-900 leading-tight">Send Exam Results (SMS, Telegram, Email)</h3>
                     <p id="modalSubTitle" class="text-xs text-slate-500 font-medium"></p>
                 </div>
             </div>
@@ -799,19 +880,82 @@
                     <div class="text-[10px] text-emerald-600">With Marks</div>
                 </div>
                 <div class="bg-amber-50 rounded-xl p-2 border border-amber-200">
-                    <div id="modalStatPhones" class="font-bold text-amber-700 text-sm">0</div>
-                    <div class="text-[10px] text-amber-600">With Phone</div>
+                    <div id="modalStatReady" class="font-bold text-amber-700 text-sm">0</div>
+                    <div class="text-[10px] text-amber-600 font-bold">Ready to Send</div>
                 </div>
                 <div class="bg-purple-50 rounded-xl p-2 border border-purple-200">
                     <div id="modalStatSent" class="font-bold text-purple-700 text-sm">0</div>
-                    <div class="text-[10px] text-purple-600">Sent</div>
+                    <div class="text-[10px] text-purple-600">Already Sent</div>
+                </div>
+            </div>
+
+            <!-- 3-Way Omni-Channel Selector Card -->
+            <div class="bg-slate-900 rounded-xl p-3.5 text-white text-xs border border-slate-800 space-y-2.5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded text-[9.5px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">Omni-Channel</span>
+                        <span class="font-bold text-xs text-white">Dispatch Channels:</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" onclick="setModalChannelsPreset('all')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition">
+                            <i class="fa-solid fa-check-double mr-1"></i> All 3
+                        </button>
+                        <button type="button" onclick="setModalChannelsPreset('free')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition">
+                            <i class="fa-solid fa-gift mr-1"></i> Free Only
+                        </button>
+                        <button type="button" onclick="setModalChannelsPreset('sms')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                            <i class="fa-solid fa-mobile-screen mr-1"></i> SMS Only
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+                    <!-- SMS Gateway -->
+                    <label class="flex items-start gap-2 p-2 rounded-lg bg-slate-800/80 border border-slate-700 hover:border-emerald-500/50 cursor-pointer transition">
+                        <input type="checkbox" id="modal_channel_sms" value="SMS" checked onchange="updateModalDispatchButton()" class="mt-0.5 rounded text-emerald-500 focus:ring-emerald-400 border-slate-600 bg-slate-900">
+                        <div class="text-[11px] leading-tight">
+                            <div class="font-bold text-white flex items-center gap-1">
+                                <i class="fa-solid fa-comment-sms text-emerald-400"></i> SMS Gateway
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">GSM / Works offline</div>
+                        </div>
+                    </label>
+
+                    <!-- Telegram Bot -->
+                    <label class="flex items-start gap-2 p-2 rounded-lg bg-slate-800/80 border border-slate-700 hover:border-cyan-500/50 cursor-pointer transition">
+                        <input type="checkbox" id="modal_channel_telegram" value="TELEGRAM" checked onchange="updateModalDispatchButton()" class="mt-0.5 rounded text-cyan-500 focus:ring-cyan-400 border-slate-600 bg-slate-900">
+                        <div class="text-[11px] leading-tight flex-1">
+                            <div class="font-bold text-white flex items-center gap-1 flex-wrap">
+                                <i class="fa-brands fa-telegram text-cyan-400"></i> Telegram Bot
+                                <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">FREE</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Push notification</div>
+                            <div class="mt-1">
+                                <a href="https://t.me/Seattle_Academy_Bot" target="_blank" onclick="event.stopPropagation();" class="text-[10px] font-bold text-cyan-300 hover:text-white underline inline-flex items-center gap-0.5">
+                                    <i class="fa-brands fa-telegram text-[9px]"></i> @Seattle_Academy_Bot
+                                </a>
+                            </div>
+                        </div>
+                    </label>
+
+                    <!-- Email Alert -->
+                    <label class="flex items-start gap-2 p-2 rounded-lg bg-slate-800/80 border border-slate-700 hover:border-indigo-500/50 cursor-pointer transition">
+                        <input type="checkbox" id="modal_channel_email" value="EMAIL" checked onchange="updateModalDispatchButton()" class="mt-0.5 rounded text-indigo-500 focus:ring-indigo-400 border-slate-600 bg-slate-900">
+                        <div class="text-[11px] leading-tight">
+                            <div class="font-bold text-white flex items-center gap-1 flex-wrap">
+                                <i class="fa-solid fa-envelope text-indigo-400"></i> Email Alert
+                                <span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">FREE</span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Parent email inbox</div>
+                        </div>
+                    </label>
                 </div>
             </div>
 
             <!-- Message Preview Box -->
             <div class="bg-slate-900 rounded-xl p-3 text-white text-xs border border-slate-800 space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">SMS Message Preview:</span>
+                    <span class="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">Notification Preview:</span>
                     <div class="bg-slate-800 rounded-lg p-0.5 flex text-[10px] font-bold">
                         <button type="button" onclick="switchModalSMSLanguage('am')" id="btnModalLangAm" class="px-2.5 py-1 rounded-md bg-emerald-600 text-white transition">አማርኛ</button>
                         <button type="button" onclick="switchModalSMSLanguage('en')" id="btnModalLangEn" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white transition">English</button>
@@ -846,7 +990,7 @@
                     <i class="fa-solid fa-sliders mr-1"></i> Full Center
                 </a>
                 <button type="button" onclick="executeGradebookSMSDispatch()" id="modalDispatchBtn" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm shadow-emerald-200">
-                    <i class="fa-solid fa-paper-plane mr-1"></i> Send SMS (<span id="modalSelectedCount">0</span>)
+                    <i class="fa-solid fa-paper-plane mr-1"></i> Send Results (<span id="modalSelectedCount">0</span>)
                 </button>
             </div>
         </div>
