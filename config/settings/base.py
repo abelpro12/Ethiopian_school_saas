@@ -13,6 +13,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ethiopian-school-saas
 
 # SMS Gateways (SMSEthiopia / AfroMessage)
 SMSETHIOPIA_API_KEY = os.environ.get('SMSETHIOPIA_API_KEY', None)
+SMSETHIOPIA_STARTER_KEY = os.environ.get('SMSETHIOPIA_STARTER_KEY', None)
+SMS_DEV_PHONE = os.environ.get('SMS_DEV_PHONE', None)
 AFROMESSAGE_API_KEY = os.environ.get('AFROMESSAGE_API_KEY', None)
 
 # Telegram Bot (Free Push Notifications)
