@@ -601,6 +601,7 @@ def report_cards_sms_preview_modal_api(request, section_id):
             'has_marks': sum(1 for r in recipients if r['has_marks']),
             'valid_phones': sum(1 for r in recipients if r['has_phone']),
             'missing_phones': sum(1 for r in recipients if not r['has_phone']),
+            'can_dispatch': sum(1 for r in recipients if r.get('can_dispatch')),
             'already_sent': sum(1 for r in recipients if r['already_sent']),
         }
 
