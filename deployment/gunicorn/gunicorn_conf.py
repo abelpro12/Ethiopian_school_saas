@@ -1,4 +1,6 @@
-bind = "127.0.0.1:8000"
+import os
+
+bind = os.environ.get("GUNICORN_BIND", "127.0.0.1:8000")
 workers = 4
 worker_class = "sync"
 timeout = 120

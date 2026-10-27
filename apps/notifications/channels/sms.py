@@ -9,5 +9,4 @@ class SMSNotificationChannel:
         Dispatches SMS via active Ethiopian SMS gateway provider (Hahu.io / SMSEthiopia / AfroMessage).
         """
         from apps.notifications.services import NotificationService
-        provider = NotificationService.get_sms_provider()
-        return provider.send_sms(to_phone, message_text)
+        return NotificationService.send_sms(to_phone, message_text)

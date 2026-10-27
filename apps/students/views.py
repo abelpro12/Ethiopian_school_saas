@@ -2,7 +2,16 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.db.models import Count, Q, Avg
+from django.db import transaction
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+import secrets
+import logging
+from apps.audit.services import AuditService
+
+logger = logging.getLogger(__name__)
 from apps.students.models import StudentProfile, StudentApplication, ApplicationStatus, StudentStatus
 from apps.attendance.models import AttendanceRecord
 from apps.assessments.models import StudentMark, MarkStatus, AcademicPeriodResult
@@ -335,6 +344,7 @@ def admissions_dashboard(request):
     })
 
 @login_required
+@never_cache
 def review_application(request, application_id):
     school = getattr(request, 'school', None)
     if not school and getattr(request.user, 'school', None):
@@ -370,8 +380,7 @@ def review_application(request, application_id):
             parent_relationship = request.POST.get('parent_relationship', 'Father')
 
             # Create Student User — generate username based on first name
-            from apps.accounts.utils import generate_unique_username, get_default_role_password
-            student_initial_pwd = get_default_role_password(UserRole.STUDENT)
+            from apps.accounts.utils import generate_unique_username, generate_account_setup_url
             student_username = generate_unique_username(application.first_name, application.last_name, school=school)
 
             student_user = User.objects.create_user(
@@ -379,9 +388,10 @@ def review_application(request, application_id):
                 school=school,
                 role=UserRole.STUDENT,
                 first_name=application.first_name,
-                last_name=application.last_name
+                last_name=application.last_name,
+                email=getattr(application, 'email', '') or ''
             )
-            student_user.set_password(student_initial_pwd)
+            student_user.set_unusable_password()
             student_user.must_change_password = True
             student_user.save()
 
@@ -415,16 +425,17 @@ def review_application(request, application_id):
                 parent_first = application.last_name
                 parent_last = "Guardian"
                 parent_username = generate_unique_username(parent_first, parent_last, school=school, prefix="p_")
+                parent_email = getattr(application, 'guardian_email', '') or ''
 
                 parent_user = User.objects.create_user(
                     username=parent_username,
                     school=school,
                     role=UserRole.PARENT,
                     first_name=parent_first,
-                    last_name=parent_last
+                    last_name=parent_last,
+                    email=parent_email
                 )
-                parent_initial_pwd = get_default_role_password(UserRole.PARENT)
-                parent_user.set_password(parent_initial_pwd)
+                parent_user.set_unusable_password()
                 parent_user.must_change_password = True
                 parent_user.save()
 
@@ -435,9 +446,16 @@ def review_application(request, application_id):
                 GuardianRelationship.objects.get_or_create(
                     school=school, parent=parent_profile, student=student, defaults={'is_primary': True}
                 )
-                parent_msg = f"Parent login username: {parent_user.username} | Password: {parent_initial_pwd} (must change on login)."
-
-
+                parent_setup_url = generate_account_setup_url(request, parent_user)
+                if parent_email:
+                    from apps.notifications.services import EmailService
+                    sent = EmailService.send_user_invitation_email(school, parent_user, parent_setup_url)
+                    if sent:
+                        parent_msg = f"Parent login username: {parent_user.username}. Password setup invitation sent to {parent_email}."
+                    else:
+                        parent_msg = f"Parent login username: {parent_user.username}. Setup invitation email could not be sent to {parent_email}; account setup is pending."
+                else:
+                    parent_msg = f"Parent login username: {parent_user.username}. No parent email provided; account setup is pending."
 
             if sec_id:
                 sec = Section.objects.get(id=sec_id, school=school)
@@ -451,7 +469,19 @@ def review_application(request, application_id):
             application.reviewed_by = request.user
             application.save()
 
-            messages.success(request, f"Registered student {student.full_name}! {parent_msg}")
+            student_setup_url = generate_account_setup_url(request, student_user)
+            student_email = getattr(application, 'email', '') or ''
+            if student_email:
+                from apps.notifications.services import EmailService
+                sent_s = EmailService.send_user_invitation_email(school, student_user, student_setup_url)
+                if sent_s:
+                    student_msg = f"Registered student {student.full_name}! (Username: {student_user.username}. Invitation sent to {student_email})."
+                else:
+                    student_msg = f"Registered student {student.full_name}! (Username: {student_user.username}. Setup email could not be sent to {student_email}; account setup is pending)."
+            else:
+                student_msg = f"Registered student {student.full_name}! (Username: {student_user.username}. No student email provided; account setup is pending)."
+
+            messages.success(request, f"{student_msg} {parent_msg}")
             return redirect('students:admissions')
     
     from apps.academics.models import Section
@@ -649,6 +679,7 @@ def at_risk_students(request):
     })
 
 @login_required
+@never_cache
 def student_profile_admin_view(request, student_id):
     """
     View a student's full profile details. Accessible to admins and staff.
@@ -692,6 +723,18 @@ def student_profile_admin_view(request, student_id):
             if lname:
                 student.last_name = lname
                 student.user.last_name = lname
+
+            email_val = request.POST.get('email', '').strip().lower()
+            if email_val != student.user.email:
+                if email_val:
+                    from django.core.validators import validate_email
+                    try:
+                        validate_email(email_val)
+                        student.user.email = email_val
+                    except DjangoValidationError:
+                        messages.error(request, f"Invalid email format: '{email_val}'.")
+                else:
+                    student.user.email = ''
             student.user.save()
 
             student.amharic_name = amharic_name
@@ -727,27 +770,107 @@ def student_profile_admin_view(request, student_id):
         elif action == 'reset_account_password':
             target_type = request.POST.get('target_type')
             new_password = request.POST.get('new_password', '').strip()
-            if new_password and len(new_password) >= 6:
-                if target_type == 'STUDENT':
-                    student.user.set_password(new_password)
-                    student.user.must_change_password = True
-                    student.user.save()
-                    student.current_password_display = new_password
-                    student.save()
-                    messages.success(request, f"Password for student '{student.full_name}' ({student.user.username}) updated to '{new_password}'.")
-                elif target_type == 'PARENT':
-                    parent = student.primary_guardian
-                    if parent:
-                        parent.user.set_password(new_password)
-                        parent.user.must_change_password = True
-                        parent.user.save()
-                        parent.current_password_display = new_password
-                        parent.save()
-                        messages.success(request, f"Password for parent '{parent.user.username}' updated to '{new_password}'.")
-                    else:
-                        messages.error(request, "No parent profile linked to this student.")
+            if not new_password:
+                messages.error(request, "Password is required.")
+                return redirect('students:admin_profile', student_id=student.id)
+
+            if target_type == 'STUDENT':
+                target_user = student.user
+            elif target_type == 'PARENT':
+                parent = student.primary_guardian
+                if not parent:
+                    messages.error(request, "No parent profile linked to this student.")
+                    return redirect('students:admin_profile', student_id=student.id)
+                target_user = parent.user
             else:
-                messages.error(request, "Password must be at least 6 characters.")
+                messages.error(request, "Invalid target type.")
+                return redirect('students:admin_profile', student_id=student.id)
+
+            try:
+                validate_password(new_password, user=target_user)
+            except DjangoValidationError as exc:
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PASSWORD_RESET_FAILED',
+                    object_type='User',
+                    object_id=str(target_user.id),
+                    after_val={
+                        'target_user_id': str(target_user.id),
+                        'target_username': target_user.username,
+                        'target_role': target_user.role,
+                        'target_type': target_type,
+                        'outcome': 'FAILED',
+                        'reason': 'PASSWORD_VALIDATION_FAILED',
+                        'details': list(exc.messages)
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+                for msg in exc.messages:
+                    messages.error(request, msg)
+                return redirect('students:admin_profile', student_id=student.id)
+
+            with transaction.atomic():
+                target_user.set_password(new_password)
+                target_user.must_change_password = True
+                target_user.save()
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PASSWORD_RESET_SUCCESS',
+                    object_type='User',
+                    object_id=str(target_user.id),
+                    after_val={
+                        'target_user_id': str(target_user.id),
+                        'target_username': target_user.username,
+                        'target_role': target_user.role,
+                        'target_type': target_type,
+                        'outcome': 'SUCCESS',
+                        'must_change_password_set': True,
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+            if target_type == 'STUDENT':
+                messages.success(request, f"Password updated successfully for student '{student.full_name}' ({student.user.username}). They will be prompted to set a new password on their next login.")
+            else:
+                messages.success(request, f"Password updated successfully for parent '{target_user.username}'. They will be prompted to set a new password on their next login.")
+            return redirect('students:admin_profile', student_id=student.id)
+
+        elif action == 'resend_invitation':
+            target_user = student.user
+            if not getattr(target_user, 'is_activation_pending', False):
+                messages.info(request, f"Student '{student.full_name}' has already completed account activation.")
+            else:
+                email_input = request.POST.get('email', '').strip().lower()
+                if email_input and email_input != target_user.email:
+                    from django.core.validators import validate_email
+                    try:
+                        validate_email(email_input)
+                        target_user.email = email_input
+                        target_user.save(update_fields=['email'])
+                    except DjangoValidationError:
+                        messages.error(request, f"Invalid email format: '{email_input}'.")
+                        return redirect('students:admin_profile', student_id=student.id)
+
+                if not target_user.email:
+                    messages.error(request, f"Cannot send setup invitation: Student '{student.full_name}' does not have an email address configured. Please provide an email address.")
+                else:
+                    from apps.accounts.utils import generate_account_setup_url
+                    from apps.notifications.services import EmailService
+                    prev_password_hash = target_user.password
+                    setup_url = generate_account_setup_url(request, target_user, invalidate_previous=True)
+                    try:
+                        sent = EmailService.send_user_invitation_email(school, target_user, setup_url)
+                    except Exception:
+                        sent = False
+                    if sent:
+                        messages.success(request, f"Password setup invitation sent successfully to {target_user.email} for student '{student.full_name}'.")
+                    else:
+                        # Delivery failed: restore previous password hash so usable temporary credentials or prior setup tokens are not destroyed
+                        if prev_password_hash != target_user.password:
+                            target_user.password = prev_password_hash
+                            target_user.save(update_fields=['password'])
+                        messages.warning(request, f"Failed to deliver setup invitation to {target_user.email}. Please verify mail settings.")
             return redirect('students:admin_profile', student_id=student.id)
 
         elif action == 'manual_enroll':
@@ -842,13 +965,24 @@ def student_profile_admin_view(request, student_id):
             rel = request.POST.get('relationship', 'Father').strip()
             email = request.POST.get('email', '').strip()
             username = request.POST.get('username', '').strip().lower()
-            password = request.POST.get('password', '').strip() or 'parent123'
+            raw_password = request.POST.get('password', '').strip()
             preferred_language = request.POST.get('preferred_language', 'am')
             is_primary = request.POST.get('is_primary') in ['on', 'true', '1']
 
             if not fname or not phone:
                 messages.error(request, "Parent First Name and Phone Number are required.")
                 return redirect('students:admin_profile', student_id=student.id)
+
+            if raw_password:
+                try:
+                    validate_password(raw_password)
+                    password = raw_password
+                except DjangoValidationError as exc:
+                    for err in exc.messages:
+                        messages.error(request, f"Password policy error: {err}")
+                    return redirect('students:admin_profile', student_id=student.id)
+            else:
+                password = secrets.token_urlsafe(12)
 
             if not username:
                 digits = ''.join(filter(str.isdigit, phone))
@@ -895,14 +1029,18 @@ def student_profile_admin_view(request, student_id):
 
             if email:
                 from apps.notifications.services import EmailService
-                EmailService.send_parent_welcome_and_verification_email(
+                sent = EmailService.send_parent_welcome_and_verification_email(
                     school=school,
                     parent_user=parent_user,
                     temp_password=password,
                     student=student
                 )
-
-            messages.success(request, f"Parent/Guardian '{parent_user.get_full_name() or parent_user.username}' created and linked successfully! (Username: {username}, Password: {password})")
+                if sent:
+                    messages.success(request, f"Parent/Guardian '{parent_user.get_full_name() or parent_user.username}' created and linked successfully! (Username: {username}). Welcome email sent to {email}.")
+                else:
+                    messages.warning(request, f"Parent/Guardian '{parent_user.get_full_name() or parent_user.username}' created, but welcome email could not be delivered to {email}. Account setup is pending.")
+            else:
+                messages.success(request, f"Parent/Guardian '{parent_user.get_full_name() or parent_user.username}' created and linked successfully! (Username: {username}). No email provided; account setup is pending.")
             return redirect('students:admin_profile', student_id=student.id)
 
         elif action == 'link_existing_parent':
@@ -954,14 +1092,54 @@ def student_profile_admin_view(request, student_id):
             is_primary = request.POST.get('is_primary') in ['on', 'true', '1']
 
             user = parent_profile.user
+            password_changed = False
+            if new_password:
+                try:
+                    validate_password(new_password, user=user)
+                    user.set_password(new_password)
+                    user.must_change_password = True
+                    password_changed = True
+                except DjangoValidationError as exc:
+                    AuditService.log_action(
+                        school=school,
+                        user=request.user,
+                        action='PARENT_PASSWORD_CHANGE_FAILED',
+                        object_type='User',
+                        object_id=str(user.id),
+                        after_val={
+                            'parent_user_id': str(user.id),
+                            'parent_username': user.username,
+                            'outcome': 'FAILED',
+                            'reason': 'PASSWORD_VALIDATION_FAILED',
+                            'details': list(exc.messages)
+                        },
+                        ip_address=AuditService.get_client_ip(request)
+                    )
+                    for err in exc.messages:
+                        messages.error(request, f"Password policy error for '{user.username}': {err}")
+                    return redirect('students:admin_profile', student_id=student.id)
+
             if fname: user.first_name = fname
             if lname: user.last_name = lname
             user.email = email
             if phone: user.phone = phone
-            if new_password and len(new_password) >= 6:
-                user.set_password(new_password)
-                user.must_change_password = True
             user.save()
+
+            if password_changed:
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PARENT_PASSWORD_UPDATED',
+                    object_type='User',
+                    object_id=str(user.id),
+                    after_val={
+                        'parent_user_id': str(user.id),
+                        'parent_username': user.username,
+                        'outcome': 'SUCCESS',
+                        'must_change_password': True
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
 
             if phone: parent_profile.phone = phone
             parent_profile.relationship = rel
@@ -1004,11 +1182,11 @@ def student_profile_admin_view(request, student_id):
             if not parent_profile.user.email:
                 messages.error(request, f"Parent '{parent_profile.user.username}' has no email address registered.")
             else:
-                pwd = getattr(parent_profile.user, 'current_password', None)
+                # Security: Existing accounts never have passwords re-transmitted or read from storage
                 sent = EmailService.send_parent_welcome_and_verification_email(
                     school=school,
                     parent_user=parent_profile.user,
-                    temp_password=pwd,
+                    temp_password=None,
                     student=student
                 )
                 if sent:
@@ -1068,6 +1246,7 @@ BULK_IMPORT_COLUMNS = [
     {'name': 'section_name',     'description': 'Section name (e.g. A, B)',        'required': False, 'example': 'A'},
     {'name': 'amharic_name',     'description': 'Full name in Amharic (Geez)',     'required': False, 'example': 'አበበ ጊርማ'},
     {'name': 'parent_email',     'description': 'Parent/guardian email address',   'required': False, 'example': 'parent@gmail.com'},
+    {'name': 'student_email',    'description': 'Student email address (optional for activation invitation)', 'required': False, 'example': 'student@example.com'},
 ]
 
 CSV_TEMPLATE_HEADER = ','.join(col['name'] for col in BULK_IMPORT_COLUMNS)
@@ -1081,7 +1260,7 @@ def bulk_import_template(request):
     # BOM for Excel compatibility
     response.write('\ufeff')
     response.write(CSV_TEMPLATE_HEADER + '\n')
-    example = 'Abebe,Girma,Tadesse,M,2007-03-15,+251911234567,Addis Ababa,Bole,07,,ADM-2017-001,9,A,አበበ ጊርማ,parent@example.com'
+    example = 'Abebe,Girma,Tadesse,M,2007-03-15,+251911234567,Addis Ababa,Bole,07,,ADM-2017-001,9,A,አበበ ጊርማ,parent@example.com,student@example.com'
     response.write(example + '\n')
     return response
 
@@ -1174,66 +1353,57 @@ def bulk_import_students(request):
             'column_reference': BULK_IMPORT_COLUMNS,
         })
 
-    results = {'created': 0, 'skipped': 0, 'errors': [], 'preview_rows': []}
+    results = {
+        'created': 0,
+        'skipped': 0,
+        'errors': [],
+        'preview_rows': [],
+        'invitations_dispatched': 0,
+        'invitations_queued': 0,
+        'invitations_queue_failed': 0,
+        'invitations_no_email': 0,
+        'invitations_pending': 0,
+    }
 
-    for row_num, row in enumerate(reader, start=2):
-        first_name  = (row.get('first_name',  '') or '').strip()
-        middle_name = (row.get('middle_name', '') or '').strip()
-        last_name   = (row.get('last_name',   '') or '').strip()
-        gender      = (row.get('gender',      '') or '').strip().upper()
+    # Queue of invitation dispatch jobs to execute after outer transaction commits
+    # Each entry: (school_id, user_id, base_url, preview_entry_dict_ref or None)
+    invitation_jobs = []
 
-        if not first_name or not middle_name:
-            results['errors'].append({'row': row_num, 'message': 'first_name and middle_name are required.'})
-            results['skipped'] += 1
-            continue
+    from apps.tenants.models import School
+    try:
+        with transaction.atomic():
+            # Acquire exclusive row-level lock on the school record to serialize concurrent bulk imports for this tenant
+            School.objects.select_for_update().get(id=school.id)
 
-        if gender not in ('M', 'F'):
-            results['errors'].append({'row': row_num, 'message': f'Invalid gender "{gender}" — must be M or F.'})
-            results['skipped'] += 1
-            continue
+            for row_num, row in enumerate(reader, start=2):
+                first_name  = (row.get('first_name',  '') or '').strip()
+                middle_name = (row.get('middle_name', '') or '').strip()
+                last_name   = (row.get('last_name',   '') or '').strip()
+                gender      = (row.get('gender',      '') or '').strip().upper()
 
-        # Resolve grade
-        grade = default_grade
-        grade_level_str = (row.get('grade_level', '') or '').strip()
-        if grade_level_str:
-            try:
-                grade = Grade.objects.filter(school=school, level=int(grade_level_str)).first()
-            except ValueError:
-                pass
+                if not first_name or not middle_name:
+                    results['errors'].append({'row': row_num, 'message': 'first_name and middle_name are required.'})
+                    results['skipped'] += 1
+                    continue
 
-        # Resolve section
-        section = None
-        section_name = (row.get('section_name', '') or '').strip()
-        if section_name and grade:
-            section = Section.objects.filter(school=school, grade=grade, name__iexact=section_name).first()
+                if gender not in ('M', 'F'):
+                    results['errors'].append({'row': row_num, 'message': f'Invalid gender "{gender}" — must be M or F.'})
+                    results['skipped'] += 1
+                    continue
 
-        try:
-            with transaction.atomic():
-                # Auto-generate student_id
-                student_id = StudentProfile.generate_next_student_id(school)
+                student_email_raw = (row.get('student_email', '') or '').strip()
+                student_email = None
+                if student_email_raw:
+                    from django.core.validators import validate_email
+                    try:
+                        validate_email(student_email_raw)
+                        student_email = student_email_raw.lower()
+                    except DjangoValidationError:
+                        results['errors'].append({'row': row_num, 'message': f'Invalid student email "{student_email_raw}".'})
+                        results['skipped'] += 1
+                        continue
 
-                # Build username: firstname.middlename_<shortid>
-                base_username = f"{first_name.lower()}.{middle_name.lower()}".replace(' ', '')[:20]
-                username = base_username
-                suffix = 1
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{suffix}"
-                    suffix += 1
-
-                from apps.accounts.utils import get_default_role_password
-                password = get_default_role_password('STUDENT')
-
-                user_obj = User.objects.create_user(
-                    username=username,
-                    password=password,
-                    first_name=first_name,
-                    last_name=f"{middle_name} {last_name}".strip(),
-                    role='STUDENT',
-                    school=school,
-                    must_change_password=True,
-                )
-
-
+                # Resolve date of birth
                 dob = None
                 dob_str = (row.get('date_of_birth', '') or '').strip()
                 if dob_str:
@@ -1245,72 +1415,198 @@ def bulk_import_students(request):
                         except ValueError:
                             continue
 
-                student = StudentProfile.objects.create(
-                    school=school,
-                    user=user_obj,
-                    student_id=student_id,
-                    admission_number=(row.get('admission_number', '') or '').strip() or None,
-                    first_name=first_name,
-                    middle_name=middle_name,
-                    last_name=last_name,
-                    gender=gender,
-                    date_of_birth=dob,
-                    phone=(row.get('phone', '') or '').strip() or None,
-                    region=(row.get('region', '') or '').strip() or None,
-                    woreda=(row.get('woreda', '') or '').strip() or None,
-                    kebele=(row.get('kebele', '') or '').strip() or None,
-                    national_id=(row.get('national_id', '') or '').strip() or None,
-                    amharic_name=(row.get('amharic_name', '') or '').strip() or None,
-                    status='ACTIVE',
-                )
+                # Duplicate student detection to prevent re-upload duplication
+                national_id_val = (row.get('national_id', '') or '').strip()
+                admission_num_val = (row.get('admission_number', '') or '').strip()
 
-                # Auto-link parent profile if phone or parent email provided
-                phone_clean = (row.get('phone', '') or '').strip()
-                parent_email_val = (row.get('parent_email', '') or row.get('guardian_email', '') or '').strip()
-                if phone_clean or parent_email_val:
-                    from apps.parents.models import ParentProfile
-                    p_name = f"{middle_name} {last_name}".strip() or f"Parent of {first_name}"
-                    p_prof = ParentProfile.link_student_by_phone(
+                dup_student = None
+                if national_id_val:
+                    dup_student = StudentProfile.objects.filter(school=school, national_id=national_id_val).first()
+                if not dup_student and admission_num_val:
+                    dup_student = StudentProfile.objects.filter(school=school, admission_number=admission_num_val).first()
+
+                # Only apply name+DOB heuristic if NEITHER national_id NOR admission_number was supplied
+                has_explicit_id = bool(national_id_val or admission_num_val)
+                if not dup_student and dob and not has_explicit_id:
+                    dup_student = StudentProfile.objects.filter(
                         school=school,
-                        student_profile=student,
-                        phone=phone_clean or '+251911000000',
-                        parent_name=p_name,
-                        relationship="Father"
-                    )
-                    if parent_email_val and p_prof and p_prof.user:
-                        p_prof.user.email = parent_email_val
-                        p_prof.user.save(update_fields=['email'])
+                        first_name__iexact=first_name,
+                        middle_name__iexact=middle_name,
+                        last_name__iexact=last_name,
+                        date_of_birth=dob
+                    ).first()
 
-                # Auto-enroll if grade and section provided
-                if grade and section:
-                    StudentEnrollment.objects.get_or_create(
-                        school=school,
-                        student=student,
-                        academic_year=academic_year,
-                        defaults={
-                            'grade': grade,
-                            'section': section,
-                            'stream': section.stream,
-                            'status': 'ACTIVE',
-                        }
-                    )
-
-                results['created'] += 1
-                if len(results['preview_rows']) < 20:
-                    results['preview_rows'].append({
-                        'student_id': student_id,
-                        'full_name': student.full_name,
-                        'gender': gender,
-                        'grade': f"Grade {grade.level}" if grade else '—',
-                        'username': username,
+                if dup_student:
+                    if has_explicit_id:
+                        reason = f"Duplicate student: Identifier already exists in this school (ID: {dup_student.student_id})."
+                    else:
+                        reason = (
+                            f"Potential duplicate: '{first_name} {middle_name}' with date of birth {dob} already exists "
+                            f"(ID: {dup_student.student_id}). If this is a distinct student (e.g. twin or namesake), "
+                            f"please provide an admission number or national ID to distinguish them."
+                        )
+                    results['errors'].append({
+                        'row': row_num,
+                        'message': reason
                     })
+                    results['skipped'] += 1
+                    continue
 
-        except Exception as exc:
-            results['errors'].append({'row': row_num, 'message': str(exc)})
-            results['skipped'] += 1
+                # Resolve grade
+                grade = default_grade
+                grade_level_str = (row.get('grade_level', '') or '').strip()
+                if grade_level_str:
+                    try:
+                        grade = Grade.objects.filter(school=school, level=int(grade_level_str)).first()
+                    except ValueError:
+                        pass
+
+                # Resolve section
+                section = None
+                section_name = (row.get('section_name', '') or '').strip()
+                if section_name and grade:
+                    section = Section.objects.filter(school=school, grade=grade, name__iexact=section_name).first()
+
+                try:
+                    with transaction.atomic():
+                        # Auto-generate student_id
+                        student_id = StudentProfile.generate_next_student_id(school)
+
+                        # Build username: firstname.middlename_<shortid>
+                        base_username = f"{first_name.lower()}.{middle_name.lower()}".replace(' ', '')[:20]
+                        username = base_username
+                        suffix = 1
+                        while User.objects.filter(username=username).exists():
+                            username = f"{base_username}{suffix}"
+                            suffix += 1
+
+                        user_obj = User.objects.create_user(
+                            username=username,
+                            first_name=first_name,
+                            last_name=f"{middle_name} {last_name}".strip(),
+                            email=student_email or '',
+                            role='STUDENT',
+                            school=school,
+                            must_change_password=True,
+                        )
+                        user_obj.set_unusable_password()
+                        user_obj.save()
+
+                        student = StudentProfile.objects.create(
+                            school=school,
+                            user=user_obj,
+                            student_id=student_id,
+                            admission_number=admission_num_val or None,
+                            first_name=first_name,
+                            middle_name=middle_name,
+                            last_name=last_name,
+                            gender=gender,
+                            date_of_birth=dob,
+                            phone=(row.get('phone', '') or '').strip() or None,
+                            region=(row.get('region', '') or '').strip() or None,
+                            woreda=(row.get('woreda', '') or '').strip() or None,
+                            kebele=(row.get('kebele', '') or '').strip() or None,
+                            national_id=national_id_val or None,
+                            amharic_name=(row.get('amharic_name', '') or '').strip() or None,
+                            status='ACTIVE',
+                        )
+
+                        # Auto-link parent profile if phone or parent email provided
+                        phone_clean = (row.get('phone', '') or '').strip()
+                        parent_email_val = (row.get('parent_email', '') or row.get('guardian_email', '') or '').strip()
+                        if phone_clean or parent_email_val:
+                            from apps.parents.models import ParentProfile
+                            p_name = f"{middle_name} {last_name}".strip() or f"Parent of {first_name}"
+                            p_prof = ParentProfile.link_student_by_phone(
+                                school=school,
+                                student_profile=student,
+                                phone=phone_clean or '+251911000000',
+                                parent_name=p_name,
+                                relationship="Father"
+                            )
+                            if parent_email_val and p_prof and p_prof.user:
+                                p_prof.user.email = parent_email_val
+                                p_prof.user.save(update_fields=['email'])
+
+                        # Auto-enroll if grade and section provided
+                        if grade and section:
+                            StudentEnrollment.objects.get_or_create(
+                                school=school,
+                                student=student,
+                                academic_year=academic_year,
+                                defaults={
+                                    'grade': grade,
+                                    'section': section,
+                                    'stream': section.stream,
+                                    'status': 'ACTIVE',
+                                }
+                            )
+
+                        results['created'] += 1
+                        preview_entry = None
+                        if len(results['preview_rows']) < 20:
+                            preview_entry = {
+                                'student_id': student_id,
+                                'full_name': student.full_name,
+                                'gender': gender,
+                                'grade': f"Grade {grade.level}" if grade else '—',
+                                'username': username,
+                                'email': student_email or '—',
+                                'activation_status': 'Setup Pending (No Email)' if not student_email else 'Pending Queue',
+                            }
+                            results['preview_rows'].append(preview_entry)
+
+                        if user_obj.email:
+                            base_url = request.build_absolute_uri('/')[:-1]
+                            invitation_jobs.append((str(school.id), str(user_obj.id), base_url, preview_entry))
+                        else:
+                            results['invitations_no_email'] += 1
+                            results['invitations_pending'] += 1
+
+                except Exception as exc:
+                    results['errors'].append({'row': row_num, 'message': str(exc)})
+                    results['skipped'] += 1
+
+    except Exception as exc:
+        messages.error(request, f"Bulk import transaction error: {str(exc)}")
+
+    # Post-transaction asynchronous invitation queuing (No synchronous email fallback in loop)
+    for s_id, u_id, b_url, prev_entry in invitation_jobs:
+        try:
+            from apps.students.tasks import send_student_invitation_task
+            send_student_invitation_task.delay(s_id, u_id, b_url)
+            results['invitations_queued'] += 1
+            results['invitations_dispatched'] += 1
+            if prev_entry:
+                prev_entry['activation_status'] = 'Invitation Queued'
+        except Exception as task_exc:
+            logger.warning(
+                "Failed to enqueue setup invitation task for student user %s: %s",
+                u_id,
+                task_exc
+            )
+            results['invitations_queue_failed'] += 1
+            results['invitations_pending'] += 1
+            if prev_entry:
+                prev_entry['activation_status'] = 'Queue Failed (Pending Resend)'
 
     if results['created'] > 0:
-        messages.success(request, f"Successfully imported {results['created']} student(s).")
+        summary_msg = f"Successfully imported {results['created']} student(s)."
+        if results['invitations_queued'] > 0:
+            summary_msg += f" {results['invitations_queued']} setup invitation(s) queued."
+        if results['invitations_pending'] > 0:
+            summary_msg += f" {results['invitations_pending']} student(s) have setup pending"
+            pending_details = []
+            if results['invitations_no_email'] > 0:
+                pending_details.append(f"{results['invitations_no_email']} with no email configured")
+            if results['invitations_queue_failed'] > 0:
+                pending_details.append(f"{results['invitations_queue_failed']} could not be queued due to background service unavailability")
+            if pending_details:
+                summary_msg += f" ({', '.join(pending_details)})."
+            else:
+                summary_msg += "."
+            summary_msg += " An administrator can add their email and resend invitations via User Management."
+        messages.success(request, summary_msg)
 
     return render(request, 'students/bulk_import.html', {
         'academic_years': academic_years,

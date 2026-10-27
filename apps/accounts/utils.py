@@ -39,22 +39,36 @@ def generate_unique_username(first_name, last_name=None, school=None, prefix="")
         counter += 1
 
 
-def get_default_role_password(role):
+def get_default_role_password(role=None):
     """
-    Returns standard initial predictable password based on user role.
+    Returns cryptographically secure initial temporary password.
     The user is flagged with must_change_password=True so they set a strong password on first login.
     """
-    role_defaults = {
-        'SUPER_ADMIN': 'admin123',
-        'SCHOOL_ADMIN': 'admin123',
-        'PRINCIPAL': 'principal123',
-        'LIBRARIAN': 'librarian123',
-        'TEACHER': 'teacher123',
-        'STUDENT': 'student123',
-        'PARENT': 'parent123',
-        'REGISTRAR': 'registrar123',
-        'ACCOUNTANT': 'accountant123',
-        'HR_MANAGER': 'hr123',
-    }
-    return role_defaults.get(str(role).upper(), 'student123')
+    import secrets
+    return secrets.token_urlsafe(12)
+
+
+def generate_account_setup_url(request, user, invalidate_previous=False):
+    """
+    Generates a cryptographically signed, single-use, expiring account password setup URL.
+    Does not require database schema modifications or raw credential storage.
+
+    If invalidate_previous is True and the user is an eligible unactivated account,
+    rotates the password hash to an unusable password to revoke previously issued setup tokens.
+    """
+    if invalidate_previous and getattr(user, 'is_activation_pending', not user.has_usable_password()):
+        user.set_unusable_password()
+        user.save(update_fields=['password'])
+
+    from django.utils.http import urlsafe_base64_encode
+    from django.utils.encoding import force_bytes
+    from django.contrib.auth.tokens import default_token_generator
+    from django.urls import reverse
+
+    uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    path = reverse('setup_account_password', kwargs={'uidb64': uidb64, 'token': token})
+    if request:
+        return request.build_absolute_uri(path)
+    return path
 

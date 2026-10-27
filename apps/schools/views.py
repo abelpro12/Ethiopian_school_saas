@@ -1,5 +1,6 @@
 import datetime
 import json
+import secrets
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, authenticate
@@ -7,7 +8,11 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Sum, Count, Avg, Q, Max
+from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from apps.tenants.models import School, SchoolStatus
 from apps.accounts.models import User, UserRole
@@ -553,6 +558,7 @@ def seattle_academy_login_view(request):
 
 @login_required
 @school_context_required
+@never_cache
 def admin_dashboard(request):
     """
     Comprehensive School Admin Dashboard with Students, Teachers, Non-Teaching Staff,
@@ -579,18 +585,19 @@ def admin_dashboard(request):
             parent_name = request.POST.get('parent_name', '')
 
             # 1. Student User Account — generate username based on first name
-            from apps.accounts.utils import generate_unique_username, get_default_role_password
-            student_initial_pwd = get_default_role_password(UserRole.STUDENT)
+            from apps.accounts.utils import generate_unique_username, generate_account_setup_url
             student_username = generate_unique_username(fname, lname, school=school)
+            student_email = request.POST.get('student_email', '').strip()
 
             student_user = User.objects.create_user(
                 username=student_username,
                 school=school,
                 role=UserRole.STUDENT,
                 first_name=fname,
-                last_name=lname
+                last_name=lname,
+                email=student_email
             )
-            student_user.set_password(student_initial_pwd)
+            student_user.set_unusable_password()
             student_user.must_change_password = True
             student_user.save()
 
@@ -637,6 +644,7 @@ def admin_dashboard(request):
             else:
                 parent_first = parent_name or lname
                 parent_last = "Guardian" if parent_name else "Parent"
+                parent_email = request.POST.get('parent_email', '').strip()
                 parent_username = generate_unique_username(parent_first, parent_last, school=school, prefix="p_")
 
                 parent_user = User.objects.create_user(
@@ -644,13 +652,12 @@ def admin_dashboard(request):
                     school=school,
                     role=UserRole.PARENT,
                     first_name=parent_first,
-                    last_name=parent_last
+                    last_name=parent_last,
+                    email=parent_email
                 )
-                parent_initial_pwd = get_default_role_password(UserRole.PARENT)
-                parent_user.set_password(parent_initial_pwd)
+                parent_user.set_unusable_password()
                 parent_user.must_change_password = True
                 parent_user.save()
-
 
                 parent_profile, _ = ParentProfile.objects.get_or_create(
                     user=parent_user,
@@ -666,7 +673,16 @@ def admin_dashboard(request):
                     student=student,
                     defaults={'is_primary': True}
                 )
-                parent_msg = f"Parent login username: {parent_user.username} | Password: {parent_initial_pwd} (must change on login)."
+                parent_setup_url = generate_account_setup_url(request, parent_user)
+                if parent_email:
+                    from apps.notifications.services import EmailService
+                    p_sent = EmailService.send_user_invitation_email(school, parent_user, parent_setup_url)
+                    if p_sent:
+                        parent_msg = f"Parent username: {parent_user.username}. Password setup invitation sent to {parent_email}."
+                    else:
+                        parent_msg = f"Parent username: {parent_user.username}. Setup invitation email could not be sent to {parent_email}; account setup is pending."
+                else:
+                    parent_msg = f"Parent username: {parent_user.username}. No parent email provided; account setup is pending."
 
             # 4. Initial Enrollment
             if sec_id:
@@ -684,10 +700,18 @@ def admin_dashboard(request):
                     }
                 )
 
-            messages.success(
-                request, 
-                f"Successfully registered student {fname} {lname}! (Student Login Username: {student_user.username} | Initial Password: {student_initial_pwd}). {parent_msg}"
-            )
+            student_setup_url = generate_account_setup_url(request, student_user)
+            if student_email:
+                from apps.notifications.services import EmailService
+                s_sent = EmailService.send_user_invitation_email(school, student_user, student_setup_url)
+                if s_sent:
+                    student_msg = f"Successfully registered student {fname} {lname}! (Username: {student_user.username}. Setup invitation sent to {student_email})."
+                else:
+                    student_msg = f"Successfully registered student {fname} {lname}! (Username: {student_user.username}. Setup email could not be sent to {student_email}; account setup is pending)."
+            else:
+                student_msg = f"Successfully registered student {fname} {lname}! (Username: {student_user.username}. No student email provided; account setup is pending)."
+
+            messages.success(request, f"{student_msg} {parent_msg}")
             return redirect('admin_dashboard')
 
         elif action == 'add_teacher':
@@ -696,8 +720,9 @@ def admin_dashboard(request):
             fname = request.POST.get('first_name')
             lname = request.POST.get('last_name')
             spec = request.POST.get('specialization')
+            email = request.POST.get('email', '').strip()
 
-            from apps.accounts.utils import generate_unique_username
+            from apps.accounts.utils import generate_unique_username, generate_account_setup_url
             teacher_username = generate_unique_username(fname, lname, school=school)
 
             user = User.objects.create_user(
@@ -705,9 +730,10 @@ def admin_dashboard(request):
                 school=school,
                 role=UserRole.TEACHER,
                 first_name=fname,
-                last_name=lname
+                last_name=lname,
+                email=email
             )
-            user.set_password("teacher123")
+            user.set_unusable_password()
             user.must_change_password = True
             user.save()
 
@@ -717,7 +743,16 @@ def admin_dashboard(request):
                 employee_id=emp_id,
                 specialization=spec
             )
-            messages.success(request, f"Teacher '{fname} {lname}' created successfully! (Username: '{teacher_username}', Default password: 'teacher123')")
+            setup_url = generate_account_setup_url(request, user)
+            if email:
+                from apps.notifications.services import EmailService
+                sent = EmailService.send_user_invitation_email(school, user, setup_url)
+                if sent:
+                    messages.success(request, f"Teacher '{fname} {lname}' created successfully! (Username: '{teacher_username}'). Invitation sent to {email}.")
+                else:
+                    messages.warning(request, f"Teacher '{fname} {lname}' created successfully (Username: '{teacher_username}'), but invitation email could not be sent to {email}. Account setup is pending.")
+            else:
+                messages.success(request, f"Teacher '{fname} {lname}' created successfully! (Username: '{teacher_username}'). No email provided; account setup is pending.")
             return redirect('admin_dashboard')
 
         elif action == 'add_staff':
@@ -726,6 +761,7 @@ def admin_dashboard(request):
             lname = request.POST.get('last_name')
             dept = request.POST.get('department')
             pos = request.POST.get('position', StaffPosition.OTHER)
+            email = request.POST.get('email', '').strip()
 
             role_map = {
                 StaffPosition.REGISTRAR: UserRole.REGISTRAR,
@@ -736,7 +772,7 @@ def admin_dashboard(request):
             }
             assigned_role = role_map.get(pos, UserRole.SCHOOL_ADMIN)
 
-            from apps.accounts.utils import generate_unique_username
+            from apps.accounts.utils import generate_unique_username, generate_account_setup_url
             staff_username = generate_unique_username(fname, lname, school=school)
 
             user = User.objects.create_user(
@@ -744,9 +780,10 @@ def admin_dashboard(request):
                 school=school,
                 role=assigned_role,
                 first_name=fname,
-                last_name=lname
+                last_name=lname,
+                email=email
             )
-            user.set_password("staff123")
+            user.set_unusable_password()
             user.must_change_password = True
             user.save()
 
@@ -758,7 +795,16 @@ def admin_dashboard(request):
                 position=pos,
                 hire_date=datetime.date.today()
             )
-            messages.success(request, f"Staff member '{fname} {lname}' ({pos}) created successfully!")
+            setup_url = generate_account_setup_url(request, user)
+            if email:
+                from apps.notifications.services import EmailService
+                sent = EmailService.send_user_invitation_email(school, user, setup_url)
+                if sent:
+                    messages.success(request, f"Staff member '{fname} {lname}' ({pos}) created successfully! Invitation sent to {email}.")
+                else:
+                    messages.warning(request, f"Staff member '{fname} {lname}' ({pos}) created successfully, but invitation email could not be sent to {email}. Account setup is pending.")
+            else:
+                messages.success(request, f"Staff member '{fname} {lname}' ({pos}) created successfully! (Username: '{staff_username}'). No email provided; account setup is pending.")
             return redirect('admin_dashboard')
 
         elif action == 'upload_staff_doc':
@@ -854,27 +900,91 @@ def admin_dashboard(request):
             target_type = request.POST.get('target_type')
             student_id = request.POST.get('student_id')
             new_password = request.POST.get('new_password', '').strip()
-            
-            if new_password and student_id:
-                student = get_object_or_404(StudentProfile, id=student_id, school=school)
-                if target_type == 'STUDENT':
-                    student.user.set_password(new_password)
-                    student.user.must_change_password = True
-                    student.user.save()
-                    student.current_password_display = new_password
-                    student.save()
-                    messages.success(request, f"Student password updated to '{new_password}' for {student.full_name}.")
-                elif target_type == 'PARENT':
-                    parent = student.primary_guardian
-                    if parent:
-                        parent.user.set_password(new_password)
-                        parent.user.must_change_password = True
-                        parent.user.save()
-                        parent.current_password_display = new_password
-                        parent.save()
-                        messages.success(request, f"Parent password updated to '{new_password}' for {student.full_name}'s guardian ({parent.user.username}).")
-                    else:
-                        messages.error(request, f"No parent profile linked to {student.full_name}.")
+
+            if not new_password or not student_id:
+                messages.error(request, "Student and new password are required.")
+                return redirect('admin_dashboard')
+
+            try:
+                student = StudentProfile.objects.get(id=student_id, school=school)
+            except StudentProfile.DoesNotExist:
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PASSWORD_RESET_FAILED',
+                    object_type='StudentProfile',
+                    object_id=str(student_id),
+                    after_val={
+                        'target_type': target_type,
+                        'outcome': 'FAILED',
+                        'reason': 'USER_NOT_FOUND_OR_CROSS_TENANT',
+                        'details': 'Student profile not found in active school tenant.'
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+                messages.error(request, "Student not found.")
+                return redirect('admin_dashboard')
+
+            if target_type == 'STUDENT':
+                target_user = student.user
+            elif target_type == 'PARENT':
+                parent = student.primary_guardian
+                if not parent:
+                    messages.error(request, f"No parent profile linked to {student.full_name}.")
+                    return redirect('admin_dashboard')
+                target_user = parent.user
+            else:
+                messages.error(request, "Invalid target type.")
+                return redirect('admin_dashboard')
+
+            try:
+                validate_password(new_password, user=target_user)
+            except DjangoValidationError as exc:
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PASSWORD_RESET_FAILED',
+                    object_type='User',
+                    object_id=str(target_user.id),
+                    after_val={
+                        'target_user_id': str(target_user.id),
+                        'target_username': target_user.username,
+                        'target_role': target_user.role,
+                        'target_type': target_type,
+                        'outcome': 'FAILED',
+                        'reason': 'PASSWORD_VALIDATION_FAILED',
+                        'details': list(exc.messages)
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+                for msg in exc.messages:
+                    messages.error(request, msg)
+                return redirect('admin_dashboard')
+
+            with transaction.atomic():
+                target_user.set_password(new_password)
+                target_user.must_change_password = True
+                target_user.save()
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PASSWORD_RESET_SUCCESS',
+                    object_type='User',
+                    object_id=str(target_user.id),
+                    after_val={
+                        'target_user_id': str(target_user.id),
+                        'target_username': target_user.username,
+                        'target_role': target_user.role,
+                        'target_type': target_type,
+                        'outcome': 'SUCCESS',
+                        'must_change_password_set': True,
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
+            if target_type == 'STUDENT':
+                messages.success(request, f"Password updated successfully for student '{student.full_name}'. They will be prompted to set a new password on their next login.")
+            else:
+                messages.success(request, f"Password updated successfully for {student.full_name}'s guardian ({target_user.username}). They will be prompted to set a new password on their next login.")
             return redirect('admin_dashboard')
 
     academic_years = AcademicYear.objects.filter(school=school)
@@ -1570,7 +1680,7 @@ def user_management_view(request):
 
     if request.method == 'POST':
         action = request.POST.get('action')
-        target_user_id = request.POST.get('user_id')
+        target_user_id = request.POST.get('user_id') or request.POST.get('target_user_id')
         
         try:
             target_user = User.objects.get(id=target_user_id, school=school)
@@ -1593,26 +1703,90 @@ def user_management_view(request):
                 # SCHOOL_ADMIN credentials can only be edited by themselves or SUPER_ADMIN.
                 # PRINCIPAL credentials can be edited by SCHOOL_ADMIN, SUPER_ADMIN, or themselves.
                 if target_user.role == 'SCHOOL_ADMIN' and not (is_self or is_super or is_school_admin):
+                    AuditService.log_action(
+                        school=school,
+                        user=request.user,
+                        action='PASSWORD_RESET_FAILED',
+                        object_type='User',
+                        object_id=str(target_user.id),
+                        after_val={
+                            'target_user_id': str(target_user.id),
+                            'target_username': target_user.username,
+                            'target_role': target_user.role,
+                            'outcome': 'FAILED',
+                            'reason': 'PERMISSION_DENIED',
+                            'details': 'Unauthorized attempt to modify School Admin credentials.'
+                        },
+                        ip_address=AuditService.get_client_ip(request)
+                    )
                     messages.error(request, "Security Restriction: You do not have permission to modify School Admin credentials.")
                 elif target_user.role == 'PRINCIPAL' and not (is_self or is_super or is_school_admin):
+                    AuditService.log_action(
+                        school=school,
+                        user=request.user,
+                        action='PASSWORD_RESET_FAILED',
+                        object_type='User',
+                        object_id=str(target_user.id),
+                        after_val={
+                            'target_user_id': str(target_user.id),
+                            'target_username': target_user.username,
+                            'target_role': target_user.role,
+                            'outcome': 'FAILED',
+                            'reason': 'PERMISSION_DENIED',
+                            'details': 'Unauthorized attempt to modify Principal credentials.'
+                        },
+                        ip_address=AuditService.get_client_ip(request)
+                    )
                     messages.error(request, "Security Restriction: You do not have permission to modify Principal credentials.")
                 elif action == 'change_password':
-
-                    new_password = request.POST.get('new_password')
-                    if new_password and len(new_password) >= 6:
-                        target_user.set_password(new_password)
-                        if target_user.id != request.user.id:
-                            target_user.must_change_password = True
-                        target_user.save()
-                        if hasattr(target_user, 'student_profile'):
-                            target_user.student_profile.current_password_display = new_password
-                            target_user.student_profile.save()
-                        if hasattr(target_user, 'parent_profile'):
-                            target_user.parent_profile.current_password_display = new_password
-                            target_user.parent_profile.save()
-                        messages.success(request, f"Password reset successfully for {target_user.username}. They will be prompted to set a new password on their next login.")
+                    new_password = request.POST.get('new_password', '').strip()
+                    if not new_password:
+                        messages.error(request, "Password is required.")
                     else:
-                        messages.error(request, "Password must be at least 6 characters.")
+                        try:
+                            validate_password(new_password, user=target_user)
+                        except DjangoValidationError as exc:
+                            AuditService.log_action(
+                                school=school,
+                                user=request.user,
+                                action='PASSWORD_RESET_FAILED',
+                                object_type='User',
+                                object_id=str(target_user.id),
+                                after_val={
+                                    'target_user_id': str(target_user.id),
+                                    'target_username': target_user.username,
+                                    'target_role': target_user.role,
+                                    'outcome': 'FAILED',
+                                    'reason': 'PASSWORD_VALIDATION_FAILED',
+                                    'details': list(exc.messages)
+                                },
+                                ip_address=AuditService.get_client_ip(request)
+                            )
+                            for msg in exc.messages:
+                                messages.error(request, msg)
+                        else:
+                            with transaction.atomic():
+                                target_user.set_password(new_password)
+                                if target_user.id != request.user.id:
+                                    target_user.must_change_password = True
+                                target_user.save()
+                                AuditService.log_action(
+                                    school=school,
+                                    user=request.user,
+                                    action='PASSWORD_RESET_SUCCESS',
+                                    object_type='User',
+                                    object_id=str(target_user.id),
+                                    after_val={
+                                        'target_user_id': str(target_user.id),
+                                        'target_username': target_user.username,
+                                        'target_role': target_user.role,
+                                        'outcome': 'SUCCESS',
+                                        'must_change_password_set': (target_user.id != request.user.id),
+                                        'is_self_reset': is_self,
+                                    },
+                                    ip_address=AuditService.get_client_ip(request)
+                                )
+                            messages.success(request, f"Password reset successfully for {target_user.username}. They will be prompted to set a new password on their next login.")
 
                 elif action == 'change_username':
                     new_username = request.POST.get('new_username', '').strip().lower()
@@ -1627,7 +1801,60 @@ def user_management_view(request):
                     else:
                         messages.error(request, "Username must be at least 3 characters long.")
 
+            elif action == 'resend_invitation':
+                if not getattr(target_user, 'is_activation_pending', False):
+                    messages.info(request, f"User '{target_user.username}' has already completed account activation.")
+                else:
+                    new_email = request.POST.get('email', '').strip().lower()
+                    if new_email and new_email != target_user.email:
+                        from django.core.validators import validate_email
+                        try:
+                            validate_email(new_email)
+                            target_user.email = new_email
+                            target_user.save(update_fields=['email'])
+                        except DjangoValidationError:
+                            messages.error(request, f"Invalid email address: '{new_email}'.")
+                            redirect_url = f"{request.path}?role={current_role}"
+                            if selected_grade_id: redirect_url += f"&grade={selected_grade_id}"
+                            if selected_section_id: redirect_url += f"&section={selected_section_id}"
+                            return redirect(redirect_url)
+
+                    if not target_user.email:
+                        messages.error(request, f"Cannot send setup invitation: User '{target_user.username}' does not have an email address configured.")
+                    else:
+                        from apps.accounts.utils import generate_account_setup_url
+                        from apps.notifications.services import EmailService
+                        prev_password_hash = target_user.password
+                        setup_url = generate_account_setup_url(request, target_user, invalidate_previous=True)
+                        try:
+                            sent = EmailService.send_user_invitation_email(school, target_user, setup_url)
+                        except Exception:
+                            sent = False
+                        if sent:
+                            messages.success(request, f"Password setup invitation sent successfully to {target_user.email} for user '{target_user.username}'.")
+                        else:
+                            # Delivery failed: restore previous password hash so usable temporary credentials or prior setup tokens are not destroyed
+                            if prev_password_hash != target_user.password:
+                                target_user.password = prev_password_hash
+                                target_user.save(update_fields=['password'])
+                            messages.warning(request, f"Failed to deliver setup invitation to {target_user.email}. Please verify mail settings.")
+
         except User.DoesNotExist:
+            if action in ['change_password', 'reset_password']:
+                AuditService.log_action(
+                    school=school,
+                    user=request.user,
+                    action='PASSWORD_RESET_FAILED',
+                    object_type='User',
+                    object_id=str(target_user_id) if target_user_id else '',
+                    after_val={
+                        'target_user_id': str(target_user_id) if target_user_id else '',
+                        'outcome': 'FAILED',
+                        'reason': 'USER_NOT_FOUND_OR_CROSS_TENANT',
+                        'details': 'Target user not found within active school tenant.'
+                    },
+                    ip_address=AuditService.get_client_ip(request)
+                )
             messages.error(request, "Target user not found.")
         except Exception as e:
             messages.error(request, f"Error: {str(e)}")

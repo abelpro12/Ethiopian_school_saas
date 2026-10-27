@@ -3,7 +3,14 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     SchoolViewSet, AcademicYearViewSet, GradeViewSet, SectionViewSet,
     StudentProfileViewSet, AttendanceRecordViewSet, StudentMarkViewSet, StudentInvoiceViewSet,
-    api_login_view
+    api_login_view, api_change_password_view, CustomTokenObtainPairView, CustomTokenRefreshView
+)
+from rest_framework_simplejwt.views import TokenVerifyView
+
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
 )
 
 router = DefaultRouter()
@@ -16,18 +23,6 @@ router.register(r'attendance', AttendanceRecordViewSet, basename='api-attendance
 router.register(r'marks', StudentMarkViewSet, basename='api-mark')
 router.register(r'invoices', StudentInvoiceViewSet, basename='api-invoice')
 
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-    TokenVerifyView,
-)
-
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularRedocView,
-    SpectacularSwaggerView,
-)
-
 urlpatterns = [
     # OpenAPI 3.0 Schema & Interactive Documentation
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -37,8 +32,9 @@ urlpatterns = [
 
     # Authentication Endpoints
     path('auth/login/', api_login_view, name='api_login'),
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/change-password/', api_change_password_view, name='api_change_password'),
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
     # Router Endpoints

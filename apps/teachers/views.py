@@ -1,11 +1,14 @@
+import secrets
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
 from django.contrib import messages
 from apps.teachers.models import TeacherProfile, EmploymentStatus
 from apps.accounts.models import User, UserRole
 
 @login_required
+@never_cache
 def management_dashboard(request):
     school = getattr(request, 'school', None)
     if not school and getattr(request.user, 'school', None):
@@ -110,20 +113,21 @@ def management_dashboard(request):
                 messages.error(request, "Employee ID, First Name, and Last Name are required.")
                 return redirect('teachers:management')
 
-            from apps.accounts.utils import generate_unique_username
+            from apps.accounts.utils import generate_unique_username, generate_account_setup_url
             teacher_username = generate_unique_username(fname, lname, school=school)
+            email = request.POST.get('email', '').strip()
 
             user = User.objects.create_user(
                 username=teacher_username,
                 school=school,
                 role=UserRole.TEACHER,
                 first_name=fname,
-                last_name=lname
+                last_name=lname,
+                email=email
             )
-            user.set_password("teacher123")
+            user.set_unusable_password()
             user.must_change_password = True
             user.save()
-
 
             teacher_profile = TeacherProfile.objects.create(
                 school=school,
@@ -139,7 +143,16 @@ def management_dashboard(request):
                     sec.class_teacher = user
                     sec.save()
 
-            messages.success(request, f"Teacher '{fname} {lname}' (ID: {emp_id}) added successfully! Default password is 'teacher123'.")
+            setup_url = generate_account_setup_url(request, user)
+            if email:
+                from apps.notifications.services import EmailService
+                sent = EmailService.send_user_invitation_email(school, user, setup_url)
+                if sent:
+                    messages.success(request, f"Teacher '{fname} {lname}' (ID: {emp_id}) added successfully! Invitation sent to {email}.")
+                else:
+                    messages.warning(request, f"Teacher '{fname} {lname}' (ID: {emp_id}) added successfully, but invitation email could not be sent to {email}. Account setup is pending.")
+            else:
+                messages.success(request, f"Teacher '{fname} {lname}' (ID: {emp_id}, Username: '{teacher_username}') added successfully! No email provided; account setup is pending.")
             return redirect('teachers:management')
 
         return redirect('teachers:management')

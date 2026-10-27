@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from apps.schools.views import health_check_view, readiness_check_view
-from apps.accounts.views import force_change_password, update_my_credentials
+from apps.accounts.views import force_change_password, update_my_credentials, setup_account_password
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -12,6 +12,7 @@ urlpatterns = [
 
     # Accounts — accessible before TenantMiddleware blocks
     path('accounts/change-password/', force_change_password, name='force_change_password'),
+    path('accounts/setup-password/<str:uidb64>/<str:token>/', setup_account_password, name='setup_account_password'),
     path('accounts/update-credentials/', update_my_credentials, name='update_my_credentials'),
 
     path('verify/<str:token>/', include('apps.reports.urls_verify')),

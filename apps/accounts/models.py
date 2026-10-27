@@ -31,17 +31,19 @@ class User(AbstractUser):
         default=False,
         help_text='If True, the user will be redirected to change their password on next login.'
     )
-    current_password_plain = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text='Stores active/assigned password for display in user management dashboard.'
-    )
 
-    def set_password(self, raw_password):
-        super().set_password(raw_password)
-        if raw_password:
-            self.current_password_plain = raw_password
+    @property
+    def is_activation_pending(self):
+        """
+        Returns True if the account has not yet completed initial setup / activation:
+        1. Account has an unusable password (not self.has_usable_password()).
+        2. Account has a usable temporary password, must_change_password=True, and has never logged in (last_login is None).
+        Activated accounts (usable password with must_change_password=False, or active accounts with prior logins)
+        return False.
+        """
+        if not self.has_usable_password():
+            return True
+        return bool(self.must_change_password and self.last_login is None)
 
     @property
     def presence_status(self):
@@ -105,30 +107,11 @@ class User(AbstractUser):
     @property
     def current_password(self):
         """
-        Returns active/assigned display password for User Management dashboard.
+        Security: Plaintext password storage and retrieval has been deprecated
+        and disabled (Stage 1 remediation). Always returns None to prevent
+        credential exposure across UI, exports, and templates.
         """
-        if self.role == 'SUPER_ADMIN' and not self.current_password_plain:
-            return None
-
-        if self.current_password_plain:
-            return self.current_password_plain
-        if hasattr(self, 'student_profile') and getattr(self.student_profile, 'current_password_display', None):
-            return self.student_profile.current_password_display
-        if hasattr(self, 'parent_profile') and getattr(self.parent_profile, 'current_password_display', None):
-            return self.parent_profile.current_password_display
-        
-        role_defaults = {
-            'SCHOOL_ADMIN': 'admin123',
-            'PRINCIPAL': 'principal123',
-            'LIBRARIAN': 'librarian123',
-            'TEACHER': 'teacher123',
-            'STUDENT': 'student123',
-            'PARENT': 'parent123',
-            'REGISTRAR': 'registrar123',
-            'ACCOUNTANT': 'accountant123',
-            'HR_MANAGER': 'hr123',
-        }
-        return role_defaults.get(self.role, 'password123')
+        return None
 
     def has_school_permission(self, perm_code: str) -> bool:
         if self.role == UserRole.SUPER_ADMIN or self.is_superuser:

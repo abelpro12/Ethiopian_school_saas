@@ -149,13 +149,11 @@
                 </div>
             </div>
 
-            <!-- Password Badge -->
-            {% if target_user.current_password %}
-            <div class="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mb-3">
-                <p class="text-[10px] text-amber-600 font-bold uppercase tracking-wider mb-0.5">Current Password</p>
-                <p class="font-mono font-bold text-amber-900 text-sm">🔑 {{ target_user.current_password }}</p>
+            <!-- Password Status -->
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 mb-3">
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Password</p>
+                <p class="text-xs text-slate-600 font-medium">🔒 Protected (Reset password to issue new credential)</p>
             </div>
-            {% endif %}
 
             {% if current_role == 'STUDENT' %}
             {% with enrollments=target_user.student_profile.current_enrollment_list %}
@@ -275,15 +273,9 @@
                                     </button>
                                     {% endif %}
                                 </span>
-                                {% if target_user.current_password %}
-                                <span class="inline-flex items-center px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/90 rounded-md font-semibold text-[11px]">
-                                    🔑 {{ target_user.current_password }}
-                                </span>
-                                {% else %}
                                 <span class="inline-flex items-center px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-md font-semibold text-[11px]" title="Encrypted & Protected">
                                     🔒 Protected
                                 </span>
-                                {% endif %}
                             </div>
                         </td>
                         {% if current_role == 'STUDENT' %}
@@ -388,6 +380,12 @@
                                     {% endif %}
                                 {% endif %}
 
+                                {% if target_user.is_activation_pending %}
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200" title="Account setup invitation pending">
+                                    <i class="fa-solid fa-clock text-[9px]"></i> Setup Pending
+                                </span>
+                                {% endif %}
+
                                 <!-- Active Presence Badge -->
                                 <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium {{ target_user.presence_badge_classes }}" title="Last seen: {{ target_user.last_seen_display }}">
                                     <span class="w-1.5 h-1.5 rounded-full {{ target_user.presence_dot_class }}"></span>
@@ -409,6 +407,12 @@
                                         class="text-brand-600 hover:text-brand-800 p-1.5 rounded-lg hover:bg-brand-50 transition" title="Reset Password">
                                     <i class="fa-solid fa-key"></i>
                                 </button>
+                                {% if target_user.is_activation_pending %}
+                                <button type="button" onclick="openResendModal('{{ target_user.id }}', '{{ target_user.username|escapejs }}', '{{ target_user.get_full_name|escapejs }}', '{{ target_user.email|default:''|escapejs }}')"
+                                        class="text-amber-600 hover:text-amber-800 p-1.5 rounded-lg hover:bg-amber-50 transition" title="Resend Setup Invitation">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                                {% endif %}
                                 {% else %}
                                 <span class="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-500 rounded-md text-xs font-semibold" title="Only School Admin or Super Admin can change credentials">
                                     🔒 Admin-Protected
@@ -532,6 +536,49 @@
     </div>
 </div>
 
+<!-- Resend Setup Invitation Modal -->
+<div id="resendModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all max-h-[90vh] overflow-y-auto">
+        <form action="{% url 'user_management' %}?role={{ current_role }}{% if selected_grade_id %}&grade={{ selected_grade_id }}{% endif %}{% if selected_section_id %}&section={{ selected_section_id }}{% endif %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="resend_invitation">
+            <input type="hidden" name="user_id" id="resendModalUserId">
+
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane text-sm"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-800">Resend Setup Invitation</h3>
+                </div>
+                <button type="button" onclick="closeResendModal()" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <p class="text-sm text-slate-600">Send an account password setup link to <strong id="resendModalName" class="text-slate-800"></strong> (<span id="resendModalUsername" class="font-mono text-xs text-brand-600"></span>). Any previously issued setup link will be immediately invalidated.</p>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Recipient Email Address</label>
+                    <input type="email" name="email" id="resendModalEmail" required
+                           class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition text-sm"
+                           placeholder="user@example.com">
+                    <p class="text-xs text-slate-500 mt-1">If the email is updated, it will be saved to the user's account profile.</p>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+                <button type="button" onclick="closeResendModal()"
+                        class="flex-1 py-2.5 text-slate-600 font-medium text-sm bg-slate-100 hover:bg-slate-200 rounded-xl transition">Cancel</button>
+                <button type="submit"
+                        class="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm rounded-xl shadow-sm transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane text-xs"></i> Send Invitation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     function openPasswordModal(userId, username, name) {
         document.getElementById('modalUserId').value = userId;
@@ -553,6 +600,18 @@
 
     function closeUsernameModal() {
         closeModal('usernameModal');
+    }
+
+    function openResendModal(userId, username, name, email) {
+        document.getElementById('resendModalUserId').value = userId;
+        document.getElementById('resendModalUsername').textContent = username;
+        document.getElementById('resendModalName').textContent = name;
+        document.getElementById('resendModalEmail').value = email || '';
+        openModal('resendModal');
+    }
+
+    function closeResendModal() {
+        closeModal('resendModal');
     }
 </script>
 {% endblock %}

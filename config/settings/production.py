@@ -15,12 +15,22 @@ if not SECRET_KEY:
         'Generate one with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
     )
 
-# ─── HTTPS / TLS ─────────────────────────────────────────────────────────────
+# ─── HTTPS / TLS & PROXY SECURITY ───────────────────────────────────────────
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000          # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Explicit list of trusted reverse proxy IP addresses or CIDR blocks.
+# Only requests whose socket REMOTE_ADDR matches these addresses will have their
+# X-Real-IP / X-Forwarded-For headers inspected.
+# Defaults to loopback ('127.0.0.1', '::1') for single-host reverse-proxy setups.
+# For multi-tier or containerized topologies (e.g. Nginx on Docker bridge network),
+# configure SECURE_PROXY_IPS in the environment with verified proxy IPs or CIDR blocks.
+# Untrusted connections fail closed: forwarded headers are discarded.
+_raw_secure_proxy_ips = os.environ.get('SECURE_PROXY_IPS', '127.0.0.1,::1')
+SECURE_PROXY_IPS = {ip.strip() for ip in _raw_secure_proxy_ips.split(',') if ip.strip()}
 
 # ─── COOKIE SECURITY ─────────────────────────────────────────────────────────
 SESSION_COOKIE_SECURE = True
@@ -44,23 +54,40 @@ REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = [
 ]
 
 # ─── DATABASE: PostgreSQL via DATABASE_URL env var ───────────────────────────
+VALID_SSL_MODES = {'require', 'verify-ca', 'verify-full'}
+_raw_sslmode = os.environ.get('DB_SSLMODE', 'require').strip().lower()
+if _raw_sslmode not in VALID_SSL_MODES:
+    raise RuntimeError(
+        f"CRITICAL SECURITY CONFIGURATION: DB_SSLMODE='{_raw_sslmode}' is not permitted in production. "
+        f"Production PostgreSQL requires one of: {', '.join(sorted(VALID_SSL_MODES))}."
+    )
+DB_SSLMODE = _raw_sslmode
+DB_SSLROOTCERT = os.environ.get('DB_SSLROOTCERT', '').strip() or None
+
 _database_url = os.environ.get('DATABASE_URL', '')
 if _database_url:
     try:
         import dj_database_url
-        DATABASES = {
-            'default': dj_database_url.parse(
-                _database_url,
-                conn_max_age=600,
-                conn_health_checks=True,
-            )
-        }
+        db_config = dj_database_url.parse(
+            _database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True,
+        )
+        db_config.setdefault('OPTIONS', {})
+        db_config['OPTIONS']['sslmode'] = DB_SSLMODE
+        if DB_SSLROOTCERT:
+            db_config['OPTIONS']['sslrootcert'] = DB_SSLROOTCERT
+        DATABASES = {'default': db_config}
     except ImportError:
         raise RuntimeError(
             'DATABASE_URL is set but dj-database-url is not installed. '
             'Add dj-database-url to requirements/production.txt'
         )
 else:
+    options = {'sslmode': DB_SSLMODE}
+    if DB_SSLROOTCERT:
+        options['sslrootcert'] = DB_SSLROOTCERT
     # Fallback: manual PostgreSQL config via individual env vars
     DATABASES = {
         'default': {
@@ -71,9 +98,7 @@ else:
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '5432'),
             'CONN_MAX_AGE': 600,
-            'OPTIONS': {
-                'sslmode': os.environ.get('DB_SSLMODE', 'require'),
-            },
+            'OPTIONS': options,
         }
     }
 

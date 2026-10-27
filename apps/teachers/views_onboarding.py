@@ -469,10 +469,23 @@ def convert_candidate_view(request, application_id):
 
     try:
         profile = app.convert_to_teacher()
+        invite_msg = ""
+        if profile.user.email:
+            from apps.accounts.utils import generate_account_setup_url
+            from apps.notifications.services import EmailService
+            setup_url = generate_account_setup_url(request, profile.user)
+            sent = EmailService.send_user_invitation_email(school, profile.user, setup_url)
+            if sent:
+                invite_msg = f" Password setup invitation sent to {profile.user.email}."
+            else:
+                invite_msg = f" Invitation email could not be sent to {profile.user.email}; account setup is pending."
+        else:
+            invite_msg = " No email provided on application; account setup is pending."
+
         messages.success(
             request,
             f"Successfully appointed and converted {app.full_name} into active Teacher! "
-            f"Generated Employee ID: {profile.employee_id}, Username: {profile.user.username}."
+            f"Generated Employee ID: {profile.employee_id}, Username: {profile.user.username}.{invite_msg}"
         )
     except Exception as e:
         messages.error(request, f"Error converting candidate to teacher: {e}")

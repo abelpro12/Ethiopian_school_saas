@@ -11,6 +11,9 @@ except Exception:
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ethiopian-school-saas-dev-key')
 
+# Trusted proxy IP addresses or subnets (default to localhost loopback)
+SECURE_PROXY_IPS = {'127.0.0.1', '::1'}
+
 # SMS Gateways (Hahu.io / SMSEthiopia / AfroMessage)
 HAHU_API_URL = os.environ.get('HAHU_API_URL', 'https://hahu.io/api/send/sms')
 HAHU_API_SECRET = os.environ.get('HAHU_API_SECRET', None)
@@ -217,6 +220,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
+        'apps.api.permissions.IsPasswordChangeCompleted',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -272,6 +276,8 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),       # Refresh token valid for 7 days
     'ROTATE_REFRESH_TOKENS': True,                     # Issue a new refresh token on refresh
     'BLACKLIST_AFTER_ROTATION': False,
+    'CHECK_REVOKE_TOKEN': True,                        # Invalidate tokens if password hash changes
+    'REVOKE_TOKEN_CLAIM': 'hash_password',
     'AUTH_HEADER_TYPES': ('Bearer',),                  # Header format: Authorization: Bearer <token>
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',

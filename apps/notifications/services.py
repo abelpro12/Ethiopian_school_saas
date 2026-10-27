@@ -1,3 +1,5 @@
+import os
+import sys
 import abc
 import logging
 from django.core.mail import send_mail
@@ -30,11 +32,43 @@ def _safe_console_print(text: str):
             pass
 
 
+def is_sms_simulation_allowed() -> bool:
+    """
+    Returns True ONLY if simulation mode is explicitly permitted:
+    1. Environment variable SMS_SIMULATION_MODE is explicitly 'true' / '1' / 'yes' -> True
+       (If explicitly 'false' / '0' / 'no' -> False)
+    2. Django settings SMS_SIMULATION_MODE is explicitly True -> True
+       (If explicitly False -> False)
+    3. If testing (TESTING=True) or development (DEBUG=True), simulation is permitted.
+    
+    In production (DEBUG=False, TESTING=False, and no explicit SMS_SIMULATION_MODE),
+    simulation is strictly prohibited to prevent false-success reporting.
+    """
+    import os
+    env_mode = os.environ.get('SMS_SIMULATION_MODE', '').strip().lower()
+    if env_mode in ('true', '1', 'yes'):
+        return True
+    if env_mode in ('false', '0', 'no'):
+        return False
+
+    explicit_setting = getattr(settings, 'SMS_SIMULATION_MODE', None)
+    if explicit_setting is not None:
+        return bool(explicit_setting)
+
+    return bool(getattr(settings, 'DEBUG', False) or getattr(settings, 'TESTING', False))
+
+
 class MockSMSProvider(SMSProviderBase):
     is_live_gateway = False
 
     def send_sms(self, phone_number: str, message: str) -> bool:
         self.last_error = None
+        if not is_sms_simulation_allowed():
+            self.last_error = "SMS gateway unconfigured in production: MockSMSProvider cannot dispatch live SMS."
+            self.last_details = {'simulated': False, 'error': 'UNCONFIGURED_IN_PRODUCTION'}
+            logger.error("[MOCK SMS] Unconfigured provider invoked in production environment. Failing closed.")
+            return False
+
         self.last_details = {'simulated': True}
         logger.info(f"[MOCK SMS] Sent to {phone_number}: {message}")
         _safe_console_print(f"[SIMULATION SMS to {phone_number}]: {message}")
@@ -102,15 +136,27 @@ class HahuSMSProvider(SMSProviderBase):
         self.last_error = None
         self.last_details = {}
 
-        if not self.api_secret or not self.device_id or self.api_secret in ('test_key', 'your_key_here'):
+        if not phone_number:
+            self.last_error = "Missing recipient phone number."
+            self.last_details = {'error': 'MISSING_PHONE'}
+            return False
+
+        has_creds = bool(self.api_secret and self.device_id and self.api_secret not in ('test_key', 'your_key_here'))
+        if not has_creds:
+            if not is_sms_simulation_allowed():
+                self.last_error = "Hahu.io credentials (API secret or Device ID) missing or unconfigured in production environment."
+                self.last_details = {'simulated': False, 'error': 'MISSING_CREDENTIALS'}
+                logger.error("[HahuSMS] Dispatch aborted: Missing Hahu credentials in production.")
+                return False
             logger.warning("[HahuSMS] No live API secret or Device ID configured. Simulating dispatch.")
             _safe_console_print(f"[HahuSMS SIMULATION to {phone_number}]: {message}")
             self.last_details = {'simulated': True}
             return True
 
-        is_test_run = 'test' in sys.argv or getattr(settings, 'TESTING', False)
-        force_simulation = os.environ.get('SMS_SIMULATION_MODE', 'False').lower() in ('true', '1', 'yes')
-        if force_simulation:
+        if is_sms_simulation_allowed() and (
+            getattr(settings, 'SMS_SIMULATION_MODE', False) or
+            os.environ.get('SMS_SIMULATION_MODE', '').strip().lower() in ('true', '1', 'yes')
+        ):
             logger.info(f"[HahuSMS FORCED SIMULATION to {phone_number}]: {message}")
             _safe_console_print(f"[HahuSMS SIMULATION to {phone_number}]: {message}")
             self.last_details = {'simulated': True}
@@ -190,14 +236,28 @@ class AfroMessageSMSProvider(SMSProviderBase):
         import os
         self.last_error = None
         self.last_details = {}
-        if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
+
+        if not phone_number:
+            self.last_error = "Missing recipient phone number."
+            self.last_details = {'error': 'MISSING_PHONE'}
+            return False
+
+        has_creds = bool(self.api_key and self.api_key not in ('test_key', 'your_key_here'))
+        if not has_creds:
+            if not is_sms_simulation_allowed():
+                self.last_error = "AfroMessage credentials (API key) missing or unconfigured in production environment."
+                self.last_details = {'simulated': False, 'error': 'MISSING_CREDENTIALS'}
+                logger.error("[AfroMessage] Dispatch aborted: Missing API key in production.")
+                return False
             logger.warning("[AfroMessage] No live API key configured. Simulating dispatch.")
             _safe_console_print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
             self.last_details = {'simulated': True}
             return True
 
-        force_simulation = os.environ.get('SMS_SIMULATION_MODE', 'False').lower() in ('true', '1', 'yes')
-        if force_simulation:
+        if is_sms_simulation_allowed() and (
+            getattr(settings, 'SMS_SIMULATION_MODE', False) or
+            os.environ.get('SMS_SIMULATION_MODE', '').strip().lower() in ('true', '1', 'yes')
+        ):
             logger.info(f"[AfroMessage FORCED SIMULATION to {phone_number}]: {message}")
             _safe_console_print(f"[AfroMessage SIMULATION to {phone_number}]: {message}")
             self.last_details = {'simulated': True}
@@ -221,6 +281,15 @@ class AfroMessageSMSProvider(SMSProviderBase):
         try:
             res = requests.post("https://api.afromessage.com/api/send", json=payload, headers=headers, timeout=10)
             if res.status_code in (200, 201):
+                try:
+                    data = res.json()
+                except Exception:
+                    data = {}
+                if data.get('acknowledge') == 'error' or data.get('status') in ('error', 'failed', 'FAIL') or data.get('error'):
+                    err_msg = data.get('response', {}).get('message') or data.get('message') or "Unknown provider error"
+                    self.last_error = f"AfroMessage Error: {err_msg}"
+                    logger.error(f"[AfroMessage SMS FAILED] {err_msg}")
+                    return False
                 logger.info(f"[AfroMessage SMS SUCCESS] To: {phone} | HTTP {res.status_code}")
                 return True
             else:
@@ -258,7 +327,7 @@ class SMSEthiopiaProvider(SMSProviderBase):
         self.dev_phone = (
             getattr(settings, 'SMS_DEV_PHONE', None)
             or os.environ.get('SMS_DEV_PHONE')
-            or '251937381801'
+            or None
         )
 
     def normalize_msisdn(self, phone: str) -> str:
@@ -275,15 +344,29 @@ class SMSEthiopiaProvider(SMSProviderBase):
         import os, sys
         self.last_error = None
         self.last_details = {}
-        if not self.api_key or self.api_key in ('test_key', 'your_key_here'):
+
+        if not phone_number:
+            self.last_error = "Missing recipient phone number."
+            self.last_details = {'error': 'MISSING_PHONE'}
+            return False
+
+        has_creds = bool(self.api_key and self.api_key not in ('test_key', 'your_key_here'))
+        if not has_creds:
+            if not is_sms_simulation_allowed():
+                self.last_error = "SMSEthiopia credentials (API key) missing or unconfigured in production environment."
+                self.last_details = {'simulated': False, 'error': 'MISSING_CREDENTIALS'}
+                logger.error("[SMSEthiopia] Dispatch aborted: Missing API key in production.")
+                return False
             logger.warning("[SMSEthiopia] No live API key configured. Simulating dispatch.")
             _safe_console_print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
             self.last_details = {'simulated': True}
             return True
 
-        # Check if entire SMS simulation mode is forced via environment
-        force_simulation = os.environ.get('SMS_SIMULATION_MODE', 'False').lower() in ('true', '1', 'yes')
-        if force_simulation:
+        # Check if entire SMS simulation mode is forced via environment or settings
+        if is_sms_simulation_allowed() and (
+            getattr(settings, 'SMS_SIMULATION_MODE', False) or
+            os.environ.get('SMS_SIMULATION_MODE', '').strip().lower() in ('true', '1', 'yes')
+        ):
             logger.info(f"[SMSEthiopia FORCED SIMULATION to {phone_number}]: {message}")
             _safe_console_print(f"[SMSEthiopia SIMULATION to {phone_number}]: {message}")
             self.last_details = {'simulated': True}
@@ -306,13 +389,33 @@ class SMSEthiopiaProvider(SMSProviderBase):
         try:
             # 1. Primary dispatch attempt with configured API key
             res = requests.post("https://smsethiopia.com/api/sms/send", json=payload, headers=headers, timeout=12)
+            
+            err_text = ""
+            is_error_payload = False
             if res.status_code in (200, 201):
-                logger.info(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn} | HTTP {res.status_code}")
-                _safe_console_print(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn}: {res.text}")
-                self.last_details = {'direct_delivered': True, 'msisdn': msisdn}
-                return True
+                try:
+                    data = res.json()
+                except Exception:
+                    data = {}
 
-            err_text = res.text or ""
+                if isinstance(data, dict):
+                    if data.get('error') is True or data.get('status') in ('error', 'failed', 'FAIL'):
+                        is_error_payload = True
+                        err_text = data.get('error_message') or data.get('message') or data.get('error') or str(data)
+                    elif 'error_message' in data or 'error_code' in data:
+                        is_error_payload = True
+                        err_text = data.get('error_message') or str(data.get('error_code'))
+                    elif data.get('success') is False:
+                        is_error_payload = True
+                        err_text = data.get('message') or "Provider reported dispatch failure"
+
+                if not is_error_payload:
+                    logger.info(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn} | HTTP {res.status_code}")
+                    _safe_console_print(f"[SMSEthiopia SMS SUCCESS] Dispatched to {msisdn}: {res.text}")
+                    self.last_details = {'direct_delivered': True, 'msisdn': msisdn}
+                    return True
+            else:
+                err_text = res.text or ""
             is_sender_id_pending = (
                 "10006" in err_text
                 or "SenderID not approved" in err_text
@@ -348,21 +451,12 @@ class SMSEthiopiaProvider(SMSProviderBase):
             # Check if simulation/dev-mode fallback is allowed
             simulate_unwhitelisted = getattr(settings, 'SMS_SIMULATE_UNWHITELISTED', None)
             if simulate_unwhitelisted is None:
-                simulate_unwhitelisted = getattr(settings, 'DEBUG', False) or is_test_run or (
-                    os.environ.get('SMS_SIMULATE_UNWHITELISTED', 'True').lower() in ('true', '1', 'yes')
+                simulate_unwhitelisted = is_sms_simulation_allowed() and (
+                    os.environ.get('SMS_SIMULATE_UNWHITELISTED', 'False').lower() in ('true', '1', 'yes')
                 )
 
-            # 3. In test runs (mocked or headless), fulfill test assertions cleanly
-            if is_test_run and simulate_unwhitelisted:
-                if is_unwhitelisted:
-                    self.last_details = {'simulated': True, 'reason': 'STARTER_UNWHITELISTED_SIMULATED', 'msisdn': msisdn}
-                    return True
-                if is_sender_id_pending:
-                    self.last_details = {'simulated': True, 'reason': 'BUSINESS_SENDERID_PENDING_SIMULATED', 'msisdn': msisdn}
-                    return True
-
-            # 4. In DEBUG mode or simulation mode: fulfill unwhitelisted numbers via local simulation without cross-parent rerouting
-            if (is_unwhitelisted or is_sender_id_pending) and (getattr(settings, 'DEBUG', False) or simulate_unwhitelisted):
+            # In development/test simulation mode ONLY or when explicitly enabled via setting:
+            if (is_unwhitelisted or is_sender_id_pending) and simulate_unwhitelisted:
                 notice = (
                     f"[SMSEthiopia DEV NOTICE]: Recipient {msisdn} simulated locally for development testing (unwhitelisted on Starter campaign)."
                 )
@@ -379,7 +473,7 @@ class SMSEthiopiaProvider(SMSProviderBase):
             elif is_unwhitelisted:
                 self.last_error = (
                     f"SMSEthiopia Starter Account limitation: Recipient {msisdn} is not whitelisted in your "
-                    f"smsethiopia.com dashboard. Starter campaigns only deliver to verified numbers (+251937381801). "
+                    f"smsethiopia.com dashboard. Starter campaigns only deliver to verified numbers. "
                     f"To send real SMS to all parents, whitelist their number in smsethiopia.com or upgrade to an approved campaign or switch to AfroMessage."
                 )
             else:
@@ -513,12 +607,63 @@ class EmailService:
 
         success = cls.send_email(parent_user.email, subject, body)
         if success:
+            # Security: Do not persist temporary passwords in database notification logs.
+            # Record credential-free audit metadata for the sent activation email.
+            log_message = (
+                f"Parent Portal Welcome & Verification email dispatched to {parent_user.email}.\n"
+                f"Student: {student_name}\n"
+                f"Username: {parent_user.username}\n"
+                f"Credentials: [CONFIDENTIAL_CREDENTIAL_ISSUED]"
+            )
             NotificationLog.objects.create(
                 school=school,
                 recipient=parent_user,
                 channel='EMAIL',
                 subject=subject,
-                message=body,
+                message=log_message,
+                status='SENT'
+            )
+        return success
+
+    @classmethod
+    def send_user_invitation_email(cls, school, user, setup_url: str) -> bool:
+        """
+        Sends an account setup / invitation link to a newly created Teacher, Staff,
+        Student, or Parent. Avoids transmitting raw passwords.
+        """
+        if not user or not getattr(user, 'email', None):
+            return False
+
+        school_name = getattr(school, 'name', 'School')
+        user_name = user.get_full_name() or user.first_name or user.username
+        role_label = user.get_role_display() if hasattr(user, 'get_role_display') else 'Staff'
+
+        subject = f"🎓 [{school_name}] Activate Your {role_label} Account"
+        body = (
+            f"Dear {user_name},\n\n"
+            f"An account has been created for you at {school_name} with the role of {role_label}.\n\n"
+            f"🔑 ACCOUNT ACTIVATION:\n"
+            f"• Username: {user.username}\n"
+            f"• Setup Link: {setup_url}\n\n"
+            f"Please visit the setup link above to configure your personal password. "
+            f"This link is single-use and will expire in 3 days for security.\n\n"
+            f"Best regards,\n"
+            f"{school_name} Administration"
+        )
+        success = cls.send_email(user.email, subject, body)
+        if success:
+            log_message = (
+                f"Account activation invitation dispatched to {user.email}.\n"
+                f"Role: {role_label}\n"
+                f"Username: {user.username}\n"
+                f"Activation: [ONE_TIME_SETUP_LINK_ISSUED]"
+            )
+            NotificationLog.objects.create(
+                school=school,
+                recipient=user,
+                channel='EMAIL',
+                subject=subject,
+                message=log_message,
                 status='SENT'
             )
         return success
@@ -566,10 +711,6 @@ class NotificationService:
         if cls._sms_provider is not None:
             return cls._sms_provider
 
-        import sys
-        if getattr(settings, 'TESTING', False) or 'test' in sys.argv or 'pytest' in sys.modules:
-            return MockSMSProvider()
-
         # 1. Check Hahu.io SMS API secret and device ID (primary gateway)
         hahu_secret = (
             getattr(settings, 'HAHU_API_SECRET', None)
@@ -616,6 +757,21 @@ class NotificationService:
         cls._sms_provider = provider
 
     @classmethod
+    def send_sms(cls, phone_number: str, message: str) -> bool:
+        """
+        Direct SMS dispatch method on NotificationService.
+        Dispatches via active configured SMS provider, recording failure reasons if unsuccessful.
+        """
+        if not phone_number:
+            cls._last_failure_reason = "Missing recipient phone number."
+            return False
+        provider = cls.get_sms_provider()
+        success = provider.send_sms(phone_number, message)
+        if not success:
+            cls._last_failure_reason = getattr(provider, 'last_error', None) or "SMS Gateway unreachable"
+        return success
+
+    @classmethod
     def send_notification(cls, school, recipient_user, channel: str, message: str, subject: str = None, category: str = 'announcement', phone_number: str = None, email_address: str = None):
         """
         Unified method to send notifications respecting user preferences.
@@ -646,11 +802,14 @@ class NotificationService:
             phone = phone_number or (getattr(recipient_user, 'phone', None) if recipient_user else None)
             if not phone and recipient_user and hasattr(recipient_user, 'parent_profile'):
                 phone = getattr(recipient_user.parent_profile, 'phone', None)
-            provider = cls.get_sms_provider()
-            success = provider.send_sms(phone, message)
-            if not success:
-                failure_reason = getattr(provider, 'last_error', None) or "SMS Gateway unreachable"
+            if not phone:
+                success = False
+                failure_reason = "Missing recipient phone number."
                 cls._last_failure_reason = failure_reason
+            else:
+                success = cls.send_sms(phone, message)
+                if not success:
+                    failure_reason = cls._last_failure_reason
 
         elif channel == NotificationChannel.TELEGRAM:
             success = TelegramService.send_telegram_message(recipient_user, message) if recipient_user else False

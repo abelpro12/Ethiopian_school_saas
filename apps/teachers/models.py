@@ -401,17 +401,17 @@ class TeacherApplication(TenantAwareModel):
             candidate_username = f"{base_username}{suffix}"
             suffix += 1
 
-        password = initial_password or f"Teacher@{get_random_string(6, '0123456789')}"
-
         new_user = User.objects.create_user(
             username=candidate_username,
             email=self.email,
-            password=password,
             first_name=self.first_name,
             last_name=self.last_name,
             role=UserRole.TEACHER,
             school=self.school
         )
+        new_user.set_unusable_password()
+        new_user.must_change_password = True
+        new_user.save()
 
         emp_id = TeacherProfile.generate_next_employee_id(self.school)
         hire_d = self.employment_start_date or datetime.date.today()

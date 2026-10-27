@@ -73,11 +73,19 @@ class HahuSMSProviderTests(TestCase):
         self.assertFalse(success)
         self.assertIn("Network timeout", self.provider.last_error)
 
-    def test_missing_credentials_simulates(self):
+    @override_settings(DEBUG=False, TESTING=False)
+    def test_missing_credentials_fails_in_production(self):
         unconfigured = HahuSMSProvider(api_secret="", device_id="")
-        success = unconfigured.send_sms("0937381801", "Simulated message")
-        self.assertTrue(success)
-        self.assertTrue(unconfigured.last_details.get("simulated"))
+        success = unconfigured.send_sms("0937381801", "Unconfigured message")
+        self.assertFalse(success)
+        self.assertIn("missing or unconfigured in production", unconfigured.last_error)
+
+    def test_missing_credentials_simulates_in_simulation_mode(self):
+        with override_settings(SMS_SIMULATION_MODE=True):
+            unconfigured = HahuSMSProvider(api_secret="", device_id="")
+            success = unconfigured.send_sms("0937381801", "Simulated message")
+            self.assertTrue(success)
+            self.assertTrue(unconfigured.last_details.get("simulated"))
 
     @override_settings(
         TESTING=False,

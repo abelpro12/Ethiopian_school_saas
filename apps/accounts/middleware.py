@@ -21,6 +21,7 @@ Security rationale:
 from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import reverse, NoReverseMatch
+from django.http import JsonResponse
 
 
 # URLs that are always allowed regardless of must_change_password status.
@@ -28,8 +29,15 @@ EXEMPT_URL_PREFIXES = (
     '/accounts/change-password/',
     '/accounts/logout/',
     '/logout/',
-    '/admin/',
-    '/api/',
+    '/admin/login/',
+    '/admin/logout/',
+    '/api/v1/auth/login/',
+    '/api/v1/auth/change-password/',
+    '/api/v1/token/',
+    '/api/v1/schema/',
+    '/api/v1/docs/',
+    '/api/v1/swagger/',
+    '/api/v1/redoc/',
     '/static/',
     '/media/',
     '/__debug__/',
@@ -39,6 +47,7 @@ EXEMPT_URL_PREFIXES = (
 class ForcePasswordChangeMiddleware:
     """
     Redirects authenticated users with `must_change_password=True` to the
+    For non-exempt API endpoints, returns a 403 Forbidden with PASSWORD_CHANGE_REQUIRED.
     password change page before they can access any other page.
     """
 
@@ -51,6 +60,11 @@ class ForcePasswordChangeMiddleware:
             and getattr(request.user, 'must_change_password', False)
             and not any(request.path.startswith(prefix) for prefix in EXEMPT_URL_PREFIXES)
         ):
+            if request.path.startswith('/api/'):
+                return JsonResponse({
+                    'detail': 'Password change required before accessing API.',
+                    'code': 'PASSWORD_CHANGE_REQUIRED'
+                }, status=403)
             return redirect('/accounts/change-password/')
 
         return self.get_response(request)
