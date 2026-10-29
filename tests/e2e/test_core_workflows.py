@@ -9,6 +9,7 @@ import os
 try:
     from playwright.sync_api import expect
     PLAYWRIGHT_INSTALLED = True
+    pytestmark = [pytest.mark.django_db(transaction=True)]
 except ImportError:
     expect = None
     PLAYWRIGHT_INSTALLED = False
@@ -16,7 +17,10 @@ except ImportError:
         raise RuntimeError(
             "CRITICAL CI ERROR: Playwright is not installed in CI environment. E2E tests must execute and cannot be silently skipped."
         )
-    pytestmark = pytest.mark.skip(reason="Playwright is not installed in the current local environment")
+    pytestmark = [
+        pytest.mark.django_db(transaction=True),
+        pytest.mark.skip(reason="Playwright is not installed in the current local environment"),
+    ]
 
 from apps.tenants.models import School
 from apps.accounts.models import User, UserRole
