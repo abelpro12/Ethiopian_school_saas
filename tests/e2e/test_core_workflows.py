@@ -68,7 +68,8 @@ def test_2_school_admin_and_principal_access_restrictions(page, live_server):
     uid = uuid.uuid4().hex[:6]
     school = School.objects.create(name=f"Access School {uid}", code=f"ACC{uid.upper()}", subdomain=f"acc-{uid}")
     User.objects.create_user(username=f"admin_{uid}", password="password123", school=school, role=UserRole.SCHOOL_ADMIN)
-    User.objects.create_user(username=f"student_{uid}", password="password123", school=school, role=UserRole.STUDENT)
+    stu_user = User.objects.create_user(username=f"student_{uid}", password="password123", school=school, role=UserRole.STUDENT)
+    StudentProfile.objects.create(school=school, user=stu_user, student_id=f"STU-{uid}", first_name="Sam")
 
     # Admin accesses user management
     page.goto(f"{live_server.url}{reverse('login')}")
@@ -87,10 +88,11 @@ def test_2_school_admin_and_principal_access_restrictions(page, live_server):
     page.fill("input[name='username']", f"student_{uid}")
     page.fill("input[name='password']", "password123")
     page.click("button[type='submit']")
+    page.wait_for_url("**/portal/student/**")
 
-    # Student cannot access user management
-    response = page.goto(f"{live_server.url}{reverse('user_management')}")
-    assert response.status in (403, 302)
+    # Student cannot access user management (redirected away from user management)
+    page.goto(f"{live_server.url}{reverse('user_management')}")
+    assert reverse('user_management') not in page.url
 
 
 @pytest.mark.django_db
@@ -150,8 +152,8 @@ def test_5_grade_entry_validation_and_locking(page, live_server):
     page.fill("input[name='password']", "password123")
     page.click("button[type='submit']")
 
-    # Navigate to assessments
-    response = page.goto(f"{live_server.url}{reverse('assessments:assessments')}")
+    # Navigate to assessments mark entry
+    response = page.goto(f"{live_server.url}{reverse('assessments:mark_entry')}")
     assert response.status in (200, 302)
 
 
@@ -171,9 +173,9 @@ def test_6_parent_and_student_access_restrictions(page, live_server):
     page.goto(f"{live_server.url}{reverse('parent_portal')}")
     expect(page.locator("body")).to_contain_text("Parent")
 
-    # Parent cannot view admin dashboard
-    resp = page.goto(f"{live_server.url}{reverse('admin_dashboard')}")
-    assert resp.status in (403, 302)
+    # Parent cannot view admin dashboard (redirected to their portal)
+    page.goto(f"{live_server.url}{reverse('admin_dashboard')}")
+    assert reverse('admin_dashboard') not in page.url
 
 
 @pytest.mark.django_db
