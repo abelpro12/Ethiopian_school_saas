@@ -88,7 +88,7 @@ def test_2_school_admin_and_principal_access_restrictions(page, live_server):
     page.fill("input[name='username']", f"student_{uid}")
     page.fill("input[name='password']", "password123")
     page.click("button[type='submit']")
-    page.wait_for_url("**/portal/student/**")
+    page.wait_for_url(f"**{reverse('student_portal')}**")
 
     # Student cannot access user management (redirected away from user management)
     page.goto(f"{live_server.url}{reverse('user_management')}")
@@ -169,13 +169,14 @@ def test_6_parent_and_student_access_restrictions(page, live_server):
     page.fill("input[name='username']", f"parent_{uid}")
     page.fill("input[name='password']", "password123")
     page.click("button[type='submit']")
+    page.wait_for_url(f"**{reverse('parent_portal')}**")
 
     page.goto(f"{live_server.url}{reverse('parent_portal')}")
     expect(page.locator("body")).to_contain_text("Parent")
 
-    # Parent cannot view admin dashboard (redirected to their portal)
-    page.goto(f"{live_server.url}{reverse('admin_dashboard')}")
-    assert reverse('admin_dashboard') not in page.url
+    # Parent cannot access user management (redirected away from user management)
+    page.goto(f"{live_server.url}{reverse('user_management')}")
+    assert reverse('user_management') not in page.url
 
 
 @pytest.mark.django_db
