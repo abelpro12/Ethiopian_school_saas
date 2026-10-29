@@ -6,6 +6,9 @@ from django.urls import reverse
 
 import os
 
+# Enable synchronous Django ORM operations within the Playwright event loop
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
 try:
     from playwright.sync_api import expect
     PLAYWRIGHT_INSTALLED = True
