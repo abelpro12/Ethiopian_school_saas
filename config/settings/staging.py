@@ -59,8 +59,13 @@ elif os.environ.get('DB_NAME') or os.environ.get('POSTGRES_DB'):
 else:
     # Staging requires explicit PostgreSQL configuration to prevent silent fallback to SQLite.
     # Offline system checks and test runners are permitted to use :memory: for safe introspection.
-    # Migrations and runtime without PostgreSQL environment variables fail immediately.
-    if os.environ.get('ALLOW_STAGING_MEMORY_DB', '').lower() in ('1', 'true') or 'check' in sys.argv or 'test' in sys.argv:
+    is_test_runner = (
+        'test' in sys.argv
+        or 'check' in sys.argv
+        or any('pytest' in str(arg).lower() for arg in sys.argv)
+        or bool(os.environ.get('PYTEST_CURRENT_TEST'))
+    )
+    if os.environ.get('ALLOW_STAGING_MEMORY_DB', '').lower() in ('1', 'true') or is_test_runner:
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',

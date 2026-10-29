@@ -398,13 +398,25 @@ def sync_telegram_bot_api(request):
 from django.views.decorators.csrf import csrf_exempt
 from django.http import HttpResponse
 import json
+import os
+import hmac
+from django.http import HttpResponse, HttpResponseForbidden
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 
 @csrf_exempt
 def telegram_webhook(request):
     """
     Telegram webhook receiver for real-time parent onboarding and message processing.
+    Validates X-Telegram-Bot-Api-Secret-Token when TELEGRAM_BOT_SECRET_TOKEN is configured.
     """
     if request.method == 'POST':
+        secret = getattr(settings, 'TELEGRAM_BOT_SECRET_TOKEN', None) or os.environ.get('TELEGRAM_BOT_SECRET_TOKEN')
+        if secret:
+            token = request.headers.get('X-Telegram-Bot-Api-Secret-Token', '')
+            if not hmac.compare_digest(str(token), str(secret)):
+                return HttpResponseForbidden('Forbidden: Invalid Telegram secret token')
+
         try:
             from apps.notifications.telegram_bot import TelegramBotHandler
             data = json.loads(request.body.decode('utf-8'))
@@ -414,3 +426,4 @@ def telegram_webhook(request):
         except Exception as e:
             return HttpResponse(f'Error: {e}', status=400)
     return HttpResponse('Telegram Webhook Active')
+

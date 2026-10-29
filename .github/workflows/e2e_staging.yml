@@ -1,0 +1,94 @@
+name: Staging E2E Playwright Browser Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      headless:
+        description: 'Run browser in headless mode'
+        required: false
+        default: 'true'
+  push:
+    branches: [ staging, 'release/*' ]
+  pull_request:
+    branches: [ staging ]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-browser-tests:
+    name: Playwright Chromium Core Workflows
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: test_ethiopian_school_saas
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/development.txt
+
+      - name: Install Playwright Chromium Browser & OS Dependencies
+        run: |
+          playwright install --with-deps chromium
+
+      - name: Verify Chromium Installation
+        run: |
+          playwright --version
+          python -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); browser = p.chromium.launch(headless=True); print('Chromium Version:', browser.version); browser.close(); p.stop()"
+
+      - name: Execute Playwright E2E Browser Suite
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.testing
+          DATABASE_URL: postgres://postgres:password123@localhost:5432/test_ethiopian_school_saas
+          SECRET_KEY: staging-ci-e2e-secret-key-do-not-use-in-production-32chars
+        run: |
+          mkdir -p artifacts/playwright-artifacts
+          pytest tests/e2e/test_core_workflows.py \
+            -v \
+            --browser chromium \
+            --screenshot only-on-failure \
+            --output=artifacts/playwright-artifacts \
+            --junitxml=artifacts/playwright-results.xml
+
+      - name: Upload Playwright Test Artifacts & Screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-e2e-artifacts
+          path: |
+            artifacts/playwright-artifacts/
+            artifacts/playwright-results.xml
+          retention-days: 14

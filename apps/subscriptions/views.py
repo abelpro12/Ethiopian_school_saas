@@ -1,5 +1,8 @@
+import os
+import sys
 import datetime
 from decimal import Decimal
+from django.conf import settings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.contrib import messages
@@ -91,8 +94,14 @@ def initiate_subscription_payment_view(request):
     res = SubscriptionPaymentService.initialize_subscription_payment(school, request.user, amount=amount_to_pay)
     tx_ref = res['tx_ref']
 
-    # Handle instant simulation for manual testing
-    if request.POST.get('simulate') == '1' or request.POST.get('action') == 'renew_now':
+    # Handle instant simulation for development and testing environments only
+    is_simulation_allowed = bool(
+        getattr(settings, 'DEBUG', False)
+        or getattr(settings, 'TESTING', False)
+        or bool(os.environ.get('PYTEST_CURRENT_TEST'))
+        or 'test' in sys.argv
+    )
+    if is_simulation_allowed and (request.POST.get('simulate') == '1' or request.POST.get('action') == 'renew_now'):
         payment = SubscriptionPaymentService.process_subscription_webhook(tx_ref, 'SUCCESS')
         sub.status = SubscriptionStatus.ACTIVE
         sub.end_date = max(datetime.date.today(), sub.end_date or datetime.date.today()) + datetime.timedelta(days=365)

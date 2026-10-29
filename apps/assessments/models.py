@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.tenants.models import TenantAwareModel
 from apps.accounts.models import User
@@ -191,10 +192,19 @@ class StudentMark(TenantAwareModel):
             models.Index(fields=['school', 'enrollment', 'status']),
         ]
 
+    def clean(self):
+        super().clean()
+        if self.school_id:
+            if self.enrollment_id and hasattr(self, 'enrollment') and self.enrollment and self.enrollment.school_id != self.school_id:
+                raise ValidationError("Enrollment does not belong to the student mark's school tenant.")
+            if self.assessment_component_id and hasattr(self, 'assessment_component') and self.assessment_component and self.assessment_component.school_id != self.school_id:
+                raise ValidationError("Assessment component does not belong to the student mark's school tenant.")
+
     def __str__(self):
         return f"{self.enrollment.student.full_name} - {self.assessment_component.name}: {self.mark_value} ({self.letter_grade or '-'})"
 
     def save(self, *args, **kwargs):
+        self.clean()
         if self.mark_value is not None and not self.letter_grade:
             try:
                 g_target = getattr(self.enrollment, 'grade', None)

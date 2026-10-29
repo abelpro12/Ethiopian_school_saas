@@ -13,9 +13,10 @@ from .development import *  # noqa
 # in production without breaking the test suite.
 AXES_ENABLED = False
 
-# Remove AxesStandaloneBackend from AUTHENTICATION_BACKENDS to avoid any
-# residual Axes checks during testing.
+# AxesStandaloneBackend handles authentication gracefully even when AXES_ENABLED = False
+# while preventing the (axes.W003) configuration warning.
 AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
@@ -24,14 +25,28 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',
 ]
 
-# ─── Use an in-memory SQLite database for speed ──────────────────────────────
-# Override only if you want true DB isolation; comment out to use the dev DB.
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+import os
+
+# ─── Database Configuration: DATABASE_URL or in-memory SQLite ─────────────────
+# When DATABASE_URL is provided (e.g. CI PostgreSQL 15 service container),
+# parse it via dj-database-url; otherwise fall back to in-memory SQLite for fast local testing.
+_database_url = os.environ.get('DATABASE_URL', '').strip()
+if _database_url:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(
+            _database_url,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
 
 # ─── Disable caching ─────────────────────────────────────────────────────────
 CACHES = {

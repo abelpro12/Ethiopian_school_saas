@@ -279,6 +279,18 @@ class Section(TenantAwareModel):
     class Meta:
         unique_together = ('school', 'grade', 'stream', 'name')
 
+    def clean(self):
+        super().clean()
+        if self.school_id:
+            if self.grade_id and hasattr(self, 'grade') and self.grade and self.grade.school_id != self.school_id:
+                raise ValidationError("Grade does not belong to the section's school tenant.")
+            if self.stream_id and hasattr(self, 'stream') and self.stream and self.stream.school_id != self.school_id:
+                raise ValidationError("Stream does not belong to the section's school tenant.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.grade.name}-{self.name} ({self.stream.name})"
 

@@ -7,6 +7,23 @@ DEBUG = False
 # REQUIRED: must be set in environment — comma-separated list of allowed domains
 _raw_hosts = os.environ.get('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
+if not ALLOWED_HOSTS:
+    raise RuntimeError(
+        'CRITICAL: ALLOWED_HOSTS environment variable is not configured. '
+        'Set ALLOWED_HOSTS to a comma-separated list of production domain names (e.g. school.et,*.school.et).'
+    )
+
+# ─── CSRF TRUSTED ORIGINS ────────────────────────────────────────────────────
+# Enforce restrictive HTTPS origins in production instead of local development defaults
+_raw_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if _raw_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _raw_origins.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        f"https://{h}" if not h.startswith('https://') and not h.startswith('http://') else h
+        for h in ALLOWED_HOSTS
+        if h and h not in ('*', 'localhost', '127.0.0.1')
+    ]
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 if not SECRET_KEY:

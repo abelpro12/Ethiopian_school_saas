@@ -1,5 +1,6 @@
 import datetime
 from django.db import models
+from django.core.exceptions import ValidationError
 from apps.tenants.models import TenantAwareModel
 from apps.accounts.models import User
 from apps.academics.models import Section, TimetableSlot
@@ -29,6 +30,18 @@ class AttendanceRecord(TenantAwareModel):
             models.Index(fields=['school', 'section', 'date']),
             models.Index(fields=['school', 'student', 'status']),
         ]
+
+    def clean(self):
+        super().clean()
+        if self.school_id:
+            if self.section_id and hasattr(self, 'section') and self.section and self.section.school_id != self.school_id:
+                raise ValidationError("Section does not belong to the attendance record's school tenant.")
+            if self.student_id and hasattr(self, 'student') and self.student and self.student.school_id != self.school_id:
+                raise ValidationError("Student does not belong to the attendance record's school tenant.")
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.student.full_name} - {self.date}: {self.status}"

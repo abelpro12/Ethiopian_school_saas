@@ -1,9 +1,10 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, filters
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
+from drf_spectacular.utils import extend_schema
 from django.contrib.auth import authenticate, login, update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -33,61 +34,119 @@ class TenantScopedViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsPasswordChangeCompleted]
 
     def get_queryset(self):
-        school = getattr(self.request, 'school', None)
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return self.queryset.none()
+
+        if user.role == 'SUPER_ADMIN' or user.is_superuser:
+            school = getattr(self.request, 'school', None) or getattr(user, 'school', None)
+        else:
+            school = getattr(user, 'school', None)
+
         if not school:
             return self.queryset.none()
+
+        # Reject cross-tenant header spoofing explicitly with 403
+        header_school_id = self.request.headers.get('X-School-ID')
+        if header_school_id and user.role != 'SUPER_ADMIN' and not user.is_superuser:
+            if str(header_school_id) != str(school.id):
+                raise PermissionDenied("Cross-tenant access prohibited.")
+
         return self.queryset.filter(school=school)
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role == 'SUPER_ADMIN' or user.is_superuser:
+            school = getattr(self.request, 'school', None) or getattr(user, 'school', None)
+        else:
+            school = getattr(user, 'school', None)
+
+        if not school:
+            raise PermissionDenied("No active school tenant context.")
+
+        header_school_id = self.request.headers.get('X-School-ID')
+        if header_school_id and user.role != 'SUPER_ADMIN' and not user.is_superuser:
+            if str(header_school_id) != str(school.id):
+                raise PermissionDenied("Cross-tenant access prohibited.")
+
+        serializer.save(school=school)
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = serializer.instance
+        if user.role != 'SUPER_ADMIN' and not user.is_superuser:
+            if getattr(instance, 'school_id', None) != getattr(user, 'school_id', None):
+                raise PermissionDenied("Cross-tenant modification prohibited.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+        if user.role != 'SUPER_ADMIN' and not user.is_superuser:
+            if getattr(instance, 'school_id', None) != getattr(user, 'school_id', None):
+                raise PermissionDenied("Cross-tenant deletion prohibited.")
+        instance.delete()
 
 
 class SchoolViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = School.objects.all()
+    queryset = School.objects.all().order_by('name')
     serializer_class = SchoolSerializer
     permission_classes = [permissions.IsAuthenticated, IsPasswordChangeCompleted]
 
     def get_queryset(self):
         if self.request.user.role == 'SUPER_ADMIN':
-            return School.objects.all()
-        return School.objects.filter(id=self.request.user.school_id)
+            return School.objects.all().order_by('name')
+        return School.objects.filter(id=self.request.user.school_id).order_by('name')
 
 
 class AcademicYearViewSet(TenantScopedViewSet):
-    queryset = AcademicYear.objects.all()
+    queryset = AcademicYear.objects.all().order_by('-gregorian_start_date', 'id')
     serializer_class = AcademicYearSerializer
 
 
 class GradeViewSet(TenantScopedViewSet):
-    queryset = Grade.objects.all()
+    queryset = Grade.objects.all().order_by('level', 'id')
     serializer_class = GradeSerializer
 
 
 class SectionViewSet(TenantScopedViewSet):
-    queryset = Section.objects.all()
+    queryset = Section.objects.all().order_by('name', 'id')
     serializer_class = SectionSerializer
 
 
 class StudentProfileViewSet(TenantScopedViewSet):
-    queryset = StudentProfile.objects.all()
+    queryset = StudentProfile.objects.all().order_by('id')
     serializer_class = StudentProfileSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['first_name', 'last_name', 'middle_name', 'student_id']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        student_id = self.request.query_params.get('student_id')
+        if student_id:
+            qs = qs.filter(student_id=student_id)
+        return qs
 
 
 class AttendanceRecordViewSet(TenantScopedViewSet):
-    queryset = AttendanceRecord.objects.all()
+    queryset = AttendanceRecord.objects.all().order_by('-date', 'id')
     serializer_class = AttendanceRecordSerializer
 
 
 class StudentMarkViewSet(TenantScopedViewSet):
-    queryset = StudentMark.objects.all()
+    queryset = StudentMark.objects.all().order_by('id')
     serializer_class = StudentMarkSerializer
 
 
 class StudentInvoiceViewSet(TenantScopedViewSet):
-    queryset = StudentInvoice.objects.all()
+    queryset = StudentInvoice.objects.all().order_by('id')
     serializer_class = StudentInvoiceSerializer
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@extend_schema(summary="Authentication API Endpoint", request=None, responses={200: None, 400: None, 401: None})
 def api_login_view(request):
+
     """
     Authentication API Endpoint for Seattle Academy & Ethiopian School SaaS.
     Accepts { "username": "...", "password": "..." }.
@@ -149,7 +208,9 @@ api_login_view.cls.allow_password_change_pending = True
 @api_view(['POST'])
 @throttle_classes([ScopedRateThrottle])
 @permission_classes([permissions.IsAuthenticated])
+@extend_schema(summary="Dedicated API Password Change Endpoint", request=None, responses={200: None, 400: None})
 def api_change_password_view(request):
+
     """
     Dedicated API Password Change Endpoint.
     Allows authenticated users (including those with must_change_password=True)
